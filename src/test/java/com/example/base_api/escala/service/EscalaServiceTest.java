@@ -1,6 +1,7 @@
 package com.example.base_api.escala.service;
 
 import com.example.base_api.common.exception.BusinessException;
+import com.example.base_api.cronograma.service.CronogramaService;
 import com.example.base_api.escala.dto.EscalaCreateRequest;
 import com.example.base_api.escala.dto.EscalaResponse;
 import com.example.base_api.escala.dto.EscalaVoluntarioCreateRequest;
@@ -52,6 +53,8 @@ class EscalaServiceTest {
     private PessoaService pessoaService;
     @Mock
     private PessoaServicoRepository pessoaServicoRepository;
+    @Mock
+    private CronogramaService cronogramaService;
 
     @InjectMocks
     private EscalaService escalaService;
@@ -92,6 +95,7 @@ class EscalaServiceTest {
                 LocalTime.of(18, 0),
                 LocalTime.of(20, 0),
                 "Templo",
+                null,
                 List.of(new EscalaCreateRequest.EscalaServicoRequest(servicoId, 1))
         ));
 

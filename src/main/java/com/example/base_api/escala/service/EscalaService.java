@@ -2,11 +2,14 @@ package com.example.base_api.escala.service;
 
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
+import com.example.base_api.cronograma.service.CronogramaService;
 import com.example.base_api.escala.dto.EscalaCreateRequest;
 import com.example.base_api.escala.dto.EscalaResponse;
+import com.example.base_api.escala.dto.EscalaServicoUpsertRequest;
 import com.example.base_api.escala.dto.EscalaUpdateRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioCreateRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioStatusRequest;
+import com.example.base_api.escala.dto.EscalaVoluntarioUpdateRequest;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.EscalaServico;
 import com.example.base_api.escala.entity.EscalaVoluntario;
@@ -34,6 +37,7 @@ public class EscalaService {
     private final ServicoService servicoService;
     private final PessoaService pessoaService;
     private final PessoaServicoRepository pessoaServicoRepository;
+    private final CronogramaService cronogramaService;
 
     public EscalaService(
             EscalaRepository escalaRepository,
@@ -41,7 +45,8 @@ public class EscalaService {
             EscalaVoluntarioRepository escalaVoluntarioRepository,
             ServicoService servicoService,
             PessoaService pessoaService,
-            PessoaServicoRepository pessoaServicoRepository
+            PessoaServicoRepository pessoaServicoRepository,
+            CronogramaService cronogramaService
     ) {
         this.escalaRepository = escalaRepository;
         this.escalaServicoRepository = escalaServicoRepository;
@@ -49,6 +54,7 @@ public class EscalaService {
         this.servicoService = servicoService;
         this.pessoaService = pessoaService;
         this.pessoaServicoRepository = pessoaServicoRepository;
+        this.cronogramaService = cronogramaService;
     }
 
     @Transactional(readOnly = true)
@@ -66,6 +72,7 @@ public class EscalaService {
     @Transactional
     public EscalaResponse criar(EscalaCreateRequest request) {
         validarHorario(request.horaInicio(), request.horaFim());
+        validarEvento(request.eventoId());
 
         Escala escala = new Escala();
         escala.setTitulo(request.titulo().trim());
@@ -74,6 +81,7 @@ public class EscalaService {
         escala.setHoraInicio(request.horaInicio());
         escala.setHoraFim(request.horaFim());
         escala.setLocalEvento(request.localEvento());
+        escala.setEventoId(request.eventoId());
         escala.setAtivo(true);
 
         Escala salva = escalaRepository.save(escala);
@@ -94,6 +102,7 @@ public class EscalaService {
     public EscalaResponse atualizar(UUID id, EscalaUpdateRequest request) {
         Escala escala = buscarEntidade(id);
         validarHorario(request.horaInicio(), request.horaFim());
+        validarEvento(request.eventoId());
 
         escala.setTitulo(request.titulo().trim());
         escala.setDescricao(request.descricao());
@@ -101,9 +110,84 @@ public class EscalaService {
         escala.setHoraInicio(request.horaInicio());
         escala.setHoraFim(request.horaFim());
         escala.setLocalEvento(request.localEvento());
+        escala.setEventoId(request.eventoId());
         escala.setAtivo(request.ativo());
 
         return toResponse(escalaRepository.save(escala));
+    }
+
+    @Transactional
+    public EscalaResponse.EscalaServicoResponse adicionarServico(UUID escalaId, EscalaServicoUpsertRequest request) {
+        Escala escala = buscarEntidade(escalaId);
+        servicoService.buscarEntidade(request.servicoId());
+
+        escalaServicoRepository.findByEscalaIdAndServicoId(escala.getId(), request.servicoId())
+                .ifPresent(item -> {
+                    throw new BusinessException("Este serviço já está na escala");
+                });
+
+        EscalaServico escalaServico = new EscalaServico();
+        escalaServico.setEscalaId(escala.getId());
+        escalaServico.setServicoId(request.servicoId());
+        escalaServico.setQuantidadeNecessaria(request.quantidadeNecessaria());
+
+        EscalaServico salvo = escalaServicoRepository.save(escalaServico);
+        Servico servico = servicoService.buscarEntidade(salvo.getServicoId());
+        return new EscalaResponse.EscalaServicoResponse(
+                salvo.getId(),
+                salvo.getServicoId(),
+                servico.getNome(),
+                salvo.getQuantidadeNecessaria()
+        );
+    }
+
+    @Transactional
+    public EscalaResponse.EscalaServicoResponse atualizarServico(
+            UUID escalaId,
+            UUID escalaServicoId,
+            EscalaServicoUpsertRequest request
+    ) {
+        buscarEntidade(escalaId);
+        EscalaServico escalaServico = escalaServicoRepository.findById(escalaServicoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Serviço da escala não encontrado"));
+
+        if (!escalaServico.getEscalaId().equals(escalaId)) {
+            throw new BusinessException("O serviço não pertence a esta escala");
+        }
+
+        servicoService.buscarEntidade(request.servicoId());
+
+        if (!escalaServico.getServicoId().equals(request.servicoId())) {
+            escalaServicoRepository.findByEscalaIdAndServicoId(escalaId, request.servicoId())
+                    .ifPresent(item -> {
+                        throw new BusinessException("Este serviço já está na escala");
+                    });
+        }
+
+        escalaServico.setServicoId(request.servicoId());
+        escalaServico.setQuantidadeNecessaria(request.quantidadeNecessaria());
+
+        EscalaServico salvo = escalaServicoRepository.save(escalaServico);
+        Servico servico = servicoService.buscarEntidade(salvo.getServicoId());
+        return new EscalaResponse.EscalaServicoResponse(
+                salvo.getId(),
+                salvo.getServicoId(),
+                servico.getNome(),
+                salvo.getQuantidadeNecessaria()
+        );
+    }
+
+    @Transactional
+    public void removerServico(UUID escalaId, UUID escalaServicoId) {
+        buscarEntidade(escalaId);
+        EscalaServico escalaServico = escalaServicoRepository.findById(escalaServicoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Serviço da escala não encontrado"));
+
+        if (!escalaServico.getEscalaId().equals(escalaId)) {
+            throw new BusinessException("O serviço não pertence a esta escala");
+        }
+
+        escalaServicoRepository.delete(escalaServico);
     }
 
     @Transactional
@@ -173,6 +257,62 @@ public class EscalaService {
     }
 
     @Transactional
+    public EscalaResponse.EscalaVoluntarioResponse atualizarDesignacao(
+            UUID escalaId,
+            UUID designacaoId,
+            EscalaVoluntarioUpdateRequest request
+    ) {
+        buscarEntidade(escalaId);
+        EscalaVoluntario designacao = escalaVoluntarioRepository.findById(designacaoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Designação não encontrada"));
+
+        if (!designacao.getEscalaId().equals(escalaId)) {
+            throw new BusinessException("A designação não pertence a esta escala");
+        }
+
+        Pessoa pessoa = pessoaService.buscarEntidade(request.pessoaId());
+        Servico servico = servicoService.buscarEntidade(request.servicoId());
+
+        escalaServicoRepository.findByEscalaIdAndServicoId(escalaId, servico.getId())
+                .orElseThrow(() -> new BusinessException("Este serviço não está previsto nesta escala"));
+
+        if (pessoaServicoRepository.findByPessoaIdAndServicoId(pessoa.getId(), servico.getId())
+                .filter(v -> Boolean.TRUE.equals(v.getAtivo()))
+                .isEmpty()) {
+            throw new BusinessException("A pessoa não está habilitada para este serviço");
+        }
+
+        if (!designacao.getPessoaId().equals(pessoa.getId()) || !designacao.getServicoId().equals(servico.getId())) {
+            escalaVoluntarioRepository
+                    .findByEscalaIdAndPessoaIdAndServicoId(escalaId, pessoa.getId(), servico.getId())
+                    .filter(outro -> !outro.getId().equals(designacaoId))
+                    .ifPresent(outro -> {
+                        throw new BusinessException("A pessoa já está designada para este serviço nesta escala");
+                    });
+        }
+
+        designacao.setPessoaId(pessoa.getId());
+        designacao.setServicoId(servico.getId());
+        designacao.setStatus(request.status());
+        designacao.setObservacoes(request.observacoes());
+
+        return toVoluntarioResponse(escalaVoluntarioRepository.save(designacao));
+    }
+
+    @Transactional
+    public void removerDesignacao(UUID escalaId, UUID designacaoId) {
+        buscarEntidade(escalaId);
+        EscalaVoluntario designacao = escalaVoluntarioRepository.findById(designacaoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Designação não encontrada"));
+
+        if (!designacao.getEscalaId().equals(escalaId)) {
+            throw new BusinessException("A designação não pertence a esta escala");
+        }
+
+        escalaVoluntarioRepository.delete(designacao);
+    }
+
+    @Transactional
     public void excluir(UUID id) {
         Escala escala = buscarEntidade(id);
         escalaRepository.delete(escala);
@@ -187,6 +327,12 @@ public class EscalaService {
     private void validarHorario(java.time.LocalTime inicio, java.time.LocalTime fim) {
         if (fim != null && !fim.isAfter(inicio)) {
             throw new BusinessException("Hora fim deve ser posterior à hora início");
+        }
+    }
+
+    private void validarEvento(UUID eventoId) {
+        if (eventoId != null) {
+            cronogramaService.buscarEntidade(eventoId);
         }
     }
 
@@ -219,6 +365,7 @@ public class EscalaService {
                 escala.getHoraInicio(),
                 escala.getHoraFim(),
                 escala.getLocalEvento(),
+                escala.getEventoId(),
                 escala.getAtivo(),
                 servicos,
                 voluntarios,

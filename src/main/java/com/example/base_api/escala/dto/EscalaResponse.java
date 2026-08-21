@@ -16,6 +16,7 @@ public record EscalaResponse(
         LocalTime horaInicio,
         LocalTime horaFim,
         String localEvento,
+        UUID eventoId,
         Boolean ativo,
         List<EscalaServicoResponse> servicos,
         List<EscalaVoluntarioResponse> voluntarios,

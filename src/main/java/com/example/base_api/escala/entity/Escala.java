@@ -42,6 +42,9 @@ public class Escala extends AuditableEntity {
     @Column(name = "local_evento", length = 200)
     private String localEvento;
 
+    @Column(name = "evento_id")
+    private UUID eventoId;
+
     @Column(nullable = false)
     private Boolean ativo = true;
 }

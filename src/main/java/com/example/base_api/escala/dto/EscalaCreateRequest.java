@@ -30,6 +30,8 @@ public record EscalaCreateRequest(
         @Size(max = 200, message = "Local deve ter no máximo 200 caracteres")
         String localEvento,
 
+        UUID eventoId,
+
         @NotEmpty(message = "Informe ao menos um serviço necessário")
         @Valid
         List<EscalaServicoRequest> servicos
