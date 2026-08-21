@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/igreja_db_test
+    username: igreja
+    password: igreja
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+app:
+  jwt:
+    secret: test-secret-key-must-be-long-enough-for-hs256-algorithm
+    expiration-ms: 3600000

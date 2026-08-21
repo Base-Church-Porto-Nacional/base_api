@@ -1,0 +1,8 @@
+target/
+.git/
+.idea/
+.junie/
+*.iml
+.env
+.DS_Store
+src/test/

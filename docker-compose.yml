@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: igreja_postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-igreja_db}
+      POSTGRES_USER: ${DB_USER:-igreja}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-igreja}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-igreja} -d ${DB_NAME:-igreja_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: .
+    container_name: igreja_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-igreja_db}
+      DB_USER: ${DB_USER:-igreja}
+      DB_PASSWORD: ${DB_PASSWORD:-igreja}
+      JWT_SECRET: ${JWT_SECRET:-change-me-use-a-long-secure-secret-key-at-least-256-bits}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      SERVER_PORT: 8080
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+
+volumes:
+  postgres_data:
