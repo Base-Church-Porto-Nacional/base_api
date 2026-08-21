@@ -12,6 +12,7 @@ public record PessoaServicoResponse(
         String servicoNome,
         UUID ministerioId,
         String ministerioNome,
+        String cargo,
         LocalDate dataEntrada,
         Boolean ativo,
         String observacoes,

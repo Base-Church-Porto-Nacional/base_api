@@ -29,6 +29,9 @@ public class PessoaServico extends AuditableEntity {
     @Column(name = "servico_id", nullable = false)
     private UUID servicoId;
 
+    @Column(length = 100)
+    private String cargo;
+
     @Column(name = "data_entrada")
     private LocalDate dataEntrada;
 

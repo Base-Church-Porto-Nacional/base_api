@@ -34,6 +34,18 @@ public class VoluntarioController {
         this.voluntarioService = voluntarioService;
     }
 
+    @GetMapping
+    @Operation(summary = "Listar todos os vínculos de voluntariado")
+    public List<PessoaServicoResponse> listar() {
+        return voluntarioService.listar();
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Buscar vínculo de voluntariado por ID")
+    public PessoaServicoResponse buscar(@PathVariable UUID id) {
+        return voluntarioService.buscarPorId(id);
+    }
+
     @GetMapping("/pessoa/{pessoaId}")
     @Operation(summary = "Listar vínculos de voluntariado de uma pessoa")
     public List<PessoaServicoResponse> listarPorPessoa(@PathVariable UUID pessoaId) {
@@ -48,13 +60,13 @@ public class VoluntarioController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Vincular pessoa a um serviço (voluntariado)")
+    @Operation(summary = "Criar vínculo de voluntariado")
     public PessoaServicoResponse vincular(@Valid @RequestBody PessoaServicoCreateRequest request) {
         return voluntarioService.vincular(request);
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Atualizar vínculo de voluntariado")
+    @Operation(summary = "Atualizar vínculo (pessoa, serviço/ministério, cargo e demais campos)")
     public PessoaServicoResponse atualizar(
             @PathVariable UUID id,
             @Valid @RequestBody PessoaServicoUpdateRequest request
@@ -64,7 +76,7 @@ public class VoluntarioController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "Remover vínculo de voluntariado")
+    @Operation(summary = "Excluir vínculo de voluntariado")
     public void desvincular(@PathVariable UUID id) {
         voluntarioService.desvincular(id);
     }

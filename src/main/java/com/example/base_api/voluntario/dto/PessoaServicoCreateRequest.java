@@ -1,6 +1,7 @@
 package com.example.base_api.voluntario.dto;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -11,6 +12,9 @@ public record PessoaServicoCreateRequest(
 
         @NotNull(message = "servicoId é obrigatório")
         UUID servicoId,
+
+        @Size(max = 100, message = "Cargo deve ter no máximo 100 caracteres")
+        String cargo,
 
         LocalDate dataEntrada,
         String observacoes,

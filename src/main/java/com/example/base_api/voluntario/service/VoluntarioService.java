@@ -41,6 +41,18 @@ public class VoluntarioService {
     }
 
     @Transactional(readOnly = true)
+    public List<PessoaServicoResponse> listar() {
+        return pessoaServicoRepository.findAll().stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PessoaServicoResponse buscarPorId(UUID id) {
+        return toResponse(buscarEntidade(id));
+    }
+
+    @Transactional(readOnly = true)
     public List<PessoaServicoResponse> listarPorPessoa(UUID pessoaId) {
         pessoaService.buscarEntidade(pessoaId);
         return pessoaServicoRepository.findByPessoaId(pessoaId).stream()
@@ -72,6 +84,7 @@ public class VoluntarioService {
         PessoaServico vinculo = new PessoaServico();
         vinculo.setPessoaId(pessoa.getId());
         vinculo.setServicoId(servico.getId());
+        vinculo.setCargo(blankToNull(request.cargo()));
         vinculo.setDataEntrada(request.dataEntrada() != null ? request.dataEntrada() : LocalDate.now());
         vinculo.setAtivo(true);
         vinculo.setObservacoes(request.observacoes());
@@ -83,11 +96,24 @@ public class VoluntarioService {
     @Transactional
     public PessoaServicoResponse atualizar(UUID id, PessoaServicoUpdateRequest request) {
         PessoaServico vinculo = buscarEntidade(id);
+        Pessoa pessoa = pessoaService.buscarEntidade(request.pessoaId());
+        Servico servico = servicoService.buscarEntidade(request.servicoId());
+
+        if (!vinculo.getPessoaId().equals(pessoa.getId()) || !vinculo.getServicoId().equals(servico.getId())) {
+            pessoaServicoRepository.findByPessoaIdAndServicoId(pessoa.getId(), servico.getId())
+                    .filter(outro -> !outro.getId().equals(id))
+                    .ifPresent(outro -> {
+                        throw new BusinessException("A pessoa já está vinculada a este serviço");
+                    });
+        }
 
         if (request.liderResponsavelId() != null) {
             pessoaService.buscarEntidade(request.liderResponsavelId());
         }
 
+        vinculo.setPessoaId(pessoa.getId());
+        vinculo.setServicoId(servico.getId());
+        vinculo.setCargo(blankToNull(request.cargo()));
         vinculo.setDataEntrada(request.dataEntrada());
         vinculo.setAtivo(request.ativo());
         vinculo.setObservacoes(request.observacoes());
@@ -121,6 +147,7 @@ public class VoluntarioService {
                 servico.getNome(),
                 ministerio.getId(),
                 ministerio.getNome(),
+                vinculo.getCargo(),
                 vinculo.getDataEntrada(),
                 vinculo.getAtivo(),
                 vinculo.getObservacoes(),
@@ -128,5 +155,12 @@ public class VoluntarioService {
                 vinculo.getCreatedAt(),
                 vinculo.getUpdatedAt()
         );
+    }
+
+    private String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 }
