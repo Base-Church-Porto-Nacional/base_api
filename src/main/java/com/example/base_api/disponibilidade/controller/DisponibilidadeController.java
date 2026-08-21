@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -42,11 +43,20 @@ public class DisponibilidadeController {
 
     @PostMapping("/semanal")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Registrar disponibilidade semanal")
+    @Operation(summary = "Criar disponibilidade semanal")
     public DisponibilidadeSemanalResponse criarSemanal(
             @Valid @RequestBody DisponibilidadeSemanalRequest request
     ) {
         return disponibilidadeService.criarSemanal(request);
+    }
+
+    @PutMapping("/semanal/{id}")
+    @Operation(summary = "Atualizar disponibilidade semanal")
+    public DisponibilidadeSemanalResponse atualizarSemanal(
+            @PathVariable UUID id,
+            @Valid @RequestBody DisponibilidadeSemanalRequest request
+    ) {
+        return disponibilidadeService.atualizarSemanal(id, request);
     }
 
     @DeleteMapping("/semanal/{id}")
@@ -64,11 +74,20 @@ public class DisponibilidadeController {
 
     @PostMapping("/indisponibilidades")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Registrar indisponibilidade")
+    @Operation(summary = "Criar indisponibilidade")
     public IndisponibilidadeResponse criarIndisponibilidade(
             @Valid @RequestBody IndisponibilidadeRequest request
     ) {
         return disponibilidadeService.criarIndisponibilidade(request);
+    }
+
+    @PutMapping("/indisponibilidades/{id}")
+    @Operation(summary = "Atualizar indisponibilidade")
+    public IndisponibilidadeResponse atualizarIndisponibilidade(
+            @PathVariable UUID id,
+            @Valid @RequestBody IndisponibilidadeRequest request
+    ) {
+        return disponibilidadeService.atualizarIndisponibilidade(id, request);
     }
 
     @DeleteMapping("/indisponibilidades/{id}")

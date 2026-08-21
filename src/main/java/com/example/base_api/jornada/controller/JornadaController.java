@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -63,5 +64,15 @@ public class JornadaController {
             @Valid @RequestBody PessoaEtapaRequest request
     ) {
         return jornadaService.registrarEtapa(pessoaId, request);
+    }
+
+    @DeleteMapping("/etapas/{registroId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Excluir etapa da jornada da pessoa")
+    public void excluirEtapa(
+            @PathVariable UUID pessoaId,
+            @PathVariable UUID registroId
+    ) {
+        jornadaService.excluirEtapa(pessoaId, registroId);
     }
 }

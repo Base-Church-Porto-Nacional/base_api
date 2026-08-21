@@ -101,6 +101,19 @@ public class JornadaService {
         return toEtapaResponse(pessoaJornadaEtapaRepository.save(registro));
     }
 
+    @Transactional
+    public void excluirEtapa(UUID pessoaId, UUID registroId) {
+        garantirPessoaExiste(pessoaId);
+        PessoaJornadaEtapa registro = pessoaJornadaEtapaRepository.findById(registroId)
+                .orElseThrow(() -> new ResourceNotFoundException("Registro de etapa não encontrado"));
+
+        if (!registro.getPessoaId().equals(pessoaId)) {
+            throw new ResourceNotFoundException("Registro de etapa não encontrado para esta pessoa");
+        }
+
+        pessoaJornadaEtapaRepository.delete(registro);
+    }
+
     private JornadaMembro buscarJornada(UUID pessoaId) {
         return jornadaMembroRepository.findByPessoaId(pessoaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Jornada não encontrada para a pessoa"));

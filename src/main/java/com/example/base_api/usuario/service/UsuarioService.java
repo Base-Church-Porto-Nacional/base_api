@@ -110,6 +110,12 @@ public class UsuarioService {
         return toResponse(usuarioRepository.save(usuario));
     }
 
+    @Transactional
+    public void excluir(UUID id) {
+        Usuario usuario = buscarEntidade(id);
+        usuarioRepository.delete(usuario);
+    }
+
     @Transactional(readOnly = true)
     public LoginResponse autenticar(LoginRequest request) {
         authenticationManager.authenticate(

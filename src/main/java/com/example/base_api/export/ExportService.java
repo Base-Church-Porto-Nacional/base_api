@@ -16,6 +16,8 @@ import com.example.base_api.jornada.repository.JornadaMembroRepository;
 import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.repository.MinisterioRepository;
 import com.example.base_api.pessoa.entity.Pessoa;
+import com.example.base_api.pessoa.entity.PessoaHistorico;
+import com.example.base_api.pessoa.repository.PessoaHistoricoRepository;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.servico.entity.Servico;
 import com.example.base_api.servico.repository.ServicoRepository;
@@ -40,6 +42,7 @@ public class ExportService {
 
     private final ExportRenderer exportRenderer;
     private final PessoaRepository pessoaRepository;
+    private final PessoaHistoricoRepository pessoaHistoricoRepository;
     private final JornadaMembroRepository jornadaMembroRepository;
     private final MinisterioRepository ministerioRepository;
     private final ServicoRepository servicoRepository;
@@ -54,6 +57,7 @@ public class ExportService {
     public ExportService(
             ExportRenderer exportRenderer,
             PessoaRepository pessoaRepository,
+            PessoaHistoricoRepository pessoaHistoricoRepository,
             JornadaMembroRepository jornadaMembroRepository,
             MinisterioRepository ministerioRepository,
             ServicoRepository servicoRepository,
@@ -67,6 +71,7 @@ public class ExportService {
     ) {
         this.exportRenderer = exportRenderer;
         this.pessoaRepository = pessoaRepository;
+        this.pessoaHistoricoRepository = pessoaHistoricoRepository;
         this.jornadaMembroRepository = jornadaMembroRepository;
         this.ministerioRepository = ministerioRepository;
         this.servicoRepository = servicoRepository;
@@ -83,6 +88,7 @@ public class ExportService {
     public ExportFile exportar(String recurso, FormatoExportacao formato) {
         ExportDocument document = switch (recurso.toLowerCase()) {
             case "pessoas" -> documentPessoas();
+            case "historicos", "historico" -> documentHistoricos();
             case "jornadas" -> documentJornadas();
             case "ministerios" -> documentMinisterios();
             case "servicos" -> documentServicos();
@@ -92,7 +98,7 @@ public class ExportService {
             case "usuarios" -> documentUsuarios();
             case "completo", "tudo" -> documentCompleto();
             default -> throw new BusinessException(
-                    "Recurso inválido. Use: pessoas, jornadas, ministerios, servicos, voluntarios, escalas, disponibilidades, usuarios ou completo"
+                    "Recurso inválido. Use: pessoas, historicos, jornadas, ministerios, servicos, voluntarios, escalas, disponibilidades, usuarios ou completo"
             );
         };
         return exportRenderer.renderizar(document, formato);
@@ -101,6 +107,12 @@ public class ExportService {
     private ExportDocument documentPessoas() {
         ExportDocument doc = new ExportDocument("pessoas");
         doc.adicionarSheet(sheetPessoas());
+        return doc;
+    }
+
+    private ExportDocument documentHistoricos() {
+        ExportDocument doc = new ExportDocument("historicos");
+        doc.adicionarSheet(sheetHistoricos());
         return doc;
     }
 
@@ -152,6 +164,7 @@ public class ExportService {
     private ExportDocument documentCompleto() {
         ExportDocument doc = new ExportDocument("exportacao_completa");
         doc.adicionarSheet(sheetPessoas());
+        doc.adicionarSheet(sheetHistoricos());
         doc.adicionarSheet(sheetJornadas());
         doc.adicionarSheet(sheetMinisterios());
         doc.adicionarSheet(sheetServicos());
@@ -181,6 +194,23 @@ public class ExportService {
                     str(p.getDataCadastro()),
                     str(p.getAtivo()),
                     str(p.getObservacoes())
+            ));
+        }
+        return sheet;
+    }
+
+    private ExportSheet sheetHistoricos() {
+        Map<UUID, Pessoa> pessoas = indexPessoas();
+        ExportSheet sheet = new ExportSheet("Historicos", List.of(
+                "Pessoa", "Descrição", "Autor", "Cargo", "Data"
+        ));
+        for (PessoaHistorico h : pessoaHistoricoRepository.findAll()) {
+            sheet.adicionarLinha(List.of(
+                    nomePessoa(pessoas, h.getPessoaId()),
+                    str(h.getDescricao()),
+                    str(h.getAutorNome()),
+                    str(h.getAutorCargo()),
+                    str(h.getDataRegistro())
             ));
         }
         return sheet;
@@ -244,7 +274,7 @@ public class ExportService {
         Map<UUID, Ministerio> ministerios = indexMinisterios();
 
         ExportSheet sheet = new ExportSheet("Voluntarios", List.of(
-                "Pessoa", "Ministério", "Serviço", "Data Entrada", "Ativo", "Líder Responsável", "Observações"
+                "Pessoa", "Ministério", "Serviço", "Cargo", "Data Entrada", "Ativo", "Líder Responsável", "Observações"
         ));
         for (PessoaServico v : pessoaServicoRepository.findAll()) {
             Servico servico = servicos.get(v.getServicoId());
@@ -255,6 +285,7 @@ public class ExportService {
                     nomePessoa(pessoas, v.getPessoaId()),
                     ministerioNome,
                     servico == null ? "" : str(servico.getNome()),
+                    str(v.getCargo()),
                     str(v.getDataEntrada()),
                     str(v.getAtivo()),
                     nomePessoa(pessoas, v.getLiderResponsavelId()),

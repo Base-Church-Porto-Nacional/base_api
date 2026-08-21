@@ -61,6 +61,26 @@ public class DisponibilidadeService {
     }
 
     @Transactional
+    public DisponibilidadeSemanalResponse atualizarSemanal(UUID id, DisponibilidadeSemanalRequest request) {
+        DisponibilidadeSemanal disponibilidade = disponibilidadeSemanalRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Disponibilidade semanal não encontrada"));
+
+        pessoaService.buscarEntidade(request.pessoaId());
+        if (!request.horaFim().isAfter(request.horaInicio())) {
+            throw new BusinessException("Hora fim deve ser posterior à hora início");
+        }
+
+        disponibilidade.setPessoaId(request.pessoaId());
+        disponibilidade.setDiaSemana(request.diaSemana());
+        disponibilidade.setHoraInicio(request.horaInicio());
+        disponibilidade.setHoraFim(request.horaFim());
+        disponibilidade.setDisponivel(request.disponivel());
+        disponibilidade.setObservacoes(request.observacoes());
+
+        return toSemanalResponse(disponibilidadeSemanalRepository.save(disponibilidade));
+    }
+
+    @Transactional
     public void excluirSemanal(UUID id) {
         DisponibilidadeSemanal disponibilidade = disponibilidadeSemanalRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Disponibilidade semanal não encontrada"));
@@ -83,6 +103,27 @@ public class DisponibilidadeService {
         }
 
         Indisponibilidade indisponibilidade = new Indisponibilidade();
+        indisponibilidade.setPessoaId(request.pessoaId());
+        indisponibilidade.setDataInicio(request.dataInicio());
+        indisponibilidade.setDataFim(request.dataFim());
+        indisponibilidade.setHoraInicio(request.horaInicio());
+        indisponibilidade.setHoraFim(request.horaFim());
+        indisponibilidade.setMotivo(request.motivo());
+        indisponibilidade.setObservacoes(request.observacoes());
+
+        return toIndisponibilidadeResponse(indisponibilidadeRepository.save(indisponibilidade));
+    }
+
+    @Transactional
+    public IndisponibilidadeResponse atualizarIndisponibilidade(UUID id, IndisponibilidadeRequest request) {
+        Indisponibilidade indisponibilidade = indisponibilidadeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Indisponibilidade não encontrada"));
+
+        pessoaService.buscarEntidade(request.pessoaId());
+        if (request.dataFim().isBefore(request.dataInicio())) {
+            throw new BusinessException("Data fim deve ser igual ou posterior à data início");
+        }
+
         indisponibilidade.setPessoaId(request.pessoaId());
         indisponibilidade.setDataInicio(request.dataInicio());
         indisponibilidade.setDataFim(request.dataFim());

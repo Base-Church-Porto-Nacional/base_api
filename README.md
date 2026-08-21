@@ -141,15 +141,24 @@ Rodam automaticamente na subida da aplicação.
 |--------|---------|-----------|
 | POST | `/api/auth/login` | Autenticação JWT |
 | GET/POST | `/api/pessoas` | Pessoas |
+| GET/POST | `/api/pessoas/{id}/historico` | Histórico da pessoa |
 | GET/PUT | `/api/pessoas/{id}/jornada` | Jornada |
+| CRUD | `/api/jornada-etapas` | Catálogo de etapas |
 | GET/POST | `/api/ministerios` | Ministérios |
 | GET/POST | `/api/ministerios/{id}/servicos` | Serviços |
-| POST | `/api/voluntarios` | Vincular pessoa a serviço |
-| GET/POST | `/api/escalas` | Escalas |
-| POST | `/api/escalas/{id}/voluntarios` | Designar voluntário |
-| PUT | `/api/escalas/{id}/voluntarios/{id}/status` | Confirmar/recusar |
-| GET/POST | `/api/disponibilidades/...` | Disponibilidade |
-| GET/POST | `/api/usuarios` | Usuários |
+| CRUD | `/api/voluntarios` | Voluntários (serviço, cargo, etc.) |
+| POST | `/api/escalas` | Escalas |
+| CRUD | `/api/escalas/{id}/servicos` | Serviços da escala |
+| CRUD | `/api/escalas/{id}/voluntarios` | Designações |
+| CRUD | `/api/disponibilidades/...` | Disponibilidade |
+| CRUD | `/api/usuarios` | Usuários |
+| CRUD | `/api/papeis` | Papéis |
+| CRUD | `/api/cronograma` | Cultos/eventos (cronograma) |
+| CRUD | `/api/pessoas/{id}/pausas` | Pausas no perfil |
+| GET/PUT | `/api/me` | Meu perfil (usuário + pessoa) |
+| GET | `/api/lideres` | Líderes (papel LIDER) |
+| GET | `/api/dashboard` | Totais do dashboard |
+| POST | `/api/escalas/{id}/gerar-sugestao` | Sugestão automática (stub) |
 
 ## Exportação
 
@@ -162,6 +171,7 @@ GET /api/export/{recurso}?formato=txt|md|xlsx
 Recursos:
 
 - `pessoas`
+- `historicos`
 - `jornadas`
 - `ministerios`
 - `servicos`
