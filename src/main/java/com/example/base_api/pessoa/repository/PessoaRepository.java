@@ -11,7 +11,11 @@ public interface PessoaRepository extends JpaRepository<Pessoa, UUID> {
 
     Optional<Pessoa> findByEmailIgnoreCase(String email);
 
-    List<Pessoa> findByAtivoTrueOrderByNomeAsc();
+    List<Pessoa> findByIgrejaIdInOrderByNomeAsc(List<UUID> igrejaIds);
+
+    long countByIgrejaIdIn(List<UUID> igrejaIds);
+
+    long countByIgrejaIdInAndAtivoTrue(List<UUID> igrejaIds);
 
     boolean existsByEmailIgnoreCaseAndIdNot(String email, UUID id);
 }

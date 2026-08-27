@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 public record PessoaCreateRequest(
         @NotBlank(message = "Nome é obrigatório")
@@ -23,6 +24,8 @@ public record PessoaCreateRequest(
 
         LocalDate dataNascimento,
 
-        String observacoes
+        String observacoes,
+
+        UUID igrejaId
 ) {
 }

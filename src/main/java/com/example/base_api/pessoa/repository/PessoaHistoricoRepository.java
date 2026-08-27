@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface PessoaHistoricoRepository extends JpaRepository<PessoaHistorico, UUID> {
 
     List<PessoaHistorico> findByPessoaIdOrderByDataRegistroDescCreatedAtDesc(UUID pessoaId);
+
+    List<PessoaHistorico> findByPessoaIdIn(List<UUID> pessoaIds);
 }

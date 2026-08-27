@@ -8,13 +8,15 @@ import com.example.base_api.pessoa.dto.PessoaResponse;
 import com.example.base_api.pessoa.dto.PessoaUpdateRequest;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
+import com.example.base_api.security.AutorizacaoService;
+import com.example.base_api.usuario.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -25,6 +27,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,18 +40,27 @@ class PessoaServiceTest {
     @Mock
     private JornadaService jornadaService;
 
+    @Mock
+    private AutorizacaoService autorizacaoService;
+
+    @Mock
+    private UsuarioRepository usuarioRepository;
+
     @InjectMocks
     private PessoaService pessoaService;
 
     private Pessoa pessoa;
+    private UUID igrejaId;
 
     @BeforeEach
     void setUp() {
+        igrejaId = UUID.randomUUID();
         pessoa = new Pessoa();
         pessoa.setId(UUID.randomUUID());
         pessoa.setNome("João da Silva");
         pessoa.setEmail("joao@email.com");
         pessoa.setAtivo(true);
+        pessoa.setIgrejaId(igrejaId);
         pessoa.setDataCadastro(LocalDate.now());
         pessoa.setCreatedAt(Instant.now());
         pessoa.setUpdatedAt(Instant.now());
@@ -57,7 +69,7 @@ class PessoaServiceTest {
     @Test
     void deveCriarPessoaEIniciarJornada() {
         PessoaCreateRequest request = new PessoaCreateRequest(
-                "Maria Souza", null, "maria@email.com", "11999999999", null, null
+                "Maria Souza", null, "maria@email.com", "11999999999", null, null, igrejaId
         );
 
         when(pessoaRepository.findByEmailIgnoreCase("maria@email.com")).thenReturn(Optional.empty());
@@ -68,12 +80,15 @@ class PessoaServiceTest {
             salva.setUpdatedAt(Instant.now());
             return salva;
         });
+        when(usuarioRepository.findByPessoaId(any())).thenReturn(Optional.empty());
 
         PessoaResponse response = pessoaService.criar(request);
 
         assertThat(response.nome()).isEqualTo("Maria Souza");
         assertThat(response.email()).isEqualTo("maria@email.com");
+        assertThat(response.igrejaId()).isEqualTo(igrejaId);
         verify(jornadaService).criarJornadaInicial(response.id());
+        verify(autorizacaoService).assertPodeMutarPessoas(igrejaId);
     }
 
     @Test
@@ -81,7 +96,7 @@ class PessoaServiceTest {
         when(pessoaRepository.findByEmailIgnoreCase("joao@email.com")).thenReturn(Optional.of(pessoa));
 
         PessoaCreateRequest request = new PessoaCreateRequest(
-                "Outro", null, "joao@email.com", null, null, null
+                "Outro", null, "joao@email.com", null, null, null, igrejaId
         );
 
         assertThatThrownBy(() -> pessoaService.criar(request))
@@ -92,11 +107,14 @@ class PessoaServiceTest {
     @Test
     void deveBuscarPessoaPorId() {
         when(pessoaRepository.findById(pessoa.getId())).thenReturn(Optional.of(pessoa));
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.empty());
 
         PessoaResponse response = pessoaService.buscarPorId(pessoa.getId());
 
         assertThat(response.id()).isEqualTo(pessoa.getId());
         assertThat(response.nome()).isEqualTo("João da Silva");
+        assertThat(response.igrejaId()).isEqualTo(igrejaId);
+        verify(autorizacaoService).assertPodeVerPessoa(pessoa);
     }
 
     @Test
@@ -113,6 +131,7 @@ class PessoaServiceTest {
         when(pessoaRepository.findById(pessoa.getId())).thenReturn(Optional.of(pessoa));
         when(pessoaRepository.existsByEmailIgnoreCaseAndIdNot("joao@email.com", pessoa.getId())).thenReturn(false);
         when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.empty());
 
         PessoaUpdateRequest request = new PessoaUpdateRequest(
                 "João Atualizado", null, "joao@email.com", "11888888888", null, true, "obs"
@@ -122,16 +141,28 @@ class PessoaServiceTest {
 
         assertThat(response.nome()).isEqualTo("João Atualizado");
         assertThat(response.observacoes()).isEqualTo("obs");
+        verify(autorizacaoService).assertPodeMutarPessoas(igrejaId);
     }
 
     @Test
-    void deveListarPessoas() {
-        when(pessoaRepository.findAll()).thenReturn(List.of(pessoa));
+    void deveListarPessoasDaIgrejaVisivel() {
+        when(autorizacaoService.idsParaListagem(null)).thenReturn(List.of(igrejaId));
+        when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(List.of(igrejaId))).thenReturn(List.of(pessoa));
+        when(autorizacaoService.podeIncluirPessoaNaListagem(pessoa)).thenReturn(true);
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.empty());
 
-        List<PessoaResponse> lista = pessoaService.listar();
+        List<PessoaResponse> lista = pessoaService.listar(null);
 
         assertThat(lista).hasSize(1);
-        ArgumentCaptor<Pessoa> unused = ArgumentCaptor.forClass(Pessoa.class);
-        assertThat(unused.getAllValues()).isEmpty();
+    }
+
+    @Test
+    void filialNaoListaPessoasDeOutraIgreja() {
+        UUID outraIgreja = UUID.randomUUID();
+        doThrow(new AccessDeniedException("Sem acesso a esta igreja"))
+                .when(autorizacaoService).idsParaListagem(outraIgreja);
+
+        assertThatThrownBy(() -> pessoaService.listar(outraIgreja))
+                .isInstanceOf(AccessDeniedException.class);
     }
 }

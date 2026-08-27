@@ -8,6 +8,9 @@ import com.example.base_api.pessoa.dto.PessoaResponse;
 import com.example.base_api.pessoa.dto.PessoaUpdateRequest;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
+import com.example.base_api.security.AutorizacaoService;
+import com.example.base_api.usuario.entity.Usuario;
+import com.example.base_api.usuario.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,22 +23,38 @@ public class PessoaService {
 
     private final PessoaRepository pessoaRepository;
     private final JornadaService jornadaService;
+    private final AutorizacaoService autorizacaoService;
+    private final UsuarioRepository usuarioRepository;
 
-    public PessoaService(PessoaRepository pessoaRepository, JornadaService jornadaService) {
+    public PessoaService(
+            PessoaRepository pessoaRepository,
+            JornadaService jornadaService,
+            AutorizacaoService autorizacaoService,
+            UsuarioRepository usuarioRepository
+    ) {
         this.pessoaRepository = pessoaRepository;
         this.jornadaService = jornadaService;
+        this.autorizacaoService = autorizacaoService;
+        this.usuarioRepository = usuarioRepository;
     }
 
     @Transactional(readOnly = true)
-    public List<PessoaResponse> listar() {
-        return pessoaRepository.findAll().stream()
+    public List<PessoaResponse> listar(UUID igrejaId) {
+        List<UUID> ids = autorizacaoService.idsParaListagem(igrejaId);
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return pessoaRepository.findByIgrejaIdInOrderByNomeAsc(ids).stream()
+                .filter(autorizacaoService::podeIncluirPessoaNaListagem)
                 .map(this::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public PessoaResponse buscarPorId(UUID id) {
-        return toResponse(buscarEntidade(id));
+        Pessoa pessoa = buscarEntidade(id);
+        autorizacaoService.assertPodeVerPessoa(pessoa);
+        return toResponse(pessoa);
     }
 
     @Transactional
@@ -46,6 +65,14 @@ public class PessoaService {
             });
         }
 
+        UUID igrejaId = request.igrejaId() != null
+                ? request.igrejaId()
+                : autorizacaoService.requireUsuario().getIgrejaId();
+        if (igrejaId == null) {
+            throw new BusinessException("igrejaId é obrigatório");
+        }
+        autorizacaoService.assertPodeMutarPessoas(igrejaId);
+
         Pessoa pessoa = new Pessoa();
         pessoa.setNome(request.nome().trim());
         pessoa.setNomeSocial(blankToNull(request.nomeSocial()));
@@ -53,6 +80,7 @@ public class PessoaService {
         pessoa.setTelefone(blankToNull(request.telefone()));
         pessoa.setDataNascimento(request.dataNascimento());
         pessoa.setDataCadastro(LocalDate.now());
+        pessoa.setIgrejaId(igrejaId);
         pessoa.setAtivo(true);
         pessoa.setObservacoes(request.observacoes());
 
@@ -64,6 +92,7 @@ public class PessoaService {
     @Transactional
     public PessoaResponse atualizar(UUID id, PessoaUpdateRequest request) {
         Pessoa pessoa = buscarEntidade(id);
+        autorizacaoService.assertPodeMutarPessoas(pessoa.getIgrejaId());
 
         if (request.email() != null && !request.email().isBlank()
                 && pessoaRepository.existsByEmailIgnoreCaseAndIdNot(request.email(), id)) {
@@ -84,6 +113,7 @@ public class PessoaService {
     @Transactional
     public void excluir(UUID id) {
         Pessoa pessoa = buscarEntidade(id);
+        autorizacaoService.assertPodeMutarPessoas(pessoa.getIgrejaId());
         pessoaRepository.delete(pessoa);
     }
 
@@ -94,6 +124,9 @@ public class PessoaService {
     }
 
     public PessoaResponse toResponse(Pessoa pessoa) {
+        UUID usuarioId = usuarioRepository.findByPessoaId(pessoa.getId())
+                .map(Usuario::getId)
+                .orElse(null);
         return new PessoaResponse(
                 pessoa.getId(),
                 pessoa.getNome(),
@@ -104,6 +137,8 @@ public class PessoaService {
                 pessoa.getDataCadastro(),
                 pessoa.getAtivo(),
                 pessoa.getObservacoes(),
+                pessoa.getIgrejaId(),
+                usuarioId,
                 pessoa.getCreatedAt(),
                 pessoa.getUpdatedAt()
         );

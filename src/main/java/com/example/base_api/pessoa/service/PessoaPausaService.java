@@ -5,9 +5,11 @@ import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.pessoa.dto.PessoaPausaCreateRequest;
 import com.example.base_api.pessoa.dto.PessoaPausaResponse;
 import com.example.base_api.pessoa.dto.PessoaPausaUpdateRequest;
+import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.entity.PessoaPausa;
 import com.example.base_api.pessoa.repository.PessoaPausaRepository;
 import com.example.base_api.pessoa.repository.PessoaRepository;
+import com.example.base_api.security.AutorizacaoService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,15 +21,21 @@ public class PessoaPausaService {
 
     private final PessoaPausaRepository pausaRepository;
     private final PessoaRepository pessoaRepository;
+    private final AutorizacaoService autorizacaoService;
 
-    public PessoaPausaService(PessoaPausaRepository pausaRepository, PessoaRepository pessoaRepository) {
+    public PessoaPausaService(
+            PessoaPausaRepository pausaRepository,
+            PessoaRepository pessoaRepository,
+            AutorizacaoService autorizacaoService
+    ) {
         this.pausaRepository = pausaRepository;
         this.pessoaRepository = pessoaRepository;
+        this.autorizacaoService = autorizacaoService;
     }
 
     @Transactional(readOnly = true)
     public List<PessoaPausaResponse> listarPorPessoa(UUID pessoaId) {
-        garantirPessoaExiste(pessoaId);
+        exigirLeitura(pessoaId);
         return pausaRepository.findByPessoaIdOrderByDataInicioDesc(pessoaId).stream()
                 .map(this::toResponse)
                 .toList();
@@ -35,7 +43,7 @@ public class PessoaPausaService {
 
     @Transactional
     public PessoaPausaResponse criar(UUID pessoaId, PessoaPausaCreateRequest request) {
-        garantirPessoaExiste(pessoaId);
+        exigirMutacao(pessoaId);
         validarPeriodo(request.dataInicio(), request.dataFim());
 
         PessoaPausa pausa = new PessoaPausa();
@@ -51,6 +59,7 @@ public class PessoaPausaService {
 
     @Transactional
     public PessoaPausaResponse atualizar(UUID pessoaId, UUID pausaId, PessoaPausaUpdateRequest request) {
+        exigirMutacao(pessoaId);
         PessoaPausa pausa = buscarEntidade(pessoaId, pausaId);
         validarPeriodo(request.dataInicio(), request.dataFim());
 
@@ -65,12 +74,12 @@ public class PessoaPausaService {
 
     @Transactional
     public void excluir(UUID pessoaId, UUID pausaId) {
+        exigirMutacao(pessoaId);
         PessoaPausa pausa = buscarEntidade(pessoaId, pausaId);
         pausaRepository.delete(pausa);
     }
 
     private PessoaPausa buscarEntidade(UUID pessoaId, UUID pausaId) {
-        garantirPessoaExiste(pessoaId);
         PessoaPausa pausa = pausaRepository.findById(pausaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pausa não encontrada"));
         if (!pausa.getPessoaId().equals(pessoaId)) {
@@ -79,10 +88,18 @@ public class PessoaPausaService {
         return pausa;
     }
 
-    private void garantirPessoaExiste(UUID pessoaId) {
-        if (!pessoaRepository.existsById(pessoaId)) {
-            throw new ResourceNotFoundException("Pessoa não encontrada");
-        }
+    private Pessoa carregarPessoa(UUID pessoaId) {
+        return pessoaRepository.findById(pessoaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pessoa não encontrada"));
+    }
+
+    private void exigirLeitura(UUID pessoaId) {
+        autorizacaoService.assertPodeVerPessoa(carregarPessoa(pessoaId));
+    }
+
+    private void exigirMutacao(UUID pessoaId) {
+        Pessoa pessoa = carregarPessoa(pessoaId);
+        autorizacaoService.assertPodeMutarPessoas(pessoa.getIgrejaId());
     }
 
     private void validarPeriodo(java.time.LocalDate inicio, java.time.LocalDate fim) {

@@ -14,6 +14,8 @@ public record PessoaResponse(
         LocalDate dataCadastro,
         Boolean ativo,
         String observacoes,
+        UUID igrejaId,
+        UUID usuarioId,
         Instant createdAt,
         Instant updatedAt
 ) {

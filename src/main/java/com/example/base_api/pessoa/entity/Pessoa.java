@@ -41,6 +41,9 @@ public class Pessoa extends AuditableEntity {
     @Column(name = "data_cadastro", nullable = false)
     private LocalDate dataCadastro = LocalDate.now();
 
+    @Column(name = "igreja_id", nullable = false)
+    private UUID igrejaId;
+
     @Column(nullable = false)
     private Boolean ativo = true;
 

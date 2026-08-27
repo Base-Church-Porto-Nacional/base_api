@@ -4,9 +4,11 @@ import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.pessoa.dto.PessoaHistoricoCreateRequest;
 import com.example.base_api.pessoa.dto.PessoaHistoricoResponse;
 import com.example.base_api.pessoa.dto.PessoaHistoricoUpdateRequest;
+import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.entity.PessoaHistorico;
 import com.example.base_api.pessoa.repository.PessoaHistoricoRepository;
 import com.example.base_api.pessoa.repository.PessoaRepository;
+import com.example.base_api.security.AutorizacaoService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,18 +21,21 @@ public class PessoaHistoricoService {
 
     private final PessoaHistoricoRepository historicoRepository;
     private final PessoaRepository pessoaRepository;
+    private final AutorizacaoService autorizacaoService;
 
     public PessoaHistoricoService(
             PessoaHistoricoRepository historicoRepository,
-            PessoaRepository pessoaRepository
+            PessoaRepository pessoaRepository,
+            AutorizacaoService autorizacaoService
     ) {
         this.historicoRepository = historicoRepository;
         this.pessoaRepository = pessoaRepository;
+        this.autorizacaoService = autorizacaoService;
     }
 
     @Transactional(readOnly = true)
     public List<PessoaHistoricoResponse> listarPorPessoa(UUID pessoaId) {
-        garantirPessoaExiste(pessoaId);
+        exigirLeitura(pessoaId);
         return historicoRepository.findByPessoaIdOrderByDataRegistroDescCreatedAtDesc(pessoaId).stream()
                 .map(this::toResponse)
                 .toList();
@@ -38,14 +43,15 @@ public class PessoaHistoricoService {
 
     @Transactional(readOnly = true)
     public PessoaHistoricoResponse buscarPorId(UUID pessoaId, UUID historicoId) {
+        exigirLeitura(pessoaId);
         return toResponse(buscarEntidade(pessoaId, historicoId));
     }
 
     @Transactional
     public PessoaHistoricoResponse criar(UUID pessoaId, PessoaHistoricoCreateRequest request) {
-        garantirPessoaExiste(pessoaId);
+        exigirMutacao(pessoaId);
         if (request.autorPessoaId() != null) {
-            garantirPessoaExiste(request.autorPessoaId());
+            carregarPessoa(request.autorPessoaId());
         }
 
         PessoaHistorico historico = new PessoaHistorico();
@@ -65,10 +71,11 @@ public class PessoaHistoricoService {
             UUID historicoId,
             PessoaHistoricoUpdateRequest request
     ) {
+        exigirMutacao(pessoaId);
         PessoaHistorico historico = buscarEntidade(pessoaId, historicoId);
 
         if (request.autorPessoaId() != null) {
-            garantirPessoaExiste(request.autorPessoaId());
+            carregarPessoa(request.autorPessoaId());
         }
 
         historico.setDescricao(request.descricao().trim());
@@ -82,12 +89,12 @@ public class PessoaHistoricoService {
 
     @Transactional
     public void excluir(UUID pessoaId, UUID historicoId) {
+        exigirMutacao(pessoaId);
         PessoaHistorico historico = buscarEntidade(pessoaId, historicoId);
         historicoRepository.delete(historico);
     }
 
     private PessoaHistorico buscarEntidade(UUID pessoaId, UUID historicoId) {
-        garantirPessoaExiste(pessoaId);
         PessoaHistorico historico = historicoRepository.findById(historicoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registro de histórico não encontrado"));
 
@@ -97,10 +104,18 @@ public class PessoaHistoricoService {
         return historico;
     }
 
-    private void garantirPessoaExiste(UUID pessoaId) {
-        if (!pessoaRepository.existsById(pessoaId)) {
-            throw new ResourceNotFoundException("Pessoa não encontrada");
-        }
+    private Pessoa carregarPessoa(UUID pessoaId) {
+        return pessoaRepository.findById(pessoaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pessoa não encontrada"));
+    }
+
+    private void exigirLeitura(UUID pessoaId) {
+        autorizacaoService.assertPodeVerPessoa(carregarPessoa(pessoaId));
+    }
+
+    private void exigirMutacao(UUID pessoaId) {
+        Pessoa pessoa = carregarPessoa(pessoaId);
+        autorizacaoService.assertPodeMutarPessoas(pessoa.getIgrejaId());
     }
 
     private PessoaHistoricoResponse toResponse(PessoaHistorico historico) {
