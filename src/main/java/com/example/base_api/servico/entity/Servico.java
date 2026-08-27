@@ -32,5 +32,8 @@ public class Servico extends AuditableEntity {
     private String descricao;
 
     @Column(nullable = false)
+    private Boolean ficcao = false;
+
+    @Column(nullable = false)
     private Boolean ativo = true;
 }

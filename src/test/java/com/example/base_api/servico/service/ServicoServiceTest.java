@@ -3,6 +3,7 @@ package com.example.base_api.servico.service;
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.service.MinisterioService;
+import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.servico.dto.ServicoCreateRequest;
 import com.example.base_api.servico.dto.ServicoResponse;
 import com.example.base_api.servico.entity.Servico;
@@ -31,6 +32,9 @@ class ServicoServiceTest {
     @Mock
     private MinisterioService ministerioService;
 
+    @Mock
+    private AutorizacaoService autorizacaoService;
+
     @InjectMocks
     private ServicoService servicoService;
 
@@ -52,7 +56,7 @@ class ServicoServiceTest {
             return s;
         });
 
-        ServicoResponse response = servicoService.criar(ministerioId, new ServicoCreateRequest("Violão", null));
+        ServicoResponse response = servicoService.criar(ministerioId, new ServicoCreateRequest("Violão", null, null));
 
         assertThat(response.nome()).isEqualTo("Violão");
         assertThat(response.ministerioId()).isEqualTo(ministerioId);
@@ -65,7 +69,7 @@ class ServicoServiceTest {
         when(servicoRepository.findByMinisterioIdAndNomeIgnoreCase(ministerioId, "Violão"))
                 .thenReturn(Optional.of(new Servico()));
 
-        assertThatThrownBy(() -> servicoService.criar(ministerioId, new ServicoCreateRequest("Violão", null)))
+        assertThatThrownBy(() -> servicoService.criar(ministerioId, new ServicoCreateRequest("Violão", null, null)))
                 .isInstanceOf(BusinessException.class);
     }
 }

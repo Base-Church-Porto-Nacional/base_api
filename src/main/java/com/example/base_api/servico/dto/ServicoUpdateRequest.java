@@ -12,6 +12,8 @@ public record ServicoUpdateRequest(
         String descricao,
 
         @NotNull(message = "Campo ativo é obrigatório")
-        Boolean ativo
+        Boolean ativo,
+
+        Boolean ficcao
 ) {
 }

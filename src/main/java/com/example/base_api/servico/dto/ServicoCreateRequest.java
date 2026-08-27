@@ -8,6 +8,8 @@ public record ServicoCreateRequest(
         @Size(max = 120, message = "Nome deve ter no máximo 120 caracteres")
         String nome,
 
-        String descricao
+        String descricao,
+
+        Boolean ficcao
 ) {
 }

@@ -8,6 +8,7 @@ public record ServicoResponse(
         UUID ministerioId,
         String nome,
         String descricao,
+        Boolean ficcao,
         Boolean ativo,
         Instant createdAt,
         Instant updatedAt

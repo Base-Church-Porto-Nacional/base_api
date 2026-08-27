@@ -3,6 +3,7 @@ package com.example.base_api.servico.service;
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.ministerio.service.MinisterioService;
+import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.servico.dto.ServicoCreateRequest;
 import com.example.base_api.servico.dto.ServicoResponse;
 import com.example.base_api.servico.dto.ServicoUpdateRequest;
@@ -19,15 +20,21 @@ public class ServicoService {
 
     private final ServicoRepository servicoRepository;
     private final MinisterioService ministerioService;
+    private final AutorizacaoService autorizacaoService;
 
-    public ServicoService(ServicoRepository servicoRepository, MinisterioService ministerioService) {
+    public ServicoService(
+            ServicoRepository servicoRepository,
+            MinisterioService ministerioService,
+            AutorizacaoService autorizacaoService
+    ) {
         this.servicoRepository = servicoRepository;
         this.ministerioService = ministerioService;
+        this.autorizacaoService = autorizacaoService;
     }
 
     @Transactional(readOnly = true)
     public List<ServicoResponse> listarPorMinisterio(UUID ministerioId) {
-        ministerioService.buscarEntidade(ministerioId);
+        autorizacaoService.assertAcesso(ministerioService.buscarEntidade(ministerioId).getIgrejaId());
         return servicoRepository.findByMinisterioIdOrderByNomeAsc(ministerioId).stream()
                 .map(this::toResponse)
                 .toList();
@@ -35,12 +42,14 @@ public class ServicoService {
 
     @Transactional(readOnly = true)
     public ServicoResponse buscarPorId(UUID id) {
-        return toResponse(buscarEntidade(id));
+        Servico servico = buscarEntidade(id);
+        autorizacaoService.assertAcesso(ministerioService.buscarEntidade(servico.getMinisterioId()).getIgrejaId());
+        return toResponse(servico);
     }
 
     @Transactional
     public ServicoResponse criar(UUID ministerioId, ServicoCreateRequest request) {
-        ministerioService.buscarEntidade(ministerioId);
+        autorizacaoService.assertPodeGerenciarMinisterio(ministerioService.buscarEntidade(ministerioId));
 
         servicoRepository.findByMinisterioIdAndNomeIgnoreCase(ministerioId, request.nome()).ifPresent(s -> {
             throw new BusinessException("Já existe um serviço com este nome neste ministério");
@@ -50,6 +59,7 @@ public class ServicoService {
         servico.setMinisterioId(ministerioId);
         servico.setNome(request.nome().trim());
         servico.setDescricao(request.descricao());
+        servico.setFiccao(Boolean.TRUE.equals(request.ficcao()));
         servico.setAtivo(true);
 
         return toResponse(servicoRepository.save(servico));
@@ -58,6 +68,7 @@ public class ServicoService {
     @Transactional
     public ServicoResponse atualizar(UUID id, ServicoUpdateRequest request) {
         Servico servico = buscarEntidade(id);
+        autorizacaoService.assertPodeGerenciarMinisterio(ministerioService.buscarEntidade(servico.getMinisterioId()));
 
         if (servicoRepository.existsByMinisterioIdAndNomeIgnoreCaseAndIdNot(
                 servico.getMinisterioId(), request.nome(), id)) {
@@ -67,6 +78,9 @@ public class ServicoService {
         servico.setNome(request.nome().trim());
         servico.setDescricao(request.descricao());
         servico.setAtivo(request.ativo());
+        if (request.ficcao() != null) {
+            servico.setFiccao(request.ficcao());
+        }
 
         return toResponse(servicoRepository.save(servico));
     }
@@ -74,6 +88,7 @@ public class ServicoService {
     @Transactional
     public void excluir(UUID id) {
         Servico servico = buscarEntidade(id);
+        autorizacaoService.assertPodeGerenciarMinisterio(ministerioService.buscarEntidade(servico.getMinisterioId()));
         servicoRepository.delete(servico);
     }
 
@@ -89,6 +104,7 @@ public class ServicoService {
                 servico.getMinisterioId(),
                 servico.getNome(),
                 servico.getDescricao(),
+                servico.getFiccao(),
                 servico.getAtivo(),
                 servico.getCreatedAt(),
                 servico.getUpdatedAt()
