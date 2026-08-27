@@ -11,7 +11,9 @@ import com.example.base_api.jornada.entity.PessoaJornadaEtapa;
 import com.example.base_api.jornada.repository.JornadaEtapaCatalogoRepository;
 import com.example.base_api.jornada.repository.JornadaMembroRepository;
 import com.example.base_api.jornada.repository.PessoaJornadaEtapaRepository;
+import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
+import com.example.base_api.security.AutorizacaoService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,17 +27,20 @@ public class JornadaService {
     private final JornadaEtapaCatalogoRepository etapaCatalogoRepository;
     private final PessoaJornadaEtapaRepository pessoaJornadaEtapaRepository;
     private final PessoaRepository pessoaRepository;
+    private final AutorizacaoService autorizacaoService;
 
     public JornadaService(
             JornadaMembroRepository jornadaMembroRepository,
             JornadaEtapaCatalogoRepository etapaCatalogoRepository,
             PessoaJornadaEtapaRepository pessoaJornadaEtapaRepository,
-            PessoaRepository pessoaRepository
+            PessoaRepository pessoaRepository,
+            AutorizacaoService autorizacaoService
     ) {
         this.jornadaMembroRepository = jornadaMembroRepository;
         this.etapaCatalogoRepository = etapaCatalogoRepository;
         this.pessoaJornadaEtapaRepository = pessoaJornadaEtapaRepository;
         this.pessoaRepository = pessoaRepository;
+        this.autorizacaoService = autorizacaoService;
     }
 
     @Transactional
@@ -50,13 +55,13 @@ public class JornadaService {
 
     @Transactional(readOnly = true)
     public JornadaResponse buscarPorPessoa(UUID pessoaId) {
-        garantirPessoaExiste(pessoaId);
+        exigirLeitura(pessoaId);
         return toResponse(buscarJornada(pessoaId));
     }
 
     @Transactional
     public JornadaResponse atualizar(UUID pessoaId, JornadaUpdateRequest request) {
-        garantirPessoaExiste(pessoaId);
+        exigirMutacao(pessoaId);
         JornadaMembro jornada = buscarJornada(pessoaId);
 
         jornada.setAceitouJesus(request.aceitouJesus());
@@ -73,7 +78,7 @@ public class JornadaService {
 
     @Transactional(readOnly = true)
     public List<PessoaEtapaResponse> listarEtapasDaPessoa(UUID pessoaId) {
-        garantirPessoaExiste(pessoaId);
+        exigirLeitura(pessoaId);
         return pessoaJornadaEtapaRepository.findByPessoaId(pessoaId).stream()
                 .map(this::toEtapaResponse)
                 .toList();
@@ -81,7 +86,7 @@ public class JornadaService {
 
     @Transactional
     public PessoaEtapaResponse registrarEtapa(UUID pessoaId, PessoaEtapaRequest request) {
-        garantirPessoaExiste(pessoaId);
+        exigirMutacao(pessoaId);
         JornadaEtapaCatalogo etapa = etapaCatalogoRepository.findById(request.etapaId())
                 .orElseThrow(() -> new ResourceNotFoundException("Etapa da jornada não encontrada"));
 
@@ -103,7 +108,7 @@ public class JornadaService {
 
     @Transactional
     public void excluirEtapa(UUID pessoaId, UUID registroId) {
-        garantirPessoaExiste(pessoaId);
+        exigirMutacao(pessoaId);
         PessoaJornadaEtapa registro = pessoaJornadaEtapaRepository.findById(registroId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registro de etapa não encontrado"));
 
@@ -119,10 +124,18 @@ public class JornadaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Jornada não encontrada para a pessoa"));
     }
 
-    private void garantirPessoaExiste(UUID pessoaId) {
-        if (!pessoaRepository.existsById(pessoaId)) {
-            throw new ResourceNotFoundException("Pessoa não encontrada");
-        }
+    private Pessoa carregarPessoa(UUID pessoaId) {
+        return pessoaRepository.findById(pessoaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pessoa não encontrada"));
+    }
+
+    private void exigirLeitura(UUID pessoaId) {
+        autorizacaoService.assertPodeVerPessoa(carregarPessoa(pessoaId));
+    }
+
+    private void exigirMutacao(UUID pessoaId) {
+        Pessoa pessoa = carregarPessoa(pessoaId);
+        autorizacaoService.assertPodeMutarPessoas(pessoa.getIgrejaId());
     }
 
     private JornadaResponse toResponse(JornadaMembro jornada) {

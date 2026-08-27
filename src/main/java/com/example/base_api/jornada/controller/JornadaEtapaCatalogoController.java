@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,12 +48,14 @@ public class JornadaEtapaCatalogoController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Criar etapa no catálogo")
     public JornadaEtapaCatalogoResponse criar(@Valid @RequestBody JornadaEtapaCatalogoRequest request) {
         return service.criar(request);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Atualizar etapa do catálogo")
     public JornadaEtapaCatalogoResponse atualizar(
             @PathVariable UUID id,
@@ -63,6 +66,7 @@ public class JornadaEtapaCatalogoController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Excluir etapa do catálogo")
     public void excluir(@PathVariable UUID id) {
         service.excluir(id);
