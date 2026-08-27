@@ -48,6 +48,12 @@ public class CronogramaEvento extends AuditableEntity {
     @Column(name = "local_evento", length = 200)
     private String localEvento;
 
+    @Column(name = "igreja_id", nullable = false)
+    private UUID igrejaId;
+
+    @Column(name = "supervisor_pessoa_id")
+    private UUID supervisorPessoaId;
+
     @Column(nullable = false)
     private Boolean ativo = true;
 }

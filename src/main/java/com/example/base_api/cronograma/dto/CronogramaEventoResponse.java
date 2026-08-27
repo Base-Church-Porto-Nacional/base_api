@@ -16,6 +16,9 @@ public record CronogramaEventoResponse(
         LocalTime horaInicio,
         LocalTime horaFim,
         String localEvento,
+        UUID igrejaId,
+        UUID supervisorPessoaId,
+        String supervisorNome,
         Boolean ativo,
         Instant createdAt,
         Instant updatedAt
