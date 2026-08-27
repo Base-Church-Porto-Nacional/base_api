@@ -1,8 +1,8 @@
 package com.example.base_api.export.writer;
 
-import com.example.base_api.export.ExportDocument;
-import com.example.base_api.export.ExportSheet;
-import com.example.base_api.export.FormatoExportacao;
+import com.example.base_api.export.dto.ExportDocument;
+import com.example.base_api.export.dto.ExportSheet;
+import com.example.base_api.export.dto.FormatoExportacao;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;

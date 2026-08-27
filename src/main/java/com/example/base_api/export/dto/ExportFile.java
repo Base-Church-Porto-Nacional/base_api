@@ -1,4 +1,4 @@
-package com.example.base_api.export;
+package com.example.base_api.export.dto;
 
 public record ExportFile(
         String nomeArquivo,

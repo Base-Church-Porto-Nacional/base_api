@@ -1,4 +1,4 @@
-package com.example.base_api.export;
+package com.example.base_api.export.dto;
 
 import java.util.ArrayList;
 import java.util.List;

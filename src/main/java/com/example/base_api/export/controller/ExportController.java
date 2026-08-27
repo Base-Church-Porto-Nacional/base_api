@@ -1,8 +1,8 @@
 package com.example.base_api.export.controller;
 
-import com.example.base_api.export.ExportFile;
-import com.example.base_api.export.ExportService;
-import com.example.base_api.export.FormatoExportacao;
+import com.example.base_api.export.dto.ExportFile;
+import com.example.base_api.export.dto.FormatoExportacao;
+import com.example.base_api.export.service.ExportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +30,7 @@ public class ExportController {
     }
 
     @GetMapping("/{recurso}")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Exportar dados em texto, Markdown ou Excel",
             description = "Recursos: pessoas, jornadas, ministerios, servicos, voluntarios, escalas, disponibilidades, usuarios, completo. Formatos: txt, md, xlsx.")
     public ResponseEntity<byte[]> exportar(

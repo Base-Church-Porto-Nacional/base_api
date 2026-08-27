@@ -1,4 +1,4 @@
-package com.example.base_api.export;
+package com.example.base_api.export.dto;
 
 import com.example.base_api.common.exception.BusinessException;
 
