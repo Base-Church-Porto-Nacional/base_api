@@ -5,7 +5,9 @@ import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.service.MinisterioService;
 import com.example.base_api.pessoa.entity.Pessoa;
+import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.pessoa.service.PessoaService;
+import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.servico.entity.Servico;
 import com.example.base_api.servico.service.ServicoService;
 import com.example.base_api.voluntario.dto.PessoaServicoCreateRequest;
@@ -25,36 +27,49 @@ public class VoluntarioService {
 
     private final PessoaServicoRepository pessoaServicoRepository;
     private final PessoaService pessoaService;
+    private final PessoaRepository pessoaRepository;
     private final ServicoService servicoService;
     private final MinisterioService ministerioService;
+    private final AutorizacaoService autorizacaoService;
 
     public VoluntarioService(
             PessoaServicoRepository pessoaServicoRepository,
             PessoaService pessoaService,
+            PessoaRepository pessoaRepository,
             ServicoService servicoService,
-            MinisterioService ministerioService
+            MinisterioService ministerioService,
+            AutorizacaoService autorizacaoService
     ) {
         this.pessoaServicoRepository = pessoaServicoRepository;
         this.pessoaService = pessoaService;
+        this.pessoaRepository = pessoaRepository;
         this.servicoService = servicoService;
         this.ministerioService = ministerioService;
+        this.autorizacaoService = autorizacaoService;
     }
 
     @Transactional(readOnly = true)
     public List<PessoaServicoResponse> listar() {
-        return pessoaServicoRepository.findAll().stream()
+        List<UUID> pessoaIds = idsPessoasVisiveis();
+        if (pessoaIds.isEmpty()) {
+            return List.of();
+        }
+        return pessoaServicoRepository.findByPessoaIdIn(pessoaIds).stream()
                 .map(this::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public PessoaServicoResponse buscarPorId(UUID id) {
-        return toResponse(buscarEntidade(id));
+        PessoaServico vinculo = buscarEntidade(id);
+        autorizacaoService.assertPodeVerPessoa(pessoaService.buscarEntidade(vinculo.getPessoaId()));
+        return toResponse(vinculo);
     }
 
     @Transactional(readOnly = true)
     public List<PessoaServicoResponse> listarPorPessoa(UUID pessoaId) {
-        pessoaService.buscarEntidade(pessoaId);
+        Pessoa pessoa = pessoaService.buscarEntidade(pessoaId);
+        autorizacaoService.assertPodeVerPessoa(pessoa);
         return pessoaServicoRepository.findByPessoaId(pessoaId).stream()
                 .map(this::toResponse)
                 .toList();
@@ -62,8 +77,15 @@ public class VoluntarioService {
 
     @Transactional(readOnly = true)
     public List<PessoaServicoResponse> listarQualificadosPorServico(UUID servicoId) {
-        servicoService.buscarEntidade(servicoId);
+        Servico servico = servicoService.buscarEntidade(servicoId);
+        Ministerio ministerio = ministerioService.buscarEntidade(servico.getMinisterioId());
+        autorizacaoService.assertAcesso(ministerio.getIgrejaId());
+        List<UUID> pessoaIds = idsPessoasVisiveis();
+        if (pessoaIds.isEmpty()) {
+            return List.of();
+        }
         return pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoId).stream()
+                .filter(v -> pessoaIds.contains(v.getPessoaId()))
                 .map(this::toResponse)
                 .toList();
     }
@@ -72,6 +94,10 @@ public class VoluntarioService {
     public PessoaServicoResponse vincular(PessoaServicoCreateRequest request) {
         Pessoa pessoa = pessoaService.buscarEntidade(request.pessoaId());
         Servico servico = servicoService.buscarEntidade(request.servicoId());
+        Ministerio ministerio = ministerioService.buscarEntidade(servico.getMinisterioId());
+        autorizacaoService.assertAcesso(pessoa.getIgrejaId());
+        autorizacaoService.assertPodeGerenciarMinisterio(ministerio);
+        autorizacaoService.assertPessoaDaIgreja(pessoa, ministerio.getIgrejaId());
 
         if (pessoaServicoRepository.existsByPessoaIdAndServicoId(pessoa.getId(), servico.getId())) {
             throw new BusinessException("A pessoa já está vinculada a este serviço");
@@ -96,8 +122,21 @@ public class VoluntarioService {
     @Transactional
     public PessoaServicoResponse atualizar(UUID id, PessoaServicoUpdateRequest request) {
         PessoaServico vinculo = buscarEntidade(id);
+        Servico servicoAtual = servicoService.buscarEntidade(vinculo.getServicoId());
+        autorizacaoService.assertPodeGerenciarMinisterio(
+                ministerioService.buscarEntidade(servicoAtual.getMinisterioId())
+        );
+
         Pessoa pessoa = pessoaService.buscarEntidade(request.pessoaId());
         Servico servico = servicoService.buscarEntidade(request.servicoId());
+        autorizacaoService.assertAcesso(pessoa.getIgrejaId());
+        autorizacaoService.assertPodeGerenciarMinisterio(
+                ministerioService.buscarEntidade(servico.getMinisterioId())
+        );
+        autorizacaoService.assertPessoaDaIgreja(
+                pessoa,
+                ministerioService.buscarEntidade(servico.getMinisterioId()).getIgrejaId()
+        );
 
         if (!vinculo.getPessoaId().equals(pessoa.getId()) || !vinculo.getServicoId().equals(servico.getId())) {
             pessoaServicoRepository.findByPessoaIdAndServicoId(pessoa.getId(), servico.getId())
@@ -125,6 +164,10 @@ public class VoluntarioService {
     @Transactional
     public void desvincular(UUID id) {
         PessoaServico vinculo = buscarEntidade(id);
+        Servico servico = servicoService.buscarEntidade(vinculo.getServicoId());
+        autorizacaoService.assertPodeGerenciarMinisterio(
+                ministerioService.buscarEntidade(servico.getMinisterioId())
+        );
         pessoaServicoRepository.delete(vinculo);
     }
 
@@ -132,6 +175,17 @@ public class VoluntarioService {
     public PessoaServico buscarEntidade(UUID id) {
         return pessoaServicoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vínculo de voluntário não encontrado"));
+    }
+
+    private List<UUID> idsPessoasVisiveis() {
+        List<UUID> igrejaIds = autorizacaoService.idsParaListagem(null);
+        if (igrejaIds.isEmpty()) {
+            return List.of();
+        }
+        return pessoaRepository.findByIgrejaIdInOrderByNomeAsc(igrejaIds).stream()
+                .filter(autorizacaoService::podeIncluirPessoaNaListagem)
+                .map(Pessoa::getId)
+                .toList();
     }
 
     private PessoaServicoResponse toResponse(PessoaServico vinculo) {

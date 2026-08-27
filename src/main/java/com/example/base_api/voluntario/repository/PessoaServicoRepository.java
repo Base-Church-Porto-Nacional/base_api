@@ -11,7 +11,13 @@ public interface PessoaServicoRepository extends JpaRepository<PessoaServico, UU
 
     List<PessoaServico> findByPessoaId(UUID pessoaId);
 
+    List<PessoaServico> findByPessoaIdIn(List<UUID> pessoaIds);
+
+    long countByPessoaIdInAndAtivoTrue(List<UUID> pessoaIds);
+
     List<PessoaServico> findByServicoIdAndAtivoTrue(UUID servicoId);
+
+    List<PessoaServico> findByServicoIdInAndAtivoTrue(List<UUID> servicoIds);
 
     Optional<PessoaServico> findByPessoaIdAndServicoId(UUID pessoaId, UUID servicoId);
 
