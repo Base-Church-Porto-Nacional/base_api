@@ -1,6 +1,5 @@
 package com.example.base_api.security;
 
-import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.repository.UsuarioRepository;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -28,8 +27,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .username(usuario.getUsername())
                 .password(usuario.getSenhaHash())
                 .disabled(!Boolean.TRUE.equals(usuario.getAtivo()))
-                .authorities(usuario.getPapeis().stream()
-                        .map(Papel::getNome)
+                .authorities(usuario.nomesPapeisDaIgrejaAtual().stream()
                         .map(nome -> new SimpleGrantedAuthority("ROLE_" + nome))
                         .toList())
                 .build();

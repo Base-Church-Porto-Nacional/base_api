@@ -28,7 +28,9 @@ server:
 app:
   jwt:
     secret: ${JWT_SECRET:change-me-use-a-long-secure-secret-key-at-least-256-bits}
-    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+    expiration-ms: ${JWT_EXPIRATION_MS:14400000}
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
 
 springdoc:
   api-docs:
