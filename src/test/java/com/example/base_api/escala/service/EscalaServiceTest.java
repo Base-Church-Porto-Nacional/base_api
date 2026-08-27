@@ -8,11 +8,16 @@ import com.example.base_api.escala.dto.EscalaVoluntarioCreateRequest;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.EscalaServico;
 import com.example.base_api.escala.entity.EscalaVoluntario;
+import com.example.base_api.escala.entity.TipoEscala;
 import com.example.base_api.escala.repository.EscalaRepository;
 import com.example.base_api.escala.repository.EscalaServicoRepository;
 import com.example.base_api.escala.repository.EscalaVoluntarioRepository;
+import com.example.base_api.igreja.entity.Igreja;
+import com.example.base_api.igreja.service.IgrejaContextoService;
+import com.example.base_api.ministerio.repository.MinisterioRepository;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.service.PessoaService;
+import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.servico.entity.Servico;
 import com.example.base_api.servico.service.ServicoService;
 import com.example.base_api.voluntario.entity.PessoaServico;
@@ -55,6 +60,12 @@ class EscalaServiceTest {
     private PessoaServicoRepository pessoaServicoRepository;
     @Mock
     private CronogramaService cronogramaService;
+    @Mock
+    private IgrejaContextoService igrejaContextoService;
+    @Mock
+    private AutorizacaoService autorizacaoService;
+    @Mock
+    private MinisterioRepository ministerioRepository;
 
     @InjectMocks
     private EscalaService escalaService;
@@ -62,16 +73,25 @@ class EscalaServiceTest {
     private UUID escalaId;
     private UUID servicoId;
     private UUID pessoaId;
+    private UUID igrejaId;
+    private UUID pastorId;
 
     @BeforeEach
     void setUp() {
         escalaId = UUID.randomUUID();
         servicoId = UUID.randomUUID();
         pessoaId = UUID.randomUUID();
+        igrejaId = UUID.randomUUID();
+        pastorId = UUID.randomUUID();
     }
 
     @Test
-    void deveCriarEscalaComServicos() {
+    void deveCriarEscalaMensalComServicos() {
+        Igreja igreja = new Igreja();
+        igreja.setId(igrejaId);
+        igreja.setPastorPessoaId(pastorId);
+
+        when(igrejaContextoService.buscarIgreja(igrejaId)).thenReturn(igreja);
         when(servicoService.buscarEntidade(servicoId)).thenReturn(servico());
         when(escalaRepository.save(any(Escala.class))).thenAnswer(invocation -> {
             Escala e = invocation.getArgument(0);
@@ -87,19 +107,30 @@ class EscalaServiceTest {
         });
         when(escalaServicoRepository.findByEscalaId(escalaId)).thenReturn(List.of(escalaServico()));
         when(escalaVoluntarioRepository.findByEscalaId(escalaId)).thenReturn(List.of());
+        when(pessoaService.buscarEntidade(pastorId)).thenReturn(pastor());
 
         EscalaResponse response = escalaService.criar(new EscalaCreateRequest(
                 "Culto de Domingo",
                 null,
-                LocalDate.of(2026, 8, 24),
-                LocalTime.of(18, 0),
-                LocalTime.of(20, 0),
+                "2026-08",
+                TipoEscala.CULTO,
+                igrejaId,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 "Templo",
                 null,
-                List.of(new EscalaCreateRequest.EscalaServicoRequest(servicoId, 1))
+                List.of(new EscalaCreateRequest.EscalaServicoRequest(servicoId, 1)),
+                List.of()
         ));
 
         assertThat(response.titulo()).isEqualTo("Culto de Domingo");
+        assertThat(response.competencia()).isEqualTo("2026-08");
+        assertThat(response.tipo()).isEqualTo(TipoEscala.CULTO);
+        assertThat(response.supervisorPessoaId()).isEqualTo(pastorId);
         assertThat(response.servicos()).hasSize(1);
     }
 
@@ -161,6 +192,9 @@ class EscalaServiceTest {
         escala.setTitulo("Culto");
         escala.setDataEvento(LocalDate.of(2026, 8, 24));
         escala.setHoraInicio(LocalTime.of(18, 0));
+        escala.setIgrejaId(igrejaId);
+        escala.setCompetencia("2026-08");
+        escala.setTipo(TipoEscala.CULTO);
         escala.setAtivo(true);
         escala.setCreatedAt(Instant.now());
         escala.setUpdatedAt(Instant.now());
@@ -181,6 +215,7 @@ class EscalaServiceTest {
         servico.setId(servicoId);
         servico.setNome("Violão");
         servico.setMinisterioId(UUID.randomUUID());
+        servico.setFiccao(false);
         return servico;
     }
 
@@ -188,6 +223,15 @@ class EscalaServiceTest {
         Pessoa pessoa = new Pessoa();
         pessoa.setId(pessoaId);
         pessoa.setNome("Gustavo");
+        pessoa.setIgrejaId(igrejaId);
+        return pessoa;
+    }
+
+    private Pessoa pastor() {
+        Pessoa pessoa = new Pessoa();
+        pessoa.setId(pastorId);
+        pessoa.setNome("Ana Costa");
+        pessoa.setIgrejaId(igrejaId);
         return pessoa;
     }
 }

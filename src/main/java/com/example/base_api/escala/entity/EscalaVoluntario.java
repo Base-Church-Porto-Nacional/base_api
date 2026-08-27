@@ -12,6 +12,8 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Getter
@@ -30,8 +32,17 @@ public class EscalaVoluntario extends AuditableEntity {
     @Column(name = "pessoa_id", nullable = false)
     private UUID pessoaId;
 
-    @Column(name = "servico_id", nullable = false)
+    @Column(name = "servico_id")
     private UUID servicoId;
+
+    @Column(name = "data_item")
+    private LocalDate dataItem;
+
+    @Column(name = "evento_id")
+    private UUID eventoId;
+
+    @Column
+    private LocalTime horario;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)

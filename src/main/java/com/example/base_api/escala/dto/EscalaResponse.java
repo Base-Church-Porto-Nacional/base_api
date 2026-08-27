@@ -1,6 +1,7 @@
 package com.example.base_api.escala.dto;
 
 import com.example.base_api.escala.entity.StatusEscalaVoluntario;
+import com.example.base_api.escala.entity.TipoEscala;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -12,17 +13,40 @@ public record EscalaResponse(
         UUID id,
         String titulo,
         String descricao,
+        String competencia,
+        TipoEscala tipo,
+        UUID igrejaId,
+        UUID ministerioId,
+        String ministerioNome,
+        UUID supervisorPessoaId,
+        String supervisorNome,
+        UUID pregadorPessoaId,
+        String pregadorNome,
         LocalDate dataEvento,
         LocalTime horaInicio,
         LocalTime horaFim,
         String localEvento,
         UUID eventoId,
         Boolean ativo,
+        List<EscalaItemResponse> itens,
         List<EscalaServicoResponse> servicos,
         List<EscalaVoluntarioResponse> voluntarios,
         Instant createdAt,
         Instant updatedAt
 ) {
+    public record EscalaItemResponse(
+            UUID id,
+            LocalDate data,
+            UUID eventoId,
+            UUID pessoaId,
+            String pessoaNome,
+            UUID servicoId,
+            String servicoNome,
+            LocalTime horario,
+            StatusEscalaVoluntario status
+    ) {
+    }
+
     public record EscalaServicoResponse(
             UUID id,
             UUID servicoId,

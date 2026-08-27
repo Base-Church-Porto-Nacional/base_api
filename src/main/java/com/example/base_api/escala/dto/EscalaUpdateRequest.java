@@ -1,5 +1,6 @@
 package com.example.base_api.escala.dto;
 
+import com.example.base_api.escala.entity.TipoEscala;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -15,10 +16,18 @@ public record EscalaUpdateRequest(
 
         String descricao,
 
-        @NotNull(message = "Data do evento é obrigatória")
+        String competencia,
+
+        TipoEscala tipo,
+
+        UUID ministerioId,
+
+        UUID supervisorPessoaId,
+
+        UUID pregadorPessoaId,
+
         LocalDate dataEvento,
 
-        @NotNull(message = "Hora de início é obrigatória")
         LocalTime horaInicio,
 
         LocalTime horaFim,

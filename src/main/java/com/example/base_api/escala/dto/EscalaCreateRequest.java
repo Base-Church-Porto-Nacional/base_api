@@ -1,9 +1,9 @@
 package com.example.base_api.escala.dto;
 
+import com.example.base_api.escala.entity.TipoEscala;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -19,10 +19,23 @@ public record EscalaCreateRequest(
 
         String descricao,
 
-        @NotNull(message = "Data do evento é obrigatória")
+        @NotBlank(message = "Competência é obrigatória (YYYY-MM)")
+        String competencia,
+
+        @NotNull(message = "Tipo da escala é obrigatório")
+        TipoEscala tipo,
+
+        @NotNull(message = "igrejaId é obrigatório")
+        UUID igrejaId,
+
+        UUID ministerioId,
+
+        UUID supervisorPessoaId,
+
+        UUID pregadorPessoaId,
+
         LocalDate dataEvento,
 
-        @NotNull(message = "Hora de início é obrigatória")
         LocalTime horaInicio,
 
         LocalTime horaFim,
@@ -32,9 +45,11 @@ public record EscalaCreateRequest(
 
         UUID eventoId,
 
-        @NotEmpty(message = "Informe ao menos um serviço necessário")
         @Valid
-        List<EscalaServicoRequest> servicos
+        List<EscalaServicoRequest> servicos,
+
+        @Valid
+        List<EscalaItemRequest> itens
 ) {
     public record EscalaServicoRequest(
             @NotNull(message = "servicoId é obrigatório")
@@ -43,6 +58,15 @@ public record EscalaCreateRequest(
             @NotNull(message = "quantidadeNecessaria é obrigatória")
             @Min(value = 1, message = "Quantidade deve ser no mínimo 1")
             Integer quantidadeNecessaria
+    ) {
+    }
+
+    public record EscalaItemRequest(
+            LocalDate data,
+            UUID eventoId,
+            UUID pessoaId,
+            UUID servicoId,
+            LocalTime horario
     ) {
     }
 }

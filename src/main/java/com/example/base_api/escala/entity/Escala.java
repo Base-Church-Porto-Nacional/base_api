@@ -3,6 +3,8 @@ package com.example.base_api.escala.entity;
 import com.example.base_api.common.entity.AuditableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -44,6 +46,25 @@ public class Escala extends AuditableEntity {
 
     @Column(name = "evento_id")
     private UUID eventoId;
+
+    @Column(name = "igreja_id", nullable = false)
+    private UUID igrejaId;
+
+    @Column(nullable = false, length = 7)
+    private String competencia;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TipoEscala tipo = TipoEscala.CULTO;
+
+    @Column(name = "ministerio_id")
+    private UUID ministerioId;
+
+    @Column(name = "supervisor_pessoa_id")
+    private UUID supervisorPessoaId;
+
+    @Column(name = "pregador_pessoa_id")
+    private UUID pregadorPessoaId;
 
     @Column(nullable = false)
     private Boolean ativo = true;

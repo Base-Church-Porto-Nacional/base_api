@@ -1,8 +1,10 @@
-package com.example.base_api.escala.generation;
+package com.example.base_api.escala.service;
 
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.escala.dto.GeracaoEscalaResponse;
+import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.repository.EscalaRepository;
+import com.example.base_api.security.AutorizacaoService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,19 +26,26 @@ import java.util.UUID;
  * </ol>
  */
 @Service
-public class ScheduleGenerationService {
+public class GeracaoEscalaService {
 
     private final EscalaRepository escalaRepository;
+    private final AutorizacaoService autorizacaoService;
 
-    public ScheduleGenerationService(EscalaRepository escalaRepository) {
+    public GeracaoEscalaService(EscalaRepository escalaRepository, AutorizacaoService autorizacaoService) {
         this.escalaRepository = escalaRepository;
+        this.autorizacaoService = autorizacaoService;
     }
 
     @Transactional(readOnly = true)
     public GeracaoEscalaResponse gerarSugestao(UUID escalaId) {
-        if (!escalaRepository.existsById(escalaId)) {
-            throw new ResourceNotFoundException("Escala não encontrada");
-        }
+        Escala escala = escalaRepository.findById(escalaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Escala não encontrada"));
+        autorizacaoService.assertPodeMutarEscala(
+                escala.getTipo(),
+                escala.getIgrejaId(),
+                escala.getCompetencia(),
+                escala.getMinisterioId()
+        );
 
         return new GeracaoEscalaResponse(
                 escalaId,

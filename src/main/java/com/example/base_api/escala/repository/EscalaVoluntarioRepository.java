@@ -12,7 +12,11 @@ public interface EscalaVoluntarioRepository extends JpaRepository<EscalaVoluntar
 
     List<EscalaVoluntario> findByEscalaId(UUID escalaId);
 
+    List<EscalaVoluntario> findByEscalaIdIn(List<UUID> escalaIds);
+
     List<EscalaVoluntario> findByPessoaId(UUID pessoaId);
+
+    List<EscalaVoluntario> findByEscalaIdAndPessoaId(UUID escalaId, UUID pessoaId);
 
     Optional<EscalaVoluntario> findByEscalaIdAndPessoaIdAndServicoId(
             UUID escalaId,

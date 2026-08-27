@@ -1,13 +1,37 @@
 package com.example.base_api.escala.repository;
 
 import com.example.base_api.escala.entity.Escala;
+import com.example.base_api.escala.entity.TipoEscala;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 public interface EscalaRepository extends JpaRepository<Escala, UUID> {
 
-    List<Escala> findByDataEventoBetweenOrderByDataEventoAscHoraInicioAsc(LocalDate inicio, LocalDate fim);
+    List<Escala> findByIgrejaIdInOrderByCompetenciaDescTituloAsc(List<UUID> igrejaIds);
+
+    List<Escala> findByIgrejaIdInAndCompetenciaOrderByTipoAscTituloAsc(List<UUID> igrejaIds, String competencia);
+
+    List<Escala> findByIgrejaIdAndCompetenciaAndTipo(
+            UUID igrejaId,
+            String competencia,
+            TipoEscala tipo
+    );
+
+    long countByIgrejaIdIn(List<UUID> igrejaIds);
+
+    @Query("""
+            SELECT DISTINCT e FROM Escala e
+            JOIN EscalaVoluntario ev ON ev.escalaId = e.id
+            WHERE e.igrejaId IN :igrejaIds
+              AND ev.pessoaId = :pessoaId
+            ORDER BY e.competencia DESC, e.titulo
+            """)
+    List<Escala> findByIgrejaIdInAndPessoaDesignada(
+            @Param("igrejaIds") List<UUID> igrejaIds,
+            @Param("pessoaId") UUID pessoaId
+    );
 }

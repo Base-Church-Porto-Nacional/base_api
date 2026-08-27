@@ -8,13 +8,14 @@ import com.example.base_api.escala.dto.EscalaVoluntarioCreateRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioStatusRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioUpdateRequest;
 import com.example.base_api.escala.dto.GeracaoEscalaResponse;
-import com.example.base_api.escala.generation.ScheduleGenerationService;
 import com.example.base_api.escala.service.EscalaService;
+import com.example.base_api.escala.service.GeracaoEscalaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,20 +37,24 @@ import java.util.UUID;
 public class EscalaController {
 
     private final EscalaService escalaService;
-    private final ScheduleGenerationService scheduleGenerationService;
+    private final GeracaoEscalaService geracaoEscalaService;
 
     public EscalaController(
             EscalaService escalaService,
-            ScheduleGenerationService scheduleGenerationService
+            GeracaoEscalaService geracaoEscalaService
     ) {
         this.escalaService = escalaService;
-        this.scheduleGenerationService = scheduleGenerationService;
+        this.geracaoEscalaService = geracaoEscalaService;
     }
 
     @GetMapping
-    @Operation(summary = "Listar escalas")
-    public List<EscalaResponse> listar() {
-        return escalaService.listar();
+    @Operation(summary = "Listar escalas mensais")
+    public List<EscalaResponse> listar(
+            @RequestParam(required = false) UUID igrejaId,
+            @RequestParam(required = false) String competencia,
+            @RequestParam(required = false) UUID pessoaId
+    ) {
+        return escalaService.listar(igrejaId, competencia, pessoaId);
     }
 
     @GetMapping("/{id}")
@@ -59,12 +65,14 @@ public class EscalaController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Criar escala")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Criar escala mensal (SUPERVISOR | PREGADOR | CULTO | MINISTERIO)")
     public EscalaResponse criar(@Valid @RequestBody EscalaCreateRequest request) {
         return escalaService.criar(request);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Atualizar escala")
     public EscalaResponse atualizar(
             @PathVariable UUID id,
@@ -75,6 +83,7 @@ public class EscalaController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Excluir escala")
     public void excluir(@PathVariable UUID id) {
         escalaService.excluir(id);
@@ -82,6 +91,7 @@ public class EscalaController {
 
     @PostMapping("/{id}/servicos")
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Adicionar serviço necessário à escala")
     public EscalaResponse.EscalaServicoResponse adicionarServico(
             @PathVariable UUID id,
@@ -91,6 +101,7 @@ public class EscalaController {
     }
 
     @PutMapping("/{id}/servicos/{escalaServicoId}")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Atualizar serviço necessário da escala")
     public EscalaResponse.EscalaServicoResponse atualizarServico(
             @PathVariable UUID id,
@@ -102,6 +113,7 @@ public class EscalaController {
 
     @DeleteMapping("/{id}/servicos/{escalaServicoId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Remover serviço necessário da escala")
     public void removerServico(
             @PathVariable UUID id,
@@ -112,6 +124,7 @@ public class EscalaController {
 
     @PostMapping("/{id}/voluntarios")
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Designar voluntário para a escala")
     public EscalaResponse.EscalaVoluntarioResponse designarVoluntario(
             @PathVariable UUID id,
@@ -121,6 +134,7 @@ public class EscalaController {
     }
 
     @PutMapping("/{id}/voluntarios/{designacaoId}")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Atualizar designação do voluntário (pessoa, serviço, status)")
     public EscalaResponse.EscalaVoluntarioResponse atualizarDesignacao(
             @PathVariable UUID id,
@@ -131,6 +145,7 @@ public class EscalaController {
     }
 
     @PutMapping("/{id}/voluntarios/{designacaoId}/status")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Confirmar, recusar ou substituir designação")
     public EscalaResponse.EscalaVoluntarioResponse atualizarStatus(
             @PathVariable UUID id,
@@ -142,6 +157,7 @@ public class EscalaController {
 
     @DeleteMapping("/{id}/voluntarios/{designacaoId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Remover designação da escala")
     public void removerDesignacao(
             @PathVariable UUID id,
@@ -151,8 +167,9 @@ public class EscalaController {
     }
 
     @PostMapping("/{id}/gerar-sugestao")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Gerar sugestão automática de escala (stub — algoritmo futuro)")
     public GeracaoEscalaResponse gerarSugestao(@PathVariable UUID id) {
-        return scheduleGenerationService.gerarSugestao(id);
+        return geracaoEscalaService.gerarSugestao(id);
     }
 }
