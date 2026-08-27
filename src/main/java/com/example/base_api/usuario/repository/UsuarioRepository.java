@@ -21,12 +21,23 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
 
     boolean existsByPessoaId(UUID pessoaId);
 
+    Optional<Usuario> findByPessoaId(UUID pessoaId);
+
+    List<Usuario> findByIgrejaIdIn(List<UUID> igrejaIds);
+
+    long countByIgrejaIdIn(List<UUID> igrejaIds);
+
     @Query("""
             SELECT DISTINCT u FROM Usuario u
-            JOIN u.papeis p
+            JOIN u.papeisIgreja up
+            JOIN up.papel p
             WHERE UPPER(p.nome) = UPPER(:papel)
               AND u.ativo = true
+              AND up.igrejaId IN :igrejaIds
             ORDER BY u.username
             """)
-    List<Usuario> findAtivosByPapel(@Param("papel") String papel);
+    List<Usuario> findAtivosByPapelAndIgrejaIdIn(
+            @Param("papel") String papel,
+            @Param("igrejaIds") List<UUID> igrejaIds
+    );
 }

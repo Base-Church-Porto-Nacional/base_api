@@ -8,6 +8,9 @@ public record LoginResponse(
         String tipo,
         UUID usuarioId,
         String username,
-        Set<String> papeis
+        Set<String> papeis,
+        UUID pessoaId,
+        UUID igrejaId,
+        String igrejaTipo
 ) {
 }

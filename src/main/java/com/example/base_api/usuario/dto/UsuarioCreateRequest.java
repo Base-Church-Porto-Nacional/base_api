@@ -24,6 +24,8 @@ public record UsuarioCreateRequest(
         String senha,
 
         @NotEmpty(message = "Informe ao menos um papel")
-        Set<String> papeis
+        Set<String> papeis,
+
+        UUID igrejaId
 ) {
 }

@@ -7,9 +7,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,6 +15,7 @@ import lombok.Setter;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -31,6 +30,9 @@ public class Usuario extends AuditableEntity {
     @Column(name = "pessoa_id", unique = true)
     private UUID pessoaId;
 
+    @Column(name = "igreja_id")
+    private UUID igrejaId;
+
     @Column(nullable = false, unique = true, length = 100)
     private String username;
 
@@ -43,11 +45,28 @@ public class Usuario extends AuditableEntity {
     @Column(nullable = false)
     private Boolean ativo = true;
 
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-            name = "usuario_papel",
-            joinColumns = @JoinColumn(name = "usuario_id"),
-            inverseJoinColumns = @JoinColumn(name = "papel_id")
-    )
-    private Set<Papel> papeis = new HashSet<>();
+    @Column(name = "token_version", nullable = false)
+    private Integer tokenVersion = 0;
+
+    @OneToMany(mappedBy = "usuario", fetch = FetchType.EAGER)
+    private Set<UsuarioPapel> papeisIgreja = new HashSet<>();
+
+    public void invalidarTokens() {
+        int atual = tokenVersion == null ? 0 : tokenVersion;
+        this.tokenVersion = atual + 1;
+    }
+
+    public Set<String> nomesPapeis(UUID igrejaAlvoId) {
+        if (papeisIgreja == null || igrejaAlvoId == null) {
+            return Set.of();
+        }
+        return papeisIgreja.stream()
+                .filter(up -> igrejaAlvoId.equals(up.getIgrejaId()) && up.getPapel() != null)
+                .map(up -> up.getPapel().getNome())
+                .collect(Collectors.toSet());
+    }
+
+    public Set<String> nomesPapeisDaIgrejaAtual() {
+        return nomesPapeis(igrejaId);
+    }
 }

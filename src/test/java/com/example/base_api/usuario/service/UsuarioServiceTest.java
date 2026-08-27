@@ -1,19 +1,25 @@
 package com.example.base_api.usuario.service;
 
+import com.example.base_api.audit.service.AuditService;
 import com.example.base_api.common.exception.BusinessException;
+import com.example.base_api.igreja.repository.IgrejaRepository;
 import com.example.base_api.pessoa.service.PessoaService;
+import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.security.JwtService;
 import com.example.base_api.usuario.dto.UsuarioCreateRequest;
 import com.example.base_api.usuario.dto.UsuarioResponse;
 import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.entity.Usuario;
+import com.example.base_api.usuario.entity.UsuarioPapel;
 import com.example.base_api.usuario.repository.PapelRepository;
+import com.example.base_api.usuario.repository.UsuarioPapelRepository;
 import com.example.base_api.usuario.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -26,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,6 +43,8 @@ class UsuarioServiceTest {
     @Mock
     private PapelRepository papelRepository;
     @Mock
+    private UsuarioPapelRepository usuarioPapelRepository;
+    @Mock
     private PessoaService pessoaService;
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -43,6 +52,12 @@ class UsuarioServiceTest {
     private JwtService jwtService;
     @Mock
     private AuthenticationManager authenticationManager;
+    @Mock
+    private AutorizacaoService autorizacaoService;
+    @Mock
+    private IgrejaRepository igrejaRepository;
+    @Mock
+    private AuditService auditService;
 
     @InjectMocks
     private UsuarioService usuarioService;
@@ -52,7 +67,9 @@ class UsuarioServiceTest {
         Papel membro = new Papel();
         membro.setId(UUID.randomUUID());
         membro.setNome("MEMBRO");
+        UUID igrejaId = UUID.randomUUID();
 
+        when(autorizacaoService.validarPapeisAtalho(Set.of("MEMBRO"))).thenReturn(Set.of("MEMBRO"));
         when(usuarioRepository.existsByUsername("joao")).thenReturn(false);
         when(usuarioRepository.existsByEmailIgnoreCase("joao@email.com")).thenReturn(false);
         when(papelRepository.findByNome("MEMBRO")).thenReturn(Optional.of(membro));
@@ -64,34 +81,52 @@ class UsuarioServiceTest {
             u.setUpdatedAt(Instant.now());
             return u;
         });
+        when(usuarioPapelRepository.save(any(UsuarioPapel.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
 
         UsuarioResponse response = usuarioService.criar(new UsuarioCreateRequest(
-                null, "joao", "joao@email.com", "senha123", Set.of("MEMBRO")
+                null, "joao", "joao@email.com", "senha123", Set.of("MEMBRO"), igrejaId
         ));
 
         assertThat(response.username()).isEqualTo("joao");
         assertThat(response.papeis()).contains("MEMBRO");
+        assertThat(response.igrejaId()).isEqualTo(igrejaId);
     }
 
     @Test
     void naoDeveCriarUsuarioComUsernameDuplicado() {
+        UUID igrejaId = UUID.randomUUID();
+        when(autorizacaoService.validarPapeisAtalho(Set.of("MEMBRO"))).thenReturn(Set.of("MEMBRO"));
         when(usuarioRepository.existsByUsername("joao")).thenReturn(true);
 
         assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
-                null, "joao", "joao@email.com", "senha123", Set.of("MEMBRO")
+                null, "joao", "joao@email.com", "senha123", Set.of("MEMBRO"), igrejaId
         ))).isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Username");
     }
 
     @Test
     void naoDeveCriarUsuarioComPapelInvalido() {
+        UUID igrejaId = UUID.randomUUID();
+        when(autorizacaoService.validarPapeisAtalho(Set.of("XYZ"))).thenReturn(Set.of("XYZ"));
         when(usuarioRepository.existsByUsername("joao")).thenReturn(false);
         when(usuarioRepository.existsByEmailIgnoreCase("joao@email.com")).thenReturn(false);
         when(papelRepository.findByNome("XYZ")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
-                null, "joao", "joao@email.com", "senha123", Set.of("XYZ")
+                null, "joao", "joao@email.com", "senha123", Set.of("XYZ"), igrejaId
         ))).isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Papel inválido");
+    }
+
+    @Test
+    void membroNaoCriaUsuario() {
+        UUID igrejaId = UUID.randomUUID();
+        doThrow(new AccessDeniedException("Somente pastor ou admin desta igreja"))
+                .when(autorizacaoService).assertPodeCriarUsuario(igrejaId);
+
+        assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
+                null, "joao", "joao@email.com", "senha123", Set.of("MEMBRO"), igrejaId
+        ))).isInstanceOf(AccessDeniedException.class);
     }
 }

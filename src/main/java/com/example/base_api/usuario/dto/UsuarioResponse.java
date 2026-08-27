@@ -7,8 +7,11 @@ import java.util.UUID;
 public record UsuarioResponse(
         UUID id,
         UUID pessoaId,
+        String pessoaNome,
         String username,
         String email,
+        UUID igrejaId,
+        String igrejaNome,
         Boolean ativo,
         Set<String> papeis,
         Instant createdAt,
