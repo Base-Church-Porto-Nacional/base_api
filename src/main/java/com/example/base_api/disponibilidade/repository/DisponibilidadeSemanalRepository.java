@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface DisponibilidadeSemanalRepository extends JpaRepository<DisponibilidadeSemanal, UUID> {
 
     List<DisponibilidadeSemanal> findByPessoaId(UUID pessoaId);
+
+    List<DisponibilidadeSemanal> findByPessoaIdIn(List<UUID> pessoaIds);
 }

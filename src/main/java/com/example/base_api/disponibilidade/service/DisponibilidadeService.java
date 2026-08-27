@@ -10,7 +10,9 @@ import com.example.base_api.disponibilidade.entity.DisponibilidadeSemanal;
 import com.example.base_api.disponibilidade.entity.Indisponibilidade;
 import com.example.base_api.disponibilidade.repository.DisponibilidadeSemanalRepository;
 import com.example.base_api.disponibilidade.repository.IndisponibilidadeRepository;
+import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.service.PessoaService;
+import com.example.base_api.security.AutorizacaoService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,20 +25,23 @@ public class DisponibilidadeService {
     private final DisponibilidadeSemanalRepository disponibilidadeSemanalRepository;
     private final IndisponibilidadeRepository indisponibilidadeRepository;
     private final PessoaService pessoaService;
+    private final AutorizacaoService autorizacaoService;
 
     public DisponibilidadeService(
             DisponibilidadeSemanalRepository disponibilidadeSemanalRepository,
             IndisponibilidadeRepository indisponibilidadeRepository,
-            PessoaService pessoaService
+            PessoaService pessoaService,
+            AutorizacaoService autorizacaoService
     ) {
         this.disponibilidadeSemanalRepository = disponibilidadeSemanalRepository;
         this.indisponibilidadeRepository = indisponibilidadeRepository;
         this.pessoaService = pessoaService;
+        this.autorizacaoService = autorizacaoService;
     }
 
     @Transactional(readOnly = true)
     public List<DisponibilidadeSemanalResponse> listarSemanal(UUID pessoaId) {
-        pessoaService.buscarEntidade(pessoaId);
+        assertAcessoPessoa(pessoaId);
         return disponibilidadeSemanalRepository.findByPessoaId(pessoaId).stream()
                 .map(this::toSemanalResponse)
                 .toList();
@@ -44,7 +49,7 @@ public class DisponibilidadeService {
 
     @Transactional
     public DisponibilidadeSemanalResponse criarSemanal(DisponibilidadeSemanalRequest request) {
-        pessoaService.buscarEntidade(request.pessoaId());
+        assertAcessoPessoa(request.pessoaId());
         if (!request.horaFim().isAfter(request.horaInicio())) {
             throw new BusinessException("Hora fim deve ser posterior à hora início");
         }
@@ -65,7 +70,8 @@ public class DisponibilidadeService {
         DisponibilidadeSemanal disponibilidade = disponibilidadeSemanalRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Disponibilidade semanal não encontrada"));
 
-        pessoaService.buscarEntidade(request.pessoaId());
+        assertAcessoPessoa(disponibilidade.getPessoaId());
+        assertAcessoPessoa(request.pessoaId());
         if (!request.horaFim().isAfter(request.horaInicio())) {
             throw new BusinessException("Hora fim deve ser posterior à hora início");
         }
@@ -84,12 +90,13 @@ public class DisponibilidadeService {
     public void excluirSemanal(UUID id) {
         DisponibilidadeSemanal disponibilidade = disponibilidadeSemanalRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Disponibilidade semanal não encontrada"));
+        assertAcessoPessoa(disponibilidade.getPessoaId());
         disponibilidadeSemanalRepository.delete(disponibilidade);
     }
 
     @Transactional(readOnly = true)
     public List<IndisponibilidadeResponse> listarIndisponibilidades(UUID pessoaId) {
-        pessoaService.buscarEntidade(pessoaId);
+        assertAcessoPessoa(pessoaId);
         return indisponibilidadeRepository.findByPessoaId(pessoaId).stream()
                 .map(this::toIndisponibilidadeResponse)
                 .toList();
@@ -97,7 +104,7 @@ public class DisponibilidadeService {
 
     @Transactional
     public IndisponibilidadeResponse criarIndisponibilidade(IndisponibilidadeRequest request) {
-        pessoaService.buscarEntidade(request.pessoaId());
+        assertAcessoPessoa(request.pessoaId());
         if (request.dataFim().isBefore(request.dataInicio())) {
             throw new BusinessException("Data fim deve ser igual ou posterior à data início");
         }
@@ -119,7 +126,8 @@ public class DisponibilidadeService {
         Indisponibilidade indisponibilidade = indisponibilidadeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Indisponibilidade não encontrada"));
 
-        pessoaService.buscarEntidade(request.pessoaId());
+        assertAcessoPessoa(indisponibilidade.getPessoaId());
+        assertAcessoPessoa(request.pessoaId());
         if (request.dataFim().isBefore(request.dataInicio())) {
             throw new BusinessException("Data fim deve ser igual ou posterior à data início");
         }
@@ -139,7 +147,13 @@ public class DisponibilidadeService {
     public void excluirIndisponibilidade(UUID id) {
         Indisponibilidade indisponibilidade = indisponibilidadeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Indisponibilidade não encontrada"));
+        assertAcessoPessoa(indisponibilidade.getPessoaId());
         indisponibilidadeRepository.delete(indisponibilidade);
+    }
+
+    private void assertAcessoPessoa(UUID pessoaId) {
+        Pessoa pessoa = pessoaService.buscarEntidade(pessoaId);
+        autorizacaoService.assertPodeAcessarDisponibilidade(pessoa);
     }
 
     private DisponibilidadeSemanalResponse toSemanalResponse(DisponibilidadeSemanal entity) {

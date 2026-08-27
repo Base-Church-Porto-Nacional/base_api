@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -43,6 +44,7 @@ public class DisponibilidadeController {
 
     @PostMapping("/semanal")
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Criar disponibilidade semanal")
     public DisponibilidadeSemanalResponse criarSemanal(
             @Valid @RequestBody DisponibilidadeSemanalRequest request
@@ -51,6 +53,7 @@ public class DisponibilidadeController {
     }
 
     @PutMapping("/semanal/{id}")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Atualizar disponibilidade semanal")
     public DisponibilidadeSemanalResponse atualizarSemanal(
             @PathVariable UUID id,
@@ -61,6 +64,7 @@ public class DisponibilidadeController {
 
     @DeleteMapping("/semanal/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Excluir disponibilidade semanal")
     public void excluirSemanal(@PathVariable UUID id) {
         disponibilidadeService.excluirSemanal(id);
@@ -74,6 +78,7 @@ public class DisponibilidadeController {
 
     @PostMapping("/indisponibilidades")
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Criar indisponibilidade")
     public IndisponibilidadeResponse criarIndisponibilidade(
             @Valid @RequestBody IndisponibilidadeRequest request
@@ -82,6 +87,7 @@ public class DisponibilidadeController {
     }
 
     @PutMapping("/indisponibilidades/{id}")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Atualizar indisponibilidade")
     public IndisponibilidadeResponse atualizarIndisponibilidade(
             @PathVariable UUID id,
@@ -92,6 +98,7 @@ public class DisponibilidadeController {
 
     @DeleteMapping("/indisponibilidades/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Excluir indisponibilidade")
     public void excluirIndisponibilidade(@PathVariable UUID id) {
         disponibilidadeService.excluirIndisponibilidade(id);

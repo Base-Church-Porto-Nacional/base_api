@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface IndisponibilidadeRepository extends JpaRepository<Indisponibilidade, UUID> {
 
     List<Indisponibilidade> findByPessoaId(UUID pessoaId);
+
+    List<Indisponibilidade> findByPessoaIdIn(List<UUID> pessoaIds);
 }
