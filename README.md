@@ -26,15 +26,17 @@ O frontend (React + TypeScript) será desenvolvido em repositório separado.
 
 Permitir o gerenciamento de:
 
-- Pessoas (sem exigir login)
+- Rede de igrejas (matriz e filiais)
+- Pessoas (sem exigir login), vinculadas a uma igreja
 - Jornada de membros
-- Ministérios e serviços
+- Ministérios e serviços (incluindo coordenador como serviço ficção)
 - Voluntários (pessoa ↔ serviço)
 - Disponibilidade
-- Escalas e confirmação/recusa
-- Usuários e papéis (RBAC)
+- Escalas mensais (supervisor, pregador, culto, ministério)
+- Conteúdo do culto (pregação e louvor)
+- Usuários e papéis por igreja (RBAC)
 
-A geração automática de escalas está preparada via `ScheduleGenerationService`, sem algoritmo implementado ainda.
+A geração automática de escalas está preparada via `GeracaoEscalaService`, sem algoritmo implementado ainda.
 
 ## Decisões arquiteturais
 
@@ -42,24 +44,37 @@ A geração automática de escalas está preparada via `ScheduleGenerationServic
 2. **Voluntário** — modelado como `pessoa_servico` (não há entidade `Voluntario` separada). Uma pessoa pode atuar em vários ministérios/serviços.
 3. **Jornada** — campos principais em `jornada_membro` + catálogo extensível (`jornada_etapa_catalogo` / `pessoa_jornada_etapa`) para novas etapas sem obrigar sequência rígida.
 4. **Escalas** — tabelas separadas: `escala`, `escala_servico`, `escala_voluntario`.
-5. **RBAC** — papéis em tabela (`ADMIN`, `PASTOR`, `LIDER`, `VOLUNTARIO`, `MEMBRO`); usuário pode ter múltiplos papéis.
+5. **RBAC** — papéis em tabela (`ADMIN`, `PASTOR`, `LIDER`, `VOLUNTARIO`, `MEMBRO`); usuário pode ter múltiplos papéis, sempre no contexto da igreja.
+6. **Rede de igrejas** — uma matriz vê todas as filiais; filial só acessa a própria. `igrejaId` em pessoa, ministério, usuário, cronograma e escala.
+7. **Escalas mensais** — competência `YYYY-MM` e tipo `SUPERVISOR | PREGADOR | CULTO | MINISTERIO`. Supervisor/pregador padrão: pastor da igreja.
+8. **Coordenador** — serviço ficção (`ficcao: true`) criado automaticamente em cada ministério; não é papel.
 
 ## Estrutura do projeto
 
+Pacotes separados **por domínio**. Cada domínio usa as mesmas camadas:
+
+`controller` → `service` → `repository` / `entity` / `dto`
+
+URLs públicas são `/api/{recurso}` — sem prefixo de versão (`/v1`, `/v2`). O path `/v3/api-docs` é o contrato OpenAPI 3 do springdoc, não versionamento desta API.
+
 ```
 src/main/java/com/example/base_api/
-├── config/
-├── security/
-├── common/
+├── config/            # bootstrap, OpenAPI, seed (dev)
+├── security/          # JWT, ACL, CORS
+├── common/            # exceções e utilitários compartilhados
+├── igreja/
 ├── pessoa/
 ├── jornada/
 ├── ministerio/
 ├── servico/
 ├── voluntario/
 ├── disponibilidade/
+├── cronograma/
 ├── escala/
-│   └── generation/   # ScheduleGenerationService (stub)
-└── usuario/
+├── usuario/
+├── dashboard/
+├── export/
+└── audit/
 ```
 
 ## Variáveis de ambiente
@@ -108,14 +123,21 @@ export $(grep -v '^#' .env | xargs)
 API: http://localhost:8080  
 Swagger: http://localhost:8080/swagger-ui.html
 
-### Usuário inicial
+### Usuários iniciais
 
-Na primeira execução é criado:
+Na primeira execução são criados (senha `admin123`):
 
-- **username:** `admin`
-- **senha:** `admin123`
+| Username | Perfil |
+|----------|--------|
+| `admin` | Pastor/admin da matriz (Ana Costa) — vê a rede |
+| `filial` | Admin da filial Zona Sul |
+| `joao` | Líder do Louvor |
+| `maria` | Coordenadora do Louvor |
+| `midia` | Líder de Mídia |
+| `membro` | Voluntária |
+| `pedro` | Pastor da filial |
 
-Altere em produção.
+Altere as senhas em produção.
 
 ### Login
 
@@ -139,23 +161,27 @@ Rodam automaticamente na subida da aplicação.
 
 | Método | Caminho | Descrição |
 |--------|---------|-----------|
-| POST | `/api/auth/login` | Autenticação JWT |
-| GET/POST | `/api/pessoas` | Pessoas |
+| POST | `/api/auth/login` | Autenticação JWT (claims: `pessoaId`, `igrejaId`, `igrejaTipo`, `papeis`) |
+| GET/PUT | `/api/me` | Perfil com `pessoaId`, `igrejaId`, `igrejaTipo`, `igrejasVisiveis[]` |
+| GET/POST | `/api/igrejas` | Igrejas visíveis (matriz vê a rede; filial só a própria) |
+| POST | `/api/igrejas/{matrizId}/filiais` | Criar filial com pastor e admin |
+| GET/POST | `/api/pessoas` | Pessoas (`?igrejaId=`) |
+| POST | `/api/pessoas/{id}/usuario` | Criar usuário a partir da pessoa (papéis da igreja) |
 | GET/POST | `/api/pessoas/{id}/historico` | Histórico da pessoa |
 | GET/PUT | `/api/pessoas/{id}/jornada` | Jornada |
 | CRUD | `/api/jornada-etapas` | Catálogo de etapas |
-| GET/POST | `/api/ministerios` | Ministérios |
+| GET/POST | `/api/ministerios` | Ministérios (`tipo`, `liderPessoaId`, serviço Coordenador ficção) |
 | GET/POST | `/api/ministerios/{id}/servicos` | Serviços |
 | CRUD | `/api/voluntarios` | Voluntários (serviço, cargo, etc.) |
-| POST | `/api/escalas` | Escalas |
+| GET/POST | `/api/escalas` | Escalas mensais (`competencia`, `tipo`, `?igrejaId=&competencia=&pessoaId=`) |
 | CRUD | `/api/escalas/{id}/servicos` | Serviços da escala |
 | CRUD | `/api/escalas/{id}/voluntarios` | Designações |
 | CRUD | `/api/disponibilidades/...` | Disponibilidade |
-| CRUD | `/api/usuarios` | Usuários |
+| CRUD | `/api/usuarios` | Usuários (`?igrejaId=`) |
 | CRUD | `/api/papeis` | Papéis |
-| CRUD | `/api/cronograma` | Cultos/eventos (cronograma) |
+| CRUD | `/api/cronograma` | Cultos/eventos (`supervisorPessoaId`, `?igrejaId=`) |
+| GET/PUT | `/api/cronograma/{id}/conteudo` | Texto da pregação e louvor |
 | CRUD | `/api/pessoas/{id}/pausas` | Pausas no perfil |
-| GET/PUT | `/api/me` | Meu perfil (usuário + pessoa) |
 | GET | `/api/lideres` | Líderes (papel LIDER) |
 | GET | `/api/dashboard` | Totais do dashboard |
 | POST | `/api/escalas/{id}/gerar-sugestao` | Sugestão automática (stub) |

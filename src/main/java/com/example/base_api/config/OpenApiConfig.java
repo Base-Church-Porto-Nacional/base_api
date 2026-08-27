@@ -19,7 +19,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("Sistema de Gestão da Igreja — API")
                         .description("Backend REST para gestão de pessoas, ministérios, voluntários e escalas.")
-                        .version("v1")
+                        .version("1.0.0")
                         .contact(new Contact().name("Base API")))
                 .addSecurityItem(new SecurityRequirement().addList(schemeName))
                 .components(new Components()
