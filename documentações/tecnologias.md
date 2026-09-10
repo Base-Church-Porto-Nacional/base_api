@@ -4,7 +4,6 @@
 
 | Tecnologia | Versão | Finalidade |
 |------------|--------|------------|
-| Node.js | A definir | Ambiente de execução e ferramentas do projeto |
 | Flutter | A definir | Desenvolvimento da interface multiplataforma |
 | Web     |-----------| Plataforma de execução da aplicação |
 | Android |-----------| Plataforma mobile |
@@ -47,9 +46,6 @@ infraestrutura baseada em serviços de nuvem e containers.
 O front-end será desenvolvido utilizando **Flutter**, permitindo a
 construção da aplicação para diferentes plataformas, incluindo **Web,
 Android e iOS**.
-
-O **Node.js** será utilizado como ambiente de suporte às ferramentas e
-dependências do projeto.
 
 ### Back-end
 
