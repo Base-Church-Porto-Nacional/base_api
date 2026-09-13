@@ -18,6 +18,8 @@ public record MinisterioResponse(
         String liderNome,
         UUID coordenadorPessoaId,
         String coordenadorNome,
+        UUID baseMinisterialId,
+        String baseMinisterialNome,
         String anotacoes,
         String ordem,
         Integer totalVoluntarios,

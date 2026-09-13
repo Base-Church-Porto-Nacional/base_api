@@ -2,6 +2,7 @@ package com.example.base_api.ministerio.service;
 
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
+import com.example.base_api.baseministerial.repository.BaseMinisterialRepository;
 import com.example.base_api.ministerio.dto.MinisterioCreateRequest;
 import com.example.base_api.ministerio.dto.MinisterioResponse;
 import com.example.base_api.ministerio.entity.Ministerio;
@@ -42,6 +43,8 @@ class MinisterioServiceTest {
     private ServicoRepository servicoRepository;
     @Mock
     private PessoaServicoRepository pessoaServicoRepository;
+    @Mock
+    private BaseMinisterialRepository baseMinisterialRepository;
 
     @InjectMocks
     private MinisterioService ministerioService;
@@ -69,7 +72,7 @@ class MinisterioServiceTest {
         when(servicoRepository.findByMinisterioIdOrderByNomeAsc(any())).thenReturn(List.of());
 
         MinisterioResponse response = ministerioService.criar(
-                new MinisterioCreateRequest("Louvor", "Ministério de louvor", true, igrejaId, MinisterioTipo.MUSICA, null, null)
+                new MinisterioCreateRequest("Louvor", "Ministério de louvor", true, igrejaId, MinisterioTipo.MUSICA, null, null, null)
         );
 
         assertThat(response.nome()).isEqualTo("Louvor");
@@ -87,7 +90,7 @@ class MinisterioServiceTest {
         when(ministerioRepository.findByIgrejaIdAndNomeIgnoreCase(igrejaId, "Louvor")).thenReturn(Optional.of(existente));
 
         assertThatThrownBy(() -> ministerioService.criar(
-                new MinisterioCreateRequest("Louvor", null, true, igrejaId, MinisterioTipo.GERAL, null, null)
+                new MinisterioCreateRequest("Louvor", null, true, igrejaId, MinisterioTipo.GERAL, null, null, null)
         )).isInstanceOf(BusinessException.class);
     }
 

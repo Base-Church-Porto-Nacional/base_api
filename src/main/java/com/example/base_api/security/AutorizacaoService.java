@@ -1,5 +1,7 @@
 package com.example.base_api.security;
 
+import com.example.base_api.baseministerial.entity.BaseMinisterial;
+import com.example.base_api.baseministerial.repository.BaseMinisterialRepository;
 import com.example.base_api.common.exception.ConflictException;
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.escala.entity.Escala;
@@ -13,6 +15,7 @@ import com.example.base_api.ministerio.repository.MinisterioRepository;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.servico.entity.Servico;
 import com.example.base_api.servico.repository.ServicoRepository;
+import com.example.base_api.smallgroup.entity.SmallGroup;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.springframework.security.access.AccessDeniedException;
@@ -35,6 +38,7 @@ public class AutorizacaoService {
     private final PessoaServicoRepository pessoaServicoRepository;
     private final EscalaRepository escalaRepository;
     private final EscalaVoluntarioRepository escalaVoluntarioRepository;
+    private final BaseMinisterialRepository baseMinisterialRepository;
 
     public AutorizacaoService(
             IgrejaContextoService igrejaContextoService,
@@ -42,7 +46,8 @@ public class AutorizacaoService {
             ServicoRepository servicoRepository,
             PessoaServicoRepository pessoaServicoRepository,
             EscalaRepository escalaRepository,
-            EscalaVoluntarioRepository escalaVoluntarioRepository
+            EscalaVoluntarioRepository escalaVoluntarioRepository,
+            BaseMinisterialRepository baseMinisterialRepository
     ) {
         this.igrejaContextoService = igrejaContextoService;
         this.ministerioRepository = ministerioRepository;
@@ -50,6 +55,7 @@ public class AutorizacaoService {
         this.pessoaServicoRepository = pessoaServicoRepository;
         this.escalaRepository = escalaRepository;
         this.escalaVoluntarioRepository = escalaVoluntarioRepository;
+        this.baseMinisterialRepository = baseMinisterialRepository;
     }
 
     public Usuario requireUsuario() {
@@ -122,11 +128,73 @@ public class AutorizacaoService {
                 || pessoaId.equals(ministerio.getCoordenadorPessoaId()))) {
             return;
         }
+        if (pessoaId != null && ministerio.getBaseMinisterialId() != null) {
+            BaseMinisterial base = baseMinisterialRepository.findById(ministerio.getBaseMinisterialId())
+                    .orElse(null);
+            if (base != null && (pessoaId.equals(base.getLiderPessoaId())
+                    || pessoaId.equals(base.getCoordenadorPessoaId()))) {
+                return;
+            }
+        }
         throw new AccessDeniedException("Sem permissão para gerenciar este ministério");
     }
 
     public void assertPodeCriarMinisterio(UUID igrejaId) {
         assertPastorOuAdmin(igrejaId);
+    }
+
+    public void assertPodeGerenciarBaseMinisterial(BaseMinisterial base) {
+        assertAcesso(base.getIgrejaId());
+        if (isPastorOuAdmin(base.getIgrejaId())) {
+            return;
+        }
+        UUID pessoaId = requireUsuario().getPessoaId();
+        if (pessoaId != null && (pessoaId.equals(base.getLiderPessoaId())
+                || pessoaId.equals(base.getCoordenadorPessoaId()))) {
+            return;
+        }
+        throw new AccessDeniedException("Sem permissão para gerenciar esta base ministerial");
+    }
+
+    public void assertPodeCriarBaseMinisterial(UUID igrejaId) {
+        assertPastorOuAdmin(igrejaId);
+    }
+
+    public void assertPodeCriarSmallGroup(UUID igrejaId) {
+        assertPastorOuAdmin(igrejaId);
+    }
+
+    public void assertPodeGerenciarSmallGroup(SmallGroup grupo) {
+        assertAcesso(grupo.getIgrejaId());
+        if (isPastorOuAdmin(grupo.getIgrejaId())) {
+            return;
+        }
+        UUID pessoaId = requireUsuario().getPessoaId();
+        if (pessoaId == null) {
+            throw new AccessDeniedException("Sem permissão para gerenciar este pequeno grupo");
+        }
+        if (pessoaId.equals(grupo.getLiderPessoaId())) {
+            return;
+        }
+        if (grupo.getMinisterioId() != null) {
+            Ministerio ministerio = ministerioRepository.findById(grupo.getMinisterioId()).orElse(null);
+            if (ministerio != null) {
+                if (pessoaId.equals(ministerio.getLiderPessoaId())
+                        || pessoaId.equals(ministerio.getCoordenadorPessoaId())) {
+                    return;
+                }
+                if (ministerio.getBaseMinisterialId() != null) {
+                    BaseMinisterial base = baseMinisterialRepository
+                            .findById(ministerio.getBaseMinisterialId())
+                            .orElse(null);
+                    if (base != null && (pessoaId.equals(base.getLiderPessoaId())
+                            || pessoaId.equals(base.getCoordenadorPessoaId()))) {
+                        return;
+                    }
+                }
+            }
+        }
+        throw new AccessDeniedException("Sem permissão para gerenciar este pequeno grupo");
     }
 
     public void assertPodeCriarEscala(TipoEscala tipo, UUID igrejaId, String competencia, UUID ministerioId) {

@@ -45,6 +45,9 @@ public class Ministerio extends AuditableEntity {
     @Column(name = "coordenador_pessoa_id")
     private UUID coordenadorPessoaId;
 
+    @Column(name = "base_ministerial_id")
+    private UUID baseMinisterialId;
+
     @Column(columnDefinition = "TEXT")
     private String anotacoes;
 

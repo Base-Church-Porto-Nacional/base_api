@@ -25,6 +25,8 @@ public record MinisterioUpdateRequest(
 
         String anotacoes,
 
-        String ordem
+        String ordem,
+
+        UUID baseMinisterialId
 ) {
 }

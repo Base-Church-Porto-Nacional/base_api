@@ -23,6 +23,8 @@ public record MinisterioCreateRequest(
 
         UUID liderPessoaId,
 
-        UUID coordenadorPessoaId
+        UUID coordenadorPessoaId,
+
+        UUID baseMinisterialId
 ) {
 }

@@ -18,4 +18,6 @@ public interface MinisterioRepository extends JpaRepository<Ministerio, UUID> {
     List<Ministerio> findByIgrejaIdInOrderByNomeAsc(List<UUID> igrejaIds);
 
     long countByIgrejaIdIn(List<UUID> igrejaIds);
+
+    List<Ministerio> findByBaseMinisterialId(UUID baseMinisterialId);
 }

@@ -1,5 +1,7 @@
 package com.example.base_api.ministerio.service;
 
+import com.example.base_api.baseministerial.entity.BaseMinisterial;
+import com.example.base_api.baseministerial.repository.BaseMinisterialRepository;
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.ministerio.dto.MinisterioCreateRequest;
@@ -30,19 +32,22 @@ public class MinisterioService {
     private final PessoaRepository pessoaRepository;
     private final ServicoRepository servicoRepository;
     private final PessoaServicoRepository pessoaServicoRepository;
+    private final BaseMinisterialRepository baseMinisterialRepository;
 
     public MinisterioService(
             MinisterioRepository ministerioRepository,
             AutorizacaoService autorizacaoService,
             PessoaRepository pessoaRepository,
             ServicoRepository servicoRepository,
-            PessoaServicoRepository pessoaServicoRepository
+            PessoaServicoRepository pessoaServicoRepository,
+            BaseMinisterialRepository baseMinisterialRepository
     ) {
         this.ministerioRepository = ministerioRepository;
         this.autorizacaoService = autorizacaoService;
         this.pessoaRepository = pessoaRepository;
         this.servicoRepository = servicoRepository;
         this.pessoaServicoRepository = pessoaServicoRepository;
+        this.baseMinisterialRepository = baseMinisterialRepository;
     }
 
     @Transactional(readOnly = true)
@@ -77,6 +82,7 @@ public class MinisterioService {
         ministerio.setTipo(request.tipo() == null ? MinisterioTipo.GERAL : request.tipo());
         ministerio.setLiderPessoaId(request.liderPessoaId());
         ministerio.setCoordenadorPessoaId(request.coordenadorPessoaId());
+        ministerio.setBaseMinisterialId(validarBase(request.igrejaId(), request.baseMinisterialId()));
         ministerio.setAtivo(request.ativo() == null || request.ativo());
 
         Ministerio salvo = ministerioRepository.save(ministerio);
@@ -103,6 +109,7 @@ public class MinisterioService {
         }
         ministerio.setLiderPessoaId(request.liderPessoaId());
         ministerio.setCoordenadorPessoaId(request.coordenadorPessoaId());
+        ministerio.setBaseMinisterialId(validarBase(ministerio.getIgrejaId(), request.baseMinisterialId()));
         ministerio.setAnotacoes(request.anotacoes());
         ministerio.setOrdem(request.ordem());
 
@@ -153,6 +160,8 @@ public class MinisterioService {
                 nomePessoa(ministerio.getLiderPessoaId()),
                 ministerio.getCoordenadorPessoaId(),
                 nomePessoa(ministerio.getCoordenadorPessoaId()),
+                ministerio.getBaseMinisterialId(),
+                nomeBase(ministerio.getBaseMinisterialId()),
                 ministerio.getAnotacoes(),
                 ministerio.getOrdem(),
                 (int) voluntarios,
@@ -178,13 +187,18 @@ public class MinisterioService {
     }
 
     private void sincronizarCoordenador(Ministerio ministerio) {
-        if (ministerio.getCoordenadorPessoaId() == null) {
-            return;
-        }
         Servico coordenador = servicoRepository.findByMinisterioIdAndNomeIgnoreCase(
                 ministerio.getId(), Ministerio.SERVICO_COORDENADOR
         ).orElse(null);
         if (coordenador == null) {
+            return;
+        }
+        pessoaServicoRepository.findByServicoIdAndAtivoTrue(coordenador.getId())
+                .forEach(v -> {
+                    v.setAtivo(false);
+                    pessoaServicoRepository.save(v);
+                });
+        if (ministerio.getCoordenadorPessoaId() == null) {
             return;
         }
         pessoaServicoRepository.findByPessoaIdAndServicoId(
@@ -206,6 +220,27 @@ public class MinisterioService {
             return null;
         }
         return pessoaRepository.findById(pessoaId).map(Pessoa::getNome).orElse(null);
+    }
+
+    private UUID validarBase(UUID igrejaId, UUID baseMinisterialId) {
+        if (baseMinisterialId == null) {
+            return null;
+        }
+        BaseMinisterial base = baseMinisterialRepository.findById(baseMinisterialId)
+                .orElseThrow(() -> new BusinessException("Base ministerial não encontrada"));
+        if (!igrejaId.equals(base.getIgrejaId())) {
+            throw new BusinessException("A base ministerial não pertence a esta igreja");
+        }
+        return base.getId();
+    }
+
+    private String nomeBase(UUID baseMinisterialId) {
+        if (baseMinisterialId == null) {
+            return null;
+        }
+        return baseMinisterialRepository.findById(baseMinisterialId)
+                .map(BaseMinisterial::getNome)
+                .orElse(null);
     }
 
     private ServicoResponse toServicoResponse(Servico servico) {
