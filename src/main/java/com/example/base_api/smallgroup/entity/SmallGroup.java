@@ -11,6 +11,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
@@ -49,6 +51,7 @@ public class SmallGroup extends AuditableEntity {
     private Boolean ativo = true;
 
     /** Nota do grupo (0 a 5). */
+    @JdbcTypeCode(SqlTypes.SMALLINT)
     @Column(nullable = false)
     private Integer nota = 0;
 }
