@@ -1,13 +1,16 @@
 package com.example.base_api.escala.controller;
 
+import com.example.base_api.escala.dto.CandidatoDisponibilidadeResponse;
 import com.example.base_api.escala.dto.EscalaCreateRequest;
 import com.example.base_api.escala.dto.EscalaResponse;
 import com.example.base_api.escala.dto.EscalaServicoUpsertRequest;
+import com.example.base_api.escala.dto.EscalaStatusRequest;
 import com.example.base_api.escala.dto.EscalaUpdateRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioCreateRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioStatusRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioUpdateRequest;
 import com.example.base_api.escala.dto.GeracaoEscalaResponse;
+import com.example.base_api.escala.service.EscalaAutomacaoService;
 import com.example.base_api.escala.service.EscalaService;
 import com.example.base_api.escala.service.GeracaoEscalaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,13 +42,16 @@ public class EscalaController {
 
     private final EscalaService escalaService;
     private final GeracaoEscalaService geracaoEscalaService;
+    private final EscalaAutomacaoService escalaAutomacaoService;
 
     public EscalaController(
             EscalaService escalaService,
-            GeracaoEscalaService geracaoEscalaService
+            GeracaoEscalaService geracaoEscalaService,
+            EscalaAutomacaoService escalaAutomacaoService
     ) {
         this.escalaService = escalaService;
         this.geracaoEscalaService = geracaoEscalaService;
+        this.escalaAutomacaoService = escalaAutomacaoService;
     }
 
     @GetMapping
@@ -79,6 +86,27 @@ public class EscalaController {
             @Valid @RequestBody EscalaUpdateRequest request
     ) {
         return escalaService.atualizar(id, request);
+    }
+
+    @PutMapping("/{id}/status")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Alterar status da escala (SUGERIDA | EDITANDO | EM_ANDAMENTO | FINALIZADA)")
+    public EscalaResponse atualizarStatus(
+            @PathVariable UUID id,
+            @Valid @RequestBody EscalaStatusRequest request
+    ) {
+        return escalaService.atualizarStatus(id, request);
+    }
+
+    @GetMapping("/{id}/candidatos")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Listar voluntários elegíveis para a escala, com serviços, disponibilidade e conflitos")
+    public List<CandidatoDisponibilidadeResponse> candidatos(
+            @PathVariable UUID id,
+            @RequestParam(required = false) UUID servicoId,
+            @RequestParam(required = false) LocalDate data
+    ) {
+        return geracaoEscalaService.candidatos(id, data, servicoId);
     }
 
     @DeleteMapping("/{id}")
@@ -168,8 +196,15 @@ public class EscalaController {
 
     @PostMapping("/{id}/gerar-sugestao")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Gerar sugestão automática de escala (stub — algoritmo futuro)")
+    @Operation(summary = "Gerar/refazer sugestões automáticas de escala (idempotente; não sobrescreve designações)")
     public GeracaoEscalaResponse gerarSugestao(@PathVariable UUID id) {
         return geracaoEscalaService.gerarSugestao(id);
+    }
+
+    @PostMapping("/automacao/proximo-mes")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Disparar manualmente a automação do próximo mês (mesmo job do dia 20)")
+    public String gerarProximoMes() {
+        return escalaAutomacaoService.gerarProximoMesManual();
     }
 }

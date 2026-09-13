@@ -1,5 +1,6 @@
 package com.example.base_api.escala.dto;
 
+import com.example.base_api.escala.entity.StatusEscala;
 import com.example.base_api.escala.entity.StatusEscalaVoluntario;
 import com.example.base_api.escala.entity.TipoEscala;
 
@@ -28,6 +29,9 @@ public record EscalaResponse(
         String localEvento,
         UUID eventoId,
         Boolean ativo,
+        StatusEscala status,
+        Instant dataLancamento,
+        Instant dataFinalizacao,
         List<EscalaItemResponse> itens,
         List<EscalaServicoResponse> servicos,
         List<EscalaVoluntarioResponse> voluntarios,

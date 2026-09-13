@@ -4,10 +4,13 @@ import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.cronograma.service.CronogramaService;
 import com.example.base_api.escala.dto.EscalaCreateRequest;
 import com.example.base_api.escala.dto.EscalaResponse;
+import com.example.base_api.escala.dto.EscalaStatusRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioCreateRequest;
+import com.example.base_api.escala.dto.GeracaoEscalaResponse;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.EscalaServico;
 import com.example.base_api.escala.entity.EscalaVoluntario;
+import com.example.base_api.escala.entity.StatusEscala;
 import com.example.base_api.escala.entity.TipoEscala;
 import com.example.base_api.escala.repository.EscalaRepository;
 import com.example.base_api.escala.repository.EscalaServicoRepository;
@@ -66,6 +69,8 @@ class EscalaServiceTest {
     private AutorizacaoService autorizacaoService;
     @Mock
     private MinisterioRepository ministerioRepository;
+    @Mock
+    private GeracaoEscalaService geracaoEscalaService;
 
     @InjectMocks
     private EscalaService escalaService;
@@ -111,6 +116,8 @@ class EscalaServiceTest {
         when(escalaServicoRepository.findByEscalaId(escalaId)).thenReturn(List.of(escalaServico()));
         when(escalaVoluntarioRepository.findByEscalaId(escalaId)).thenReturn(List.of());
         when(pessoaService.buscarEntidade(pastorId)).thenReturn(pastor());
+        when(geracaoEscalaService.gerar(any(Escala.class)))
+                .thenReturn(new GeracaoEscalaResponse(escalaId, "SEM_EVENTOS", "Sem eventos", List.of()));
 
         EscalaResponse response = escalaService.criar(new EscalaCreateRequest(
                 "Culto de Domingo",
@@ -245,5 +252,41 @@ class EscalaServiceTest {
         pessoa.setNome("Ana Costa");
         pessoa.setIgrejaId(igrejaId);
         return pessoa;
+    }
+
+    @Test
+    void validaJanelaDeAberturaNoDia20DoMesAnterior() {
+        assertThat(escalaService.janelaAberturaAberta("2026-09", LocalDate.of(2026, 8, 19))).isFalse();
+        assertThat(escalaService.janelaAberturaAberta("2026-09", LocalDate.of(2026, 8, 20))).isTrue();
+        assertThat(escalaService.janelaAberturaAberta("2026-09", LocalDate.of(2026, 9, 5))).isTrue();
+        assertThat(escalaService.janelaAberturaAberta("2026-08", LocalDate.of(2026, 7, 20))).isTrue();
+    }
+
+    @Test
+    void deveLancarEscalaAoTransitarParaEmAndamento() {
+        Escala escala = escala();
+        escala.setStatus(StatusEscala.EDITANDO);
+        when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
+        when(escalaRepository.save(any(Escala.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(escalaServicoRepository.findByEscalaId(escalaId)).thenReturn(List.of());
+        when(escalaVoluntarioRepository.findByEscalaId(escalaId)).thenReturn(List.of());
+
+        EscalaResponse response = escalaService.atualizarStatus(
+                escalaId, new EscalaStatusRequest(StatusEscala.EM_ANDAMENTO));
+
+        assertThat(response.status()).isEqualTo(StatusEscala.EM_ANDAMENTO);
+        assertThat(response.dataLancamento()).isNotNull();
+    }
+
+    @Test
+    void naoDeveVoltarDeFinalizadaParaSugerida() {
+        Escala escala = escala();
+        escala.setStatus(StatusEscala.FINALIZADA);
+        when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
+
+        assertThatThrownBy(() -> escalaService.atualizarStatus(
+                escalaId, new EscalaStatusRequest(StatusEscala.SUGERIDA)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Transição de status inválida");
     }
 }

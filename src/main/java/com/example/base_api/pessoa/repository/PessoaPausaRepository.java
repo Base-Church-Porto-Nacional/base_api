@@ -14,5 +14,7 @@ public interface PessoaPausaRepository extends JpaRepository<PessoaPausa, UUID> 
 
     List<PessoaPausa> findByPessoaIdIn(List<UUID> pessoaIds);
 
+    List<PessoaPausa> findByPessoaIdInAndAtivaTrue(List<UUID> pessoaIds);
+
     long countByPessoaIdInAndAtivaTrue(List<UUID> pessoaIds);
 }

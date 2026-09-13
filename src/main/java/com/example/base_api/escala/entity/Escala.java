@@ -12,6 +12,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
@@ -68,4 +69,14 @@ public class Escala extends AuditableEntity {
 
     @Column(nullable = false)
     private Boolean ativo = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private StatusEscala status = StatusEscala.EDITANDO;
+
+    @Column(name = "data_lancamento")
+    private Instant dataLancamento;
+
+    @Column(name = "data_finalizacao")
+    private Instant dataFinalizacao;
 }

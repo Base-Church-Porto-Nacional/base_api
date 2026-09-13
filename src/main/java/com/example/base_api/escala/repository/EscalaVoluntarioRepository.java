@@ -4,6 +4,7 @@ import com.example.base_api.escala.entity.EscalaVoluntario;
 import com.example.base_api.escala.entity.StatusEscalaVoluntario;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +18,12 @@ public interface EscalaVoluntarioRepository extends JpaRepository<EscalaVoluntar
     List<EscalaVoluntario> findByPessoaId(UUID pessoaId);
 
     List<EscalaVoluntario> findByEscalaIdAndPessoaId(UUID escalaId, UUID pessoaId);
+
+    List<EscalaVoluntario> findByPessoaIdInAndDataItemBetween(
+            List<UUID> pessoaIds,
+            LocalDate inicio,
+            LocalDate fim
+    );
 
     Optional<EscalaVoluntario> findByEscalaIdAndPessoaIdAndServicoId(
             UUID escalaId,

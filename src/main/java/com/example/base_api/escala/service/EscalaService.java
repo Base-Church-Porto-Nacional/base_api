@@ -6,6 +6,7 @@ import com.example.base_api.cronograma.service.CronogramaService;
 import com.example.base_api.escala.dto.EscalaCreateRequest;
 import com.example.base_api.escala.dto.EscalaResponse;
 import com.example.base_api.escala.dto.EscalaServicoUpsertRequest;
+import com.example.base_api.escala.dto.EscalaStatusRequest;
 import com.example.base_api.escala.dto.EscalaUpdateRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioCreateRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioStatusRequest;
@@ -13,6 +14,7 @@ import com.example.base_api.escala.dto.EscalaVoluntarioUpdateRequest;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.EscalaServico;
 import com.example.base_api.escala.entity.EscalaVoluntario;
+import com.example.base_api.escala.entity.StatusEscala;
 import com.example.base_api.escala.entity.StatusEscalaVoluntario;
 import com.example.base_api.escala.entity.TipoEscala;
 import com.example.base_api.escala.repository.EscalaRepository;
@@ -33,11 +35,15 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -53,6 +59,7 @@ public class EscalaService {
     private final IgrejaContextoService igrejaContextoService;
     private final AutorizacaoService autorizacaoService;
     private final MinisterioRepository ministerioRepository;
+    private final GeracaoEscalaService geracaoEscalaService;
 
     public EscalaService(
             EscalaRepository escalaRepository,
@@ -64,7 +71,8 @@ public class EscalaService {
             CronogramaService cronogramaService,
             IgrejaContextoService igrejaContextoService,
             AutorizacaoService autorizacaoService,
-            MinisterioRepository ministerioRepository
+            MinisterioRepository ministerioRepository,
+            GeracaoEscalaService geracaoEscalaService
     ) {
         this.escalaRepository = escalaRepository;
         this.escalaServicoRepository = escalaServicoRepository;
@@ -76,6 +84,7 @@ public class EscalaService {
         this.igrejaContextoService = igrejaContextoService;
         this.autorizacaoService = autorizacaoService;
         this.ministerioRepository = ministerioRepository;
+        this.geracaoEscalaService = geracaoEscalaService;
     }
 
     @Transactional(readOnly = true)
@@ -126,6 +135,7 @@ public class EscalaService {
         autorizacaoService.assertAcesso(request.igrejaId());
         String competencia = validarCompetencia(request.competencia());
         TipoEscala tipo = request.tipo();
+        validarJanelaAbertura(competencia);
         autorizacaoService.assertPodeCriarEscala(tipo, request.igrejaId(), competencia, request.ministerioId());
 
         if (tipo == TipoEscala.MINISTERIO && request.ministerioId() == null) {
@@ -168,6 +178,7 @@ public class EscalaService {
         escala.setSupervisorPessoaId(supervisorId);
         escala.setPregadorPessoaId(pregadorId);
         escala.setAtivo(true);
+        escala.setStatus(StatusEscala.EDITANDO);
 
         Escala salva = escalaRepository.save(escala);
 
@@ -188,6 +199,8 @@ public class EscalaService {
             }
         }
 
+        geracaoEscalaService.gerar(salva);
+
         return toResponse(salva, null);
     }
 
@@ -206,6 +219,9 @@ public class EscalaService {
         String novaCompetencia = request.competencia() != null && !request.competencia().isBlank()
                 ? validarCompetencia(request.competencia())
                 : escala.getCompetencia();
+        if (request.competencia() != null && !request.competencia().isBlank()) {
+            validarJanelaAbertura(novaCompetencia);
+        }
 
         if (novoTipo == TipoEscala.MINISTERIO && novoMinisterioId == null) {
             throw new BusinessException("ministerioId é obrigatório para escala de ministério");
@@ -249,6 +265,43 @@ public class EscalaService {
         escala.setAtivo(request.ativo());
 
         return toResponse(escalaRepository.save(escala), null);
+    }
+
+    @Transactional
+    public EscalaResponse atualizarStatus(UUID id, EscalaStatusRequest request) {
+        Escala escala = buscarEntidade(id);
+        assertPodeMutar(escala);
+        StatusEscala atual = escala.getStatus();
+        StatusEscala novo = request.status();
+        if (atual != novo && !transicoesPermitidas().getOrDefault(atual, Set.of()).contains(novo)) {
+            throw new BusinessException(
+                    "Transição de status inválida: " + atual + " -> " + novo
+            );
+        }
+        escala.setStatus(novo);
+        Instant agora = Instant.now();
+        if (novo == StatusEscala.EM_ANDAMENTO && escala.getDataLancamento() == null) {
+            escala.setDataLancamento(agora);
+        }
+        if (novo == StatusEscala.FINALIZADA && escala.getDataFinalizacao() == null) {
+            escala.setDataFinalizacao(agora);
+        }
+        if (novo != StatusEscala.EM_ANDAMENTO) {
+            escala.setDataLancamento(null);
+        }
+        if (novo != StatusEscala.FINALIZADA && escala.getDataFinalizacao() != null) {
+            escala.setDataFinalizacao(null);
+        }
+        return toResponse(escalaRepository.save(escala), null);
+    }
+
+    private static Map<StatusEscala, Set<StatusEscala>> transicoesPermitidas() {
+        Map<StatusEscala, Set<StatusEscala>> mapa = new EnumMap<>(StatusEscala.class);
+        mapa.put(StatusEscala.SUGERIDA, Set.of(StatusEscala.EDITANDO, StatusEscala.EM_ANDAMENTO));
+        mapa.put(StatusEscala.EDITANDO, Set.of(StatusEscala.SUGERIDA, StatusEscala.EM_ANDAMENTO));
+        mapa.put(StatusEscala.EM_ANDAMENTO, Set.of(StatusEscala.EDITANDO, StatusEscala.FINALIZADA));
+        mapa.put(StatusEscala.FINALIZADA, Set.of(StatusEscala.EM_ANDAMENTO));
+        return mapa;
     }
 
     @Transactional
@@ -536,6 +589,23 @@ public class EscalaService {
         }
     }
 
+    private void validarJanelaAbertura(String competencia) {
+        if (!janelaAberturaAberta(competencia, LocalDate.now())) {
+            YearMonth mes = YearMonth.parse(competencia);
+            LocalDate abertura = mes.minusMonths(1).atDay(20);
+            throw new BusinessException(
+                    "A escala da competência " + competencia + " abre no dia " + abertura
+                            + " (20 do mês anterior). Aguarde a abertura da janela."
+            );
+        }
+    }
+
+    boolean janelaAberturaAberta(String competencia, LocalDate hoje) {
+        YearMonth mes = YearMonth.parse(competencia);
+        LocalDate abertura = mes.minusMonths(1).atDay(20);
+        return !hoje.isBefore(abertura);
+    }
+
     private void validarHorario(LocalTime inicio, LocalTime fim) {
         if (inicio != null && fim != null && !fim.isAfter(inicio)) {
             throw new BusinessException("Hora fim deve ser posterior à hora início");
@@ -603,6 +673,9 @@ public class EscalaService {
                 escala.getLocalEvento(),
                 escala.getEventoId(),
                 escala.getAtivo(),
+                escala.getStatus(),
+                escala.getDataLancamento(),
+                escala.getDataFinalizacao(),
                 itens,
                 servicos,
                 voluntarios,

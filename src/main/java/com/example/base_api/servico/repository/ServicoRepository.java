@@ -13,6 +13,8 @@ public interface ServicoRepository extends JpaRepository<Servico, UUID> {
 
     List<Servico> findByMinisterioIdIn(List<UUID> ministerioIds);
 
+    List<Servico> findByMinisterioIdInAndAtivoTrueOrderByNomeAsc(List<UUID> ministerioIds);
+
     long countByMinisterioIdIn(List<UUID> ministerioIds);
 
     Optional<Servico> findByMinisterioIdAndNomeIgnoreCase(UUID ministerioId, String nome);
