@@ -7,6 +7,13 @@ import com.example.base_api.cronograma.entity.CronogramaEvento;
 import com.example.base_api.cronograma.entity.TipoEvento;
 import com.example.base_api.cronograma.repository.CronogramaConteudoRepository;
 import com.example.base_api.cronograma.repository.CronogramaEventoRepository;
+import com.example.base_api.culto.entity.CategoriaCulto;
+import com.example.base_api.culto.entity.Culto;
+import com.example.base_api.culto.entity.CultoRelatorio;
+import com.example.base_api.culto.entity.StatusCulto;
+import com.example.base_api.culto.repository.CategoriaCultoRepository;
+import com.example.base_api.culto.repository.CultoRelatorioRepository;
+import com.example.base_api.culto.repository.CultoRepository;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.EscalaVoluntario;
 import com.example.base_api.escala.entity.StatusEscalaVoluntario;
@@ -49,6 +56,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.util.Set;
 import java.util.UUID;
 
@@ -75,6 +83,9 @@ public class DataInitializer {
             CronogramaConteudoRepository cronogramaConteudoRepository,
             EscalaRepository escalaRepository,
             EscalaVoluntarioRepository escalaVoluntarioRepository,
+            CategoriaCultoRepository categoriaCultoRepository,
+            CultoRepository cultoRepository,
+            CultoRelatorioRepository cultoRelatorioRepository,
             SmallGroupRepository smallGroupRepository,
             SmallGroupEncontroRepository smallGroupEncontroRepository,
             SmallGroupParticipanteRepository smallGroupParticipanteRepository,
@@ -260,6 +271,38 @@ public class DataInitializer {
                 item(escalaVoluntarioRepository, louvorEscala, LocalDate.of(2026, 8, 9), c2.getId(), joao.getId(), vocal == null ? null : vocal.getId(), StatusEscalaVoluntario.CONFIRMADO);
                 item(escalaVoluntarioRepository, louvorEscala, LocalDate.of(2026, 8, 9), c2.getId(), maria.getId(), violao == null ? null : violao.getId(), StatusEscalaVoluntario.PENDENTE);
                 item(escalaVoluntarioRepository, louvorEscala, LocalDate.of(2026, 8, 16), c3.getId(), joao.getId(), vocal == null ? null : vocal.getId(), StatusEscalaVoluntario.PENDENTE);
+            }
+
+            if (categoriaCultoRepository.count() == 0) {
+                CategoriaCulto domingo = categoriaCulto(categoriaCultoRepository, "Domingo inesquecível",
+                        com.example.base_api.culto.entity.DiaSemana.DOMINGO, LocalTime.of(20, 0), 90, MATRIZ_ID, ana.getId());
+                CategoriaCulto quarta = categoriaCulto(categoriaCultoRepository, "Quarta de oração",
+                        com.example.base_api.culto.entity.DiaSemana.QUARTA, LocalTime.of(20, 0), 60, MATRIZ_ID, ana.getId());
+                gerarCultosDoMes(cultoRepository, domingo, YearMonth.of(2026, 8));
+                gerarCultosDoMes(cultoRepository, quarta, YearMonth.of(2026, 8));
+
+                Culto cultasso = cultoRepository
+                        .findByCategoriaCultoIdAndData(domingo.getId(), LocalDate.of(2026, 8, 16))
+                        .orElseThrow(() -> new IllegalStateException("Culto seed não gerado"));
+                cultasso.setTitulo("Cultasso");
+                cultasso.setTema("Destravados: Conforto");
+                cultasso.setLouvor("1. Bondade de Deus\n2. Teu Santo Nome\n3. Ao único");
+                cultasso.setTextoPregacao("Isaías 61 — Conforto aos destravados.");
+                cultasso.setStatus(StatusCulto.REALIZADO);
+                cultoRepository.save(cultasso);
+
+                CultoRelatorio relatorio = new CultoRelatorio();
+                relatorio.setCultoId(cultasso.getId());
+                relatorio.setAdultos(19);
+                relatorio.setCriancas(2);
+                relatorio.setConversoes(2);
+                relatorio.setReconciliacoes(1);
+                relatorio.setAliancas(3);
+                relatorio.setCarros(7);
+                relatorio.setMotos(4);
+                relatorio.setBicicletas(0);
+                relatorio.setObservacoes("Culto de celebração com batismos.");
+                cultoRelatorioRepository.save(relatorio);
             }
 
             log.info("Dados demo prontos. Logins: admin, filial, joao, maria, midia, membro, pedro — senha admin123");
@@ -530,5 +573,58 @@ public class DataInitializer {
         ev.setHorario(LocalTime.of(18, 0));
         ev.setStatus(status);
         repo.save(ev);
+    }
+
+    private CategoriaCulto categoriaCulto(
+            CategoriaCultoRepository repo,
+            String titulo,
+            com.example.base_api.culto.entity.DiaSemana diaSemana,
+            LocalTime horaInicio,
+            int duracaoMinutos,
+            UUID igrejaId,
+            UUID pregadorPadraoId
+    ) {
+        return repo.findByIgrejaIdAndTituloIgnoreCase(igrejaId, titulo).orElseGet(() -> {
+            CategoriaCulto c = new CategoriaCulto();
+            c.setIgrejaId(igrejaId);
+            c.setTitulo(titulo);
+            c.setDiaSemana(diaSemana);
+            c.setHoraInicio(horaInicio);
+            c.setDuracaoMinutos(duracaoMinutos);
+            c.setPregadorPadraoId(pregadorPadraoId);
+            c.setAtivo(true);
+            return repo.save(c);
+        });
+    }
+
+    private void gerarCultosDoMes(CultoRepository repo, CategoriaCulto categoria, YearMonth mes) {
+        var dia = switch (categoria.getDiaSemana()) {
+            case DOMINGO -> java.time.DayOfWeek.SUNDAY;
+            case SEGUNDA -> java.time.DayOfWeek.MONDAY;
+            case TERCA -> java.time.DayOfWeek.TUESDAY;
+            case QUARTA -> java.time.DayOfWeek.WEDNESDAY;
+            case QUINTA -> java.time.DayOfWeek.THURSDAY;
+            case SEXTA -> java.time.DayOfWeek.FRIDAY;
+            case SABADO -> java.time.DayOfWeek.SATURDAY;
+        };
+        mes.atDay(1).datesUntil(mes.atEndOfMonth().plusDays(1))
+                .filter(data -> data.getDayOfWeek() == dia)
+                .forEach(data -> {
+                    if (repo.existsByCategoriaCultoIdAndData(categoria.getId(), data)) {
+                        return;
+                    }
+                    Culto culto = new Culto();
+                    culto.setIgrejaId(categoria.getIgrejaId());
+                    culto.setCategoriaCultoId(categoria.getId());
+                    culto.setTitulo(categoria.getTitulo());
+                    culto.setData(data);
+                    culto.setHoraInicio(categoria.getHoraInicio());
+                    culto.setHoraFim(categoria.getHoraInicio().plusMinutes(categoria.getDuracaoMinutos()));
+                    culto.setPregadorId(categoria.getPregadorPadraoId());
+                    culto.setStatus(StatusCulto.AGENDADO);
+                    culto.setCompetencia(mes.toString());
+                    culto.setAtivo(true);
+                    repo.save(culto);
+                });
     }
 }
