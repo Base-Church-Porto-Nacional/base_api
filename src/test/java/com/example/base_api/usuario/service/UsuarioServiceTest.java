@@ -72,7 +72,7 @@ class UsuarioServiceTest {
         when(autorizacaoService.validarPapeisAtalho(Set.of("MEMBRO"))).thenReturn(Set.of("MEMBRO"));
         when(usuarioRepository.existsByUsername("joao")).thenReturn(false);
         when(usuarioRepository.existsByEmailIgnoreCase("joao@email.com")).thenReturn(false);
-        when(papelRepository.findByNome("MEMBRO")).thenReturn(Optional.of(membro));
+        when(papelRepository.findByNomeAndIgrejaIdIsNull("MEMBRO")).thenReturn(Optional.of(membro));
         when(passwordEncoder.encode(anyString())).thenReturn("hash");
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> {
             Usuario u = invocation.getArgument(0);
@@ -111,7 +111,7 @@ class UsuarioServiceTest {
         when(autorizacaoService.validarPapeisAtalho(Set.of("XYZ"))).thenReturn(Set.of("XYZ"));
         when(usuarioRepository.existsByUsername("joao")).thenReturn(false);
         when(usuarioRepository.existsByEmailIgnoreCase("joao@email.com")).thenReturn(false);
-        when(papelRepository.findByNome("XYZ")).thenReturn(Optional.empty());
+        when(papelRepository.findByNomeAndIgrejaIdIsNull("XYZ")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
                 null, "joao", "joao@email.com", "senha123", Set.of("XYZ"), igrejaId

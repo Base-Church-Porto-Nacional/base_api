@@ -94,7 +94,7 @@ public class IgrejaService {
         filial.setAtivo(true);
         Igreja salva = igrejaRepository.save(filial);
 
-        Papel adminRole = papelRepository.findByNome("ADMIN")
+        Papel adminRole = papelRepository.findByNomeAndIgrejaIdIsNull("ADMIN")
                 .orElseThrow(() -> new IllegalStateException("Papel ADMIN não encontrado"));
 
         String senha = request.adminSenha().trim();

@@ -303,7 +303,7 @@ public class UsuarioService {
     private Set<Papel> resolverPapeis(Set<String> nomes) {
         Set<Papel> papeis = new HashSet<>();
         for (String nome : nomes) {
-            Papel papel = papelRepository.findByNome(nome.toUpperCase())
+            Papel papel = papelRepository.findByNomeAndIgrejaIdIsNull(nome.toUpperCase())
                     .orElseThrow(() -> new BusinessException("Papel inválido: " + nome));
             papeis.add(papel);
         }

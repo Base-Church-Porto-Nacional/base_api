@@ -7,6 +7,8 @@ public record PapelResponse(
         UUID id,
         String nome,
         String descricao,
+        UUID igrejaId,
+        boolean sistema,
         Instant createdAt,
         Instant updatedAt
 ) {

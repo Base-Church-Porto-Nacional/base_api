@@ -7,6 +7,7 @@ import com.example.base_api.usuario.dto.PapelRequest;
 import com.example.base_api.usuario.dto.PapelResponse;
 import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.repository.PapelRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,45 +31,42 @@ public class PapelService {
 
     @Transactional(readOnly = true)
     public List<PapelResponse> listar() {
-        return papelRepository.findAll().stream()
+        UUID igrejaId = autorizacaoService.igrejaAtualId();
+        return papelRepository.findByIgrejaIdIsNullOrIgrejaId(igrejaId).stream()
                 .map(this::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public PapelResponse buscarPorId(UUID id) {
-        return toResponse(buscarEntidade(id));
+        Papel papel = buscarEntidade(id);
+        assertVisivel(papel);
+        return toResponse(papel);
     }
 
     @Transactional
     public PapelResponse criar(PapelRequest request) {
-        autorizacaoService.assertPastorOuAdmin(autorizacaoService.requireUsuario().getIgrejaId());
-        String nome = request.nome().trim().toUpperCase();
-        rejeitarPapeisProibidos(nome);
-        papelRepository.findByNome(nome).ifPresent(p -> {
-            throw new BusinessException("Já existe um papel com este nome");
-        });
+        UUID igrejaId = autorizacaoService.igrejaAtualId();
+        autorizacaoService.assertPastorOuAdmin(igrejaId);
+        String nome = normalizarNome(request.nome());
 
         Papel papel = new Papel();
         papel.setNome(nome);
         papel.setDescricao(request.descricao());
+        papel.setIgrejaId(igrejaId);
         return toResponse(papelRepository.save(papel));
     }
 
     @Transactional
     public PapelResponse atualizar(UUID id, PapelRequest request) {
-        autorizacaoService.assertPastorOuAdmin(autorizacaoService.requireUsuario().getIgrejaId());
         Papel papel = buscarEntidade(id);
-        String nome = request.nome().trim().toUpperCase();
-        rejeitarPapeisProibidos(nome);
+        assertCustomizadoDaIgreja(papel);
+        UUID igrejaId = papel.getIgrejaId();
+        String nome = normalizarNome(request.nome());
 
-        if (isPapelSistema(papel.getNome()) && !papel.getNome().equalsIgnoreCase(nome)) {
-            throw new BusinessException("Papel de sistema não pode ser renomeado");
-        }
-
-        papelRepository.findByNome(nome).ifPresent(outro -> {
+        papelRepository.findByNomeAndIgrejaId(nome, igrejaId).ifPresent(outro -> {
             if (!outro.getId().equals(id)) {
-                throw new BusinessException("Já existe um papel com este nome");
+                throw new BusinessException("Já existe um papel com este nome nesta igreja");
             }
         });
 
@@ -79,11 +77,8 @@ public class PapelService {
 
     @Transactional
     public void excluir(UUID id) {
-        autorizacaoService.assertPastorOuAdmin(autorizacaoService.requireUsuario().getIgrejaId());
         Papel papel = buscarEntidade(id);
-        if (isPapelSistema(papel.getNome())) {
-            throw new BusinessException("Papel de sistema não pode ser excluído");
-        }
+        assertCustomizadoDaIgreja(papel);
         papelRepository.delete(papel);
     }
 
@@ -93,14 +88,35 @@ public class PapelService {
                 .orElseThrow(() -> new ResourceNotFoundException("Papel não encontrado"));
     }
 
+    private String normalizarNome(String nomeBruto) {
+        String nome = nomeBruto.trim().toUpperCase();
+        rejeitarPapeisProibidos(nome);
+        if (PAPEIS_SISTEMA.contains(nome)) {
+            throw new BusinessException("Papel de sistema não pode ser criado ou renomeado. Use a promoção de gestão ou os atalhos.");
+        }
+        return nome;
+    }
+
     private void rejeitarPapeisProibidos(String nome) {
         if (PAPEIS_PROIBIDOS.contains(nome)) {
             throw new BusinessException("Papel " + nome + " não é permitido. Use atribuição de culto/escala ou serviço ficção.");
         }
     }
 
-    private boolean isPapelSistema(String nome) {
-        return nome != null && PAPEIS_SISTEMA.contains(nome.toUpperCase());
+    /** Um papel é visível se for de sistema (global) ou pertencer à igreja atual. */
+    private void assertVisivel(Papel papel) {
+        if (papel.isSistema()) {
+            return;
+        }
+        autorizacaoService.assertAcesso(papel.getIgrejaId());
+    }
+
+    /** Só pastor/admin da igreja dona pode mutar um papel customizado; papéis de sistema são imutáveis. */
+    private void assertCustomizadoDaIgreja(Papel papel) {
+        if (papel.isSistema()) {
+            throw new AccessDeniedException("Papel de sistema não pode ser alterado ou excluído");
+        }
+        autorizacaoService.assertPastorOuAdmin(papel.getIgrejaId());
     }
 
     private PapelResponse toResponse(Papel papel) {
@@ -108,6 +124,8 @@ public class PapelService {
                 papel.getId(),
                 papel.getNome(),
                 papel.getDescricao(),
+                papel.getIgrejaId(),
+                papel.isSistema(),
                 papel.getCreatedAt(),
                 papel.getUpdatedAt()
         );

@@ -22,9 +22,17 @@ public class Papel extends AuditableEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(nullable = false, length = 50)
     private String nome;
 
     @Column(length = 255)
     private String descricao;
+
+    /** Nulo para papéis de sistema (globais); preenchido para papéis customizados de uma igreja. */
+    @Column(name = "igreja_id")
+    private UUID igrejaId;
+
+    public boolean isSistema() {
+        return igrejaId == null;
+    }
 }

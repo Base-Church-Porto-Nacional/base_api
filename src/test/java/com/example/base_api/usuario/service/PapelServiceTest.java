@@ -1,16 +1,15 @@
 package com.example.base_api.usuario.service;
 
-import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.usuario.dto.PapelRequest;
 import com.example.base_api.usuario.entity.Papel;
-import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.repository.PapelRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -32,37 +31,33 @@ class PapelServiceTest {
     private PapelService papelService;
 
     @Test
-    void naoExcluiPapelAdmin() {
+    void naoExcluiPapelSistema() {
         UUID id = UUID.randomUUID();
         Papel admin = new Papel();
         admin.setId(id);
         admin.setNome("ADMIN");
+        // igrejaId nulo => papel de sistema (global)
 
-        Usuario usuario = new Usuario();
-        usuario.setIgrejaId(UUID.randomUUID());
-        when(autorizacaoService.requireUsuario()).thenReturn(usuario);
         when(papelRepository.findById(id)).thenReturn(Optional.of(admin));
 
         assertThatThrownBy(() -> papelService.excluir(id))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("sistema");
         verify(papelRepository, never()).delete(admin);
     }
 
     @Test
-    void naoRenomeiaPapelPastor() {
+    void naoAlteraPapelSistema() {
         UUID id = UUID.randomUUID();
         Papel pastor = new Papel();
         pastor.setId(id);
         pastor.setNome("PASTOR");
 
-        Usuario usuario = new Usuario();
-        usuario.setIgrejaId(UUID.randomUUID());
-        when(autorizacaoService.requireUsuario()).thenReturn(usuario);
         when(papelRepository.findById(id)).thenReturn(Optional.of(pastor));
 
-        assertThatThrownBy(() -> papelService.atualizar(id, new PapelRequest("LIDER", "novo")))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("renomeado");
+        assertThatThrownBy(() -> papelService.atualizar(id, new PapelRequest("LOUVOR", "novo")))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("sistema");
+        verify(papelRepository, never()).save(pastor);
     }
 }
