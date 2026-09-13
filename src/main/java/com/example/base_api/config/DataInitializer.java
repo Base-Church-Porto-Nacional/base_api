@@ -1,5 +1,7 @@
 package com.example.base_api.config;
 
+import com.example.base_api.baseministerial.entity.BaseMinisterial;
+import com.example.base_api.baseministerial.repository.BaseMinisterialRepository;
 import com.example.base_api.cronograma.entity.CronogramaConteudo;
 import com.example.base_api.cronograma.entity.CronogramaEvento;
 import com.example.base_api.cronograma.entity.TipoEvento;
@@ -22,6 +24,13 @@ import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.servico.entity.Servico;
 import com.example.base_api.servico.repository.ServicoRepository;
+import com.example.base_api.smallgroup.entity.DiaSemana;
+import com.example.base_api.smallgroup.entity.SmallGroup;
+import com.example.base_api.smallgroup.entity.SmallGroupEncontro;
+import com.example.base_api.smallgroup.entity.SmallGroupParticipante;
+import com.example.base_api.smallgroup.repository.SmallGroupEncontroRepository;
+import com.example.base_api.smallgroup.repository.SmallGroupParticipanteRepository;
+import com.example.base_api.smallgroup.repository.SmallGroupRepository;
 import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.entity.UsuarioPapel;
@@ -59,12 +68,16 @@ public class DataInitializer {
             UsuarioPapelRepository usuarioPapelRepository,
             PapelRepository papelRepository,
             MinisterioRepository ministerioRepository,
+            BaseMinisterialRepository baseMinisterialRepository,
             ServicoRepository servicoRepository,
             PessoaServicoRepository pessoaServicoRepository,
             CronogramaEventoRepository cronogramaEventoRepository,
             CronogramaConteudoRepository cronogramaConteudoRepository,
             EscalaRepository escalaRepository,
             EscalaVoluntarioRepository escalaVoluntarioRepository,
+            SmallGroupRepository smallGroupRepository,
+            SmallGroupEncontroRepository smallGroupEncontroRepository,
+            SmallGroupParticipanteRepository smallGroupParticipanteRepository,
             JornadaService jornadaService,
             PasswordEncoder passwordEncoder
     ) {
@@ -84,7 +97,7 @@ public class DataInitializer {
             Pessoa maria = pessoa(pessoaRepository, jornadaService, "Maria Oliveira", "maria.oliveira@email.com", "(11) 96666-3003", MATRIZ_ID, LocalDate.of(2023, 5, 8));
             Pessoa bruno = pessoa(pessoaRepository, jornadaService, "Bruno Santos", "bruno.santos@email.com", "(11) 95555-4004", MATRIZ_ID, LocalDate.of(2024, 2, 14));
             Pessoa fernanda = pessoa(pessoaRepository, jornadaService, "Fernanda Dias", "fernanda.dias@email.com", "(11) 94444-5005", MATRIZ_ID, LocalDate.of(2024, 6, 1));
-            pessoa(pessoaRepository, jornadaService, "Carla Mendes", "carla.mendes@email.com", "(11) 93333-6006", MATRIZ_ID, LocalDate.of(2026, 8, 10));
+            Pessoa carla = pessoa(pessoaRepository, jornadaService, "Carla Mendes", "carla.mendes@email.com", "(11) 93333-6006", MATRIZ_ID, LocalDate.of(2026, 8, 10));
             Pessoa carlos = pessoa(pessoaRepository, jornadaService, "Carlos Lima", "carlos.lima@email.com", "(11) 92222-7007", MATRIZ_ID, LocalDate.of(2021, 11, 3));
             Pessoa pedro = pessoa(pessoaRepository, jornadaService, "Pedro Alves", "pedro.alves@base.church", "(11) 91111-8008", MATRIZ_ID, LocalDate.of(2020, 8, 1));
             Pessoa luciana = pessoa(pessoaRepository, jornadaService, "Luciana Rocha", "luciana.rocha@base.church", "(11) 90000-9009", MATRIZ_ID, LocalDate.of(2025, 1, 15));
@@ -141,15 +154,65 @@ public class DataInitializer {
             Ministerio midiaMin = ministerio(ministerioRepository, servicoRepository, pessoaServicoRepository,
                     "Mídia", MATRIZ_ID, MinisterioTipo.MIDIA, carlos.getId(), bruno.getId(), "Projeção, som e transmissões.",
                     null, null, "Projeção", "Som");
-            ministerio(ministerioRepository, servicoRepository, pessoaServicoRepository,
+            Ministerio infantil = ministerio(ministerioRepository, servicoRepository, pessoaServicoRepository,
                     "Infantil", MATRIZ_ID, MinisterioTipo.GERAL, maria.getId(), fernanda.getId(), null,
                     null, null, "Professor");
-            ministerio(ministerioRepository, servicoRepository, pessoaServicoRepository,
+            Ministerio recepcao = ministerio(ministerioRepository, servicoRepository, pessoaServicoRepository,
                     "Recepção", MATRIZ_ID, MinisterioTipo.GERAL, ana.getId(), ana.getId(), null,
                     null, null, "Recepção");
-            ministerio(ministerioRepository, servicoRepository, pessoaServicoRepository,
+            Ministerio louvorZonaSul = ministerio(ministerioRepository, servicoRepository, pessoaServicoRepository,
                     "Louvor Zona Sul", filial.getId(), MinisterioTipo.MUSICA, rafael.getId(), rafael.getId(), null,
                     null, null, "Vocal");
+
+            BaseMinisterial adoracao = baseMinisterial(baseMinisterialRepository, "Adoração",
+                    "Louvor, mídia e ambientação dos cultos.", MATRIZ_ID, joao.getId(), maria.getId());
+            BaseMinisterial servico = baseMinisterial(baseMinisterialRepository, "Serviço",
+                    "Recepção, estacionamento e suporte à igreja.", MATRIZ_ID, ana.getId(), fernanda.getId());
+            baseMinisterial(baseMinisterialRepository, "Missão",
+                    "Evangelismo e ação missionária.", MATRIZ_ID, carlos.getId(), bruno.getId());
+            baseMinisterial(baseMinisterialRepository, "Conectados",
+                    "Acolhimento, redes e integração de novos membros.", MATRIZ_ID, null, null);
+            BaseMinisterial discipulado = baseMinisterial(baseMinisterialRepository, "Discipulado",
+                    "Ensino, células e formação de líderes.", MATRIZ_ID, pedro.getId(), rafael.getId());
+
+            vincularBase(ministerioRepository, louvor, adoracao.getId());
+            vincularBase(ministerioRepository, midiaMin, adoracao.getId());
+            vincularBase(ministerioRepository, infantil, discipulado.getId());
+            vincularBase(ministerioRepository, recepcao, servico.getId());
+            vincularBase(ministerioRepository, louvorZonaSul, adoracao.getId());
+
+            Ministerio pequenosGrupos = ministerio(ministerioRepository, servicoRepository, pessoaServicoRepository,
+                    "Pequenos grupos", MATRIZ_ID, MinisterioTipo.GERAL, bruno.getId(), fernanda.getId(),
+                    "Pequenos grupos reunidos em casas pela semana.", null, null);
+            vincularBase(ministerioRepository, pequenosGrupos, discipulado.getId());
+
+            SmallGroup casaJoao = smallGroup(smallGroupRepository, "Casa do João", MATRIZ_ID,
+                    DiaSemana.QUARTA, "19:30", joao.getId(), pequenosGrupos.getId(), 4);
+            SmallGroup mulheresFe = smallGroup(smallGroupRepository, "Mulheres de Fé", MATRIZ_ID,
+                    DiaSemana.TERCA, "20:00", fernanda.getId(), pequenosGrupos.getId(), 5);
+            SmallGroup discipulos = smallGroup(smallGroupRepository, "Discípulos", MATRIZ_ID,
+                    DiaSemana.SEXTA, "19:00", bruno.getId(), pequenosGrupos.getId(), 3);
+
+            if (smallGroupEncontroRepository.findFirstBySmallGroupIdAndData(
+                    casaJoao.getId(), LocalDate.of(2026, 8, 5)).isEmpty()) {
+                SmallGroupEncontro e1 = encontro(smallGroupEncontroRepository, casaJoao.getId(),
+                        LocalDate.of(2026, 8, 5), joao.getId(), "Estudo de João 15.");
+                participante(smallGroupParticipanteRepository, e1.getId(), joao.getId(), joao.getNome());
+                participante(smallGroupParticipanteRepository, e1.getId(), carla.getId(), carla.getNome());
+                participante(smallGroupParticipanteRepository, e1.getId(), maria.getId(), maria.getNome());
+
+                SmallGroupEncontro e2 = encontro(smallGroupEncontroRepository, mulheresFe.getId(),
+                        LocalDate.of(2026, 8, 4), fernanda.getId(), "Encontro de oração.");
+                participante(smallGroupParticipanteRepository, e2.getId(), fernanda.getId(), fernanda.getNome());
+                participante(smallGroupParticipanteRepository, e2.getId(), ana.getId(), ana.getNome());
+                participante(smallGroupParticipanteRepository, e2.getId(), carla.getId(), carla.getNome());
+
+                SmallGroupEncontro e3 = encontro(smallGroupEncontroRepository, discipulos.getId(),
+                        LocalDate.of(2026, 8, 7), bruno.getId(), "Revisão do curso de discipulado.");
+                participante(smallGroupParticipanteRepository, e3.getId(), bruno.getId(), bruno.getNome());
+                participante(smallGroupParticipanteRepository, e3.getId(), carlos.getId(), carlos.getNome());
+                participante(smallGroupParticipanteRepository, e3.getId(), joao.getId(), joao.getNome());
+            }
 
             if (cronogramaEventoRepository.count() == 0) {
                 CronogramaEvento c1 = culto(cronogramaEventoRepository, "Culto de domingo", LocalDate.of(2026, 8, 2), MATRIZ_ID, ana.getId(), "Templo principal");
@@ -204,7 +267,7 @@ public class DataInitializer {
     }
 
     private Papel papel(PapelRepository repo, String nome) {
-        return repo.findByNome(nome)
+        return repo.findByNomeAndIgrejaIdIsNull(nome)
                 .orElseThrow(() -> new IllegalStateException("Papel " + nome + " não encontrado"));
     }
 
@@ -322,6 +385,86 @@ public class DataInitializer {
             }
             return salvo;
         });
+    }
+
+    private BaseMinisterial baseMinisterial(
+            BaseMinisterialRepository repo,
+            String nome,
+            String descricao,
+            UUID igrejaId,
+            UUID liderId,
+            UUID coordenadorId
+    ) {
+        return repo.findByIgrejaIdAndNomeIgnoreCase(igrejaId, nome).orElseGet(() -> {
+            BaseMinisterial b = new BaseMinisterial();
+            b.setNome(nome);
+            b.setDescricao(descricao);
+            b.setIgrejaId(igrejaId);
+            b.setLiderPessoaId(liderId);
+            b.setCoordenadorPessoaId(coordenadorId);
+            b.setAtivo(true);
+            return repo.save(b);
+        });
+    }
+
+    private void vincularBase(MinisterioRepository repo, Ministerio ministerio, UUID baseMinisterialId) {
+        if (ministerio.getBaseMinisterialId() != null) {
+            return;
+        }
+        ministerio.setBaseMinisterialId(baseMinisterialId);
+        repo.save(ministerio);
+    }
+
+    private SmallGroup smallGroup(
+            SmallGroupRepository repo,
+            String nome,
+            UUID igrejaId,
+            DiaSemana diaSemana,
+            String horario,
+            UUID liderId,
+            UUID ministerioId,
+            int nota
+    ) {
+        return repo.findByIgrejaIdAndNomeIgnoreCase(igrejaId, nome).orElseGet(() -> {
+            SmallGroup g = new SmallGroup();
+            g.setNome(nome);
+            g.setIgrejaId(igrejaId);
+            g.setDiaSemana(diaSemana);
+            g.setHorario(horario);
+            g.setLiderPessoaId(liderId);
+            g.setMinisterioId(ministerioId);
+            g.setAtivo(true);
+            g.setNota(nota);
+            return repo.save(g);
+        });
+    }
+
+    private SmallGroupEncontro encontro(
+            SmallGroupEncontroRepository repo,
+            UUID grupoId,
+            LocalDate data,
+            UUID anfitriaoId,
+            String anotacoes
+    ) {
+        SmallGroupEncontro e = new SmallGroupEncontro();
+        e.setSmallGroupId(grupoId);
+        e.setData(data);
+        e.setAnfitriaoPessoaId(anfitriaoId);
+        e.setAnotacoes(anotacoes);
+        return repo.save(e);
+    }
+
+    private void participante(
+            SmallGroupParticipanteRepository repo,
+            UUID encontroId,
+            UUID pessoaId,
+            String pessoaNome
+    ) {
+        SmallGroupParticipante p = new SmallGroupParticipante();
+        p.setEncontroId(encontroId);
+        p.setPessoaId(pessoaId);
+        p.setPessoaNome(pessoaNome);
+        repo.save(p);
     }
 
     private CronogramaEvento culto(
