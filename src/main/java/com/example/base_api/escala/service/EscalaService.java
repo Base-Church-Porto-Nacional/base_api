@@ -132,11 +132,7 @@ public class EscalaService {
             throw new BusinessException("ministerioId é obrigatório para escala de ministério");
         }
         if (request.ministerioId() != null) {
-            Ministerio ministerio = ministerioRepository.findById(request.ministerioId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Ministério não encontrado"));
-            if (!ministerio.getIgrejaId().equals(request.igrejaId())) {
-                throw new BusinessException("O ministério não pertence a esta igreja");
-            }
+            garantirMinisterioDaIgreja(request.ministerioId(), request.igrejaId());
         }
 
         validarHorario(request.horaInicio(), request.horaFim());
@@ -177,7 +173,7 @@ public class EscalaService {
 
         if (request.servicos() != null) {
             for (EscalaCreateRequest.EscalaServicoRequest item : request.servicos()) {
-                servicoService.buscarEntidade(item.servicoId());
+                garantirServicoDaIgreja(item.servicoId(), salva.getIgrejaId());
                 EscalaServico escalaServico = new EscalaServico();
                 escalaServico.setEscalaId(salva.getId());
                 escalaServico.setServicoId(item.servicoId());
@@ -198,17 +194,35 @@ public class EscalaService {
     @Transactional
     public EscalaResponse atualizar(UUID id, EscalaUpdateRequest request) {
         Escala escala = buscarEntidade(id);
+        // Autoriza a mutação no estado atual da escala.
         autorizacaoService.assertPodeMutarEscala(
                 escala.getTipo(), escala.getIgrejaId(), escala.getCompetencia(), escala.getMinisterioId()
         );
+
+        // Calcula o estado resultante e reautoriza/valida, para que mudanças de tipo/ministério/competência
+        // não escapem das regras de autorização nem cruzem tenants.
+        TipoEscala novoTipo = request.tipo() != null ? request.tipo() : escala.getTipo();
+        UUID novoMinisterioId = request.ministerioId() != null ? request.ministerioId() : escala.getMinisterioId();
+        String novaCompetencia = request.competencia() != null && !request.competencia().isBlank()
+                ? validarCompetencia(request.competencia())
+                : escala.getCompetencia();
+
+        if (novoTipo == TipoEscala.MINISTERIO && novoMinisterioId == null) {
+            throw new BusinessException("ministerioId é obrigatório para escala de ministério");
+        }
+        if (request.ministerioId() != null) {
+            garantirMinisterioDaIgreja(request.ministerioId(), escala.getIgrejaId());
+        }
+        autorizacaoService.assertPodeMutarEscala(
+                novoTipo, escala.getIgrejaId(), novaCompetencia, novoMinisterioId
+        );
+
         validarHorario(request.horaInicio(), request.horaFim());
         validarEvento(request.eventoId());
 
         escala.setTitulo(request.titulo().trim());
         escala.setDescricao(request.descricao());
-        if (request.competencia() != null && !request.competencia().isBlank()) {
-            escala.setCompetencia(validarCompetencia(request.competencia()));
-        }
+        escala.setCompetencia(novaCompetencia);
         if (request.tipo() != null) {
             escala.setTipo(request.tipo());
         }
@@ -241,7 +255,7 @@ public class EscalaService {
     public EscalaResponse.EscalaServicoResponse adicionarServico(UUID escalaId, EscalaServicoUpsertRequest request) {
         Escala escala = buscarEntidade(escalaId);
         assertPodeMutar(escala);
-        servicoService.buscarEntidade(request.servicoId());
+        garantirServicoDaIgreja(request.servicoId(), escala.getIgrejaId());
 
         escalaServicoRepository.findByEscalaIdAndServicoId(escala.getId(), request.servicoId())
                 .ifPresent(item -> {
@@ -278,7 +292,7 @@ public class EscalaService {
             throw new BusinessException("O serviço não pertence a esta escala");
         }
 
-        servicoService.buscarEntidade(request.servicoId());
+        garantirServicoDaIgreja(request.servicoId(), escalaRef.getIgrejaId());
 
         if (!escalaServico.getServicoId().equals(request.servicoId())) {
             escalaServicoRepository.findByEscalaIdAndServicoId(escalaId, request.servicoId())
@@ -467,7 +481,7 @@ public class EscalaService {
         }
         garantirPessoaDaIgreja(item.pessoaId(), escala.getIgrejaId());
         if (item.servicoId() != null) {
-            servicoService.buscarEntidade(item.servicoId());
+            garantirServicoDaIgreja(item.servicoId(), escala.getIgrejaId());
             escalaServicoRepository.findByEscalaIdAndServicoId(escala.getId(), item.servicoId())
                     .orElseGet(() -> {
                         EscalaServico escalaServico = new EscalaServico();
@@ -498,6 +512,19 @@ public class EscalaService {
         }
         Pessoa pessoa = pessoaService.buscarEntidade(pessoaId);
         autorizacaoService.assertPessoaDaIgreja(pessoa, igrejaId);
+    }
+
+    private void garantirMinisterioDaIgreja(UUID ministerioId, UUID igrejaId) {
+        Ministerio ministerio = ministerioRepository.findById(ministerioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ministério não encontrado"));
+        if (!ministerio.getIgrejaId().equals(igrejaId)) {
+            throw new BusinessException("O ministério não pertence a esta igreja");
+        }
+    }
+
+    private void garantirServicoDaIgreja(UUID servicoId, UUID igrejaId) {
+        Servico servico = servicoService.buscarEntidade(servicoId);
+        garantirMinisterioDaIgreja(servico.getMinisterioId(), igrejaId);
     }
 
     private String validarCompetencia(String competencia) {

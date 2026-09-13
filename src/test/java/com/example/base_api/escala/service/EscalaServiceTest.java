@@ -72,6 +72,7 @@ class EscalaServiceTest {
 
     private UUID escalaId;
     private UUID servicoId;
+    private UUID ministerioId;
     private UUID pessoaId;
     private UUID igrejaId;
     private UUID pastorId;
@@ -80,6 +81,7 @@ class EscalaServiceTest {
     void setUp() {
         escalaId = UUID.randomUUID();
         servicoId = UUID.randomUUID();
+        ministerioId = UUID.randomUUID();
         pessoaId = UUID.randomUUID();
         igrejaId = UUID.randomUUID();
         pastorId = UUID.randomUUID();
@@ -93,6 +95,7 @@ class EscalaServiceTest {
 
         when(igrejaContextoService.buscarIgreja(igrejaId)).thenReturn(igreja);
         when(servicoService.buscarEntidade(servicoId)).thenReturn(servico());
+        when(ministerioRepository.findById(ministerioId)).thenReturn(Optional.of(ministerio()));
         when(escalaRepository.save(any(Escala.class))).thenAnswer(invocation -> {
             Escala e = invocation.getArgument(0);
             e.setId(escalaId);
@@ -214,9 +217,18 @@ class EscalaServiceTest {
         Servico servico = new Servico();
         servico.setId(servicoId);
         servico.setNome("Violão");
-        servico.setMinisterioId(UUID.randomUUID());
+        servico.setMinisterioId(ministerioId);
         servico.setFiccao(false);
         return servico;
+    }
+
+    private com.example.base_api.ministerio.entity.Ministerio ministerio() {
+        com.example.base_api.ministerio.entity.Ministerio ministerio =
+                new com.example.base_api.ministerio.entity.Ministerio();
+        ministerio.setId(ministerioId);
+        ministerio.setNome("Louvor");
+        ministerio.setIgrejaId(igrejaId);
+        return ministerio;
     }
 
     private Pessoa pessoa() {
