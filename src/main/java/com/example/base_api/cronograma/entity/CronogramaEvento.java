@@ -29,6 +29,9 @@ public class CronogramaEvento extends AuditableEntity {
     @Column(nullable = false, length = 200)
     private String titulo;
 
+    @Column(length = 300)
+    private String tema;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private TipoEvento tipo = TipoEvento.CULTO;
@@ -50,6 +53,13 @@ public class CronogramaEvento extends AuditableEntity {
 
     @Column(name = "igreja_id", nullable = false)
     private UUID igrejaId;
+
+    @Column(nullable = false, length = 7)
+    private String competencia;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private StatusEvento status = StatusEvento.AGENDADO;
 
     @Column(name = "supervisor_pessoa_id")
     private UUID supervisorPessoaId;

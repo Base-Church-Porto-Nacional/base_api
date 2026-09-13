@@ -30,6 +30,10 @@ public interface EscalaRepository extends JpaRepository<Escala, UUID> {
             TipoEscala tipo
     );
 
+    List<Escala> findByEventoId(UUID eventoId);
+
+    Optional<Escala> findByEventoIdAndMinisterioId(UUID eventoId, UUID ministerioId);
+
     long countByIgrejaIdIn(List<UUID> igrejaIds);
 
     @Query("""

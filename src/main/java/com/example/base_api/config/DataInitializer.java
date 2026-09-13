@@ -526,6 +526,7 @@ public class DataInitializer {
         e.setHoraFim(LocalTime.of(20, 0));
         e.setLocalEvento(localEvento);
         e.setIgrejaId(igrejaId);
+        e.setCompetencia(YearMonth.from(data).toString());
         e.setSupervisorPessoaId(supervisorId);
         e.setAtivo(true);
         return repo.save(e);

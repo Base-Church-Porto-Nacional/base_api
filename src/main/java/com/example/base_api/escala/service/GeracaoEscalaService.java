@@ -241,6 +241,31 @@ public class GeracaoEscalaService {
                     List.of()
             );
         }
+        return gerar(escala, eventos);
+    }
+
+    @Transactional
+    public GeracaoEscalaResponse gerarParaEvento(Escala escala, CronogramaEvento evento) {
+        if (!Boolean.TRUE.equals(evento.getAtivo())) {
+            return new GeracaoEscalaResponse(
+                    escala.getId(),
+                    "SEM_EVENTOS",
+                    "O evento está inativo; nenhuma sugestão foi gerada.",
+                    List.of()
+            );
+        }
+        return gerar(escala, List.of(evento));
+    }
+
+    private GeracaoEscalaResponse gerar(Escala escala, List<CronogramaEvento> eventos) {
+        LocalDate inicio = eventos.stream()
+                .map(CronogramaEvento::getDataEvento)
+                .min(LocalDate::compareTo)
+                .orElse(escala.getDataEvento());
+        LocalDate fim = eventos.stream()
+                .map(CronogramaEvento::getDataEvento)
+                .max(LocalDate::compareTo)
+                .orElse(escala.getDataEvento());
 
         List<EscalaServico> escalaServicos = escalaServicoRepository.findByEscalaId(escala.getId());
         List<ServicoNecessidade> necessidades = escalaServicos.stream()

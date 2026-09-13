@@ -1,5 +1,6 @@
 package com.example.base_api.cronograma.dto;
 
+import com.example.base_api.cronograma.entity.StatusEvento;
 import com.example.base_api.cronograma.entity.TipoEvento;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -7,12 +8,16 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 
 public record CronogramaEventoUpdateRequest(
         @NotBlank(message = "Título é obrigatório")
         @Size(max = 200, message = "Título deve ter no máximo 200 caracteres")
         String titulo,
+
+        @Size(max = 300, message = "Tema deve ter no máximo 300 caracteres")
+        String tema,
 
         @NotNull(message = "Tipo é obrigatório")
         TipoEvento tipo,
@@ -32,7 +37,12 @@ public record CronogramaEventoUpdateRequest(
 
         UUID supervisorPessoaId,
 
+        @NotNull(message = "Status é obrigatório")
+        StatusEvento status,
+
         @NotNull(message = "Campo ativo é obrigatório")
-        Boolean ativo
+        Boolean ativo,
+
+        List<UUID> ministerioIds
 ) {
 }

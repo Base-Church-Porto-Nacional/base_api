@@ -7,12 +7,16 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 
 public record CronogramaEventoCreateRequest(
         @NotBlank(message = "Título é obrigatório")
         @Size(max = 200, message = "Título deve ter no máximo 200 caracteres")
         String titulo,
+
+        @Size(max = 300, message = "Tema deve ter no máximo 300 caracteres")
+        String tema,
 
         @NotNull(message = "Tipo é obrigatório")
         TipoEvento tipo,
@@ -32,6 +36,8 @@ public record CronogramaEventoCreateRequest(
 
         UUID igrejaId,
 
-        UUID supervisorPessoaId
+        UUID supervisorPessoaId,
+
+        List<UUID> ministerioIds
 ) {
 }
