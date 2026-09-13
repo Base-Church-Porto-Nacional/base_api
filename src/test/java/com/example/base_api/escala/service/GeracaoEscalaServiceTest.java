@@ -313,6 +313,42 @@ class GeracaoEscalaServiceTest {
         verify(escalaVoluntarioRepository, never()).saveAll(any());
     }
 
+    @Test
+    void deveGerarSugestaoSomenteParaOEventoInformado() {
+        Escala escala = escala();
+        prepararServicoDaEscala();
+        prepararVoluntariosAtivos();
+        prepararSemRestricoes();
+        when(escalaVoluntarioRepository.findByEscalaId(escalaId)).thenReturn(List.of());
+        when(escalaVoluntarioRepository.findByPessoaIdInAndDataItemBetween(anyList(), any(), any())).thenReturn(List.of());
+
+        CronogramaEvento evento = evento(LocalDate.of(2026, 8, 2));
+        GeracaoEscalaResponse response = geracaoEscalaService.gerarParaEvento(escala, evento);
+
+        assertThat(response.status()).isEqualTo("COMPLETA");
+        ArgumentCaptor<List<EscalaVoluntario>> captor = ArgumentCaptor.forClass(List.class);
+        verify(escalaVoluntarioRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).singleElement().satisfies(item -> {
+            assertThat(item.getEventoId()).isEqualTo(evento.getId());
+            assertThat(item.getDataItem()).isEqualTo(LocalDate.of(2026, 8, 2));
+            assertThat(item.getPessoaId()).isEqualTo(pessoaA);
+        });
+        verify(cronogramaEventoRepository, never())
+                .findByIgrejaIdInAndDataEventoBetweenOrderByDataEventoAscHoraInicioAsc(anyList(), any(), any());
+    }
+
+    @Test
+    void deveRetornarSemEventosQuandoEventoInativo() {
+        Escala escala = escala();
+        CronogramaEvento evento = evento(LocalDate.of(2026, 8, 2));
+        evento.setAtivo(false);
+
+        GeracaoEscalaResponse response = geracaoEscalaService.gerarParaEvento(escala, evento);
+
+        assertThat(response.status()).isEqualTo("SEM_EVENTOS");
+        verify(escalaVoluntarioRepository, never()).saveAll(any());
+    }
+
     private void prepararServicoDaEscala() {
         EscalaServico necessidade = new EscalaServico();
         necessidade.setEscalaId(escalaId);
