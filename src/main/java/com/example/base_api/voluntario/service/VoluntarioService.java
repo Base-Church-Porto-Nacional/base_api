@@ -104,7 +104,9 @@ public class VoluntarioService {
         }
 
         if (request.liderResponsavelId() != null) {
-            pessoaService.buscarEntidade(request.liderResponsavelId());
+            autorizacaoService.assertPessoaDaIgreja(
+                    pessoaService.buscarEntidade(request.liderResponsavelId()), pessoa.getIgrejaId()
+            );
         }
 
         PessoaServico vinculo = new PessoaServico();
@@ -147,7 +149,9 @@ public class VoluntarioService {
         }
 
         if (request.liderResponsavelId() != null) {
-            pessoaService.buscarEntidade(request.liderResponsavelId());
+            autorizacaoService.assertPessoaDaIgreja(
+                    pessoaService.buscarEntidade(request.liderResponsavelId()), pessoa.getIgrejaId()
+            );
         }
 
         vinculo.setPessoaId(pessoa.getId());

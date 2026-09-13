@@ -49,10 +49,8 @@ public class PessoaHistoricoService {
 
     @Transactional
     public PessoaHistoricoResponse criar(UUID pessoaId, PessoaHistoricoCreateRequest request) {
-        exigirMutacao(pessoaId);
-        if (request.autorPessoaId() != null) {
-            carregarPessoa(request.autorPessoaId());
-        }
+        Pessoa pessoa = exigirMutacao(pessoaId);
+        validarAutor(request.autorPessoaId(), pessoa.getIgrejaId());
 
         PessoaHistorico historico = new PessoaHistorico();
         historico.setPessoaId(pessoaId);
@@ -71,12 +69,10 @@ public class PessoaHistoricoService {
             UUID historicoId,
             PessoaHistoricoUpdateRequest request
     ) {
-        exigirMutacao(pessoaId);
+        Pessoa pessoa = exigirMutacao(pessoaId);
         PessoaHistorico historico = buscarEntidade(pessoaId, historicoId);
 
-        if (request.autorPessoaId() != null) {
-            carregarPessoa(request.autorPessoaId());
-        }
+        validarAutor(request.autorPessoaId(), pessoa.getIgrejaId());
 
         historico.setDescricao(request.descricao().trim());
         historico.setAutorNome(request.autorNome().trim());
@@ -113,9 +109,17 @@ public class PessoaHistoricoService {
         autorizacaoService.assertPodeVerPessoa(carregarPessoa(pessoaId));
     }
 
-    private void exigirMutacao(UUID pessoaId) {
+    private Pessoa exigirMutacao(UUID pessoaId) {
         Pessoa pessoa = carregarPessoa(pessoaId);
         autorizacaoService.assertPodeMutarPessoas(pessoa.getIgrejaId());
+        return pessoa;
+    }
+
+    private void validarAutor(UUID autorPessoaId, UUID igrejaId) {
+        if (autorPessoaId == null) {
+            return;
+        }
+        autorizacaoService.assertPessoaDaIgreja(carregarPessoa(autorPessoaId), igrejaId);
     }
 
     private PessoaHistoricoResponse toResponse(PessoaHistorico historico) {
