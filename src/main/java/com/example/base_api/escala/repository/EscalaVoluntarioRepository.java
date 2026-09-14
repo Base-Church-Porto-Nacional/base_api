@@ -31,6 +31,20 @@ public interface EscalaVoluntarioRepository extends JpaRepository<EscalaVoluntar
             UUID servicoId
     );
 
+    Optional<EscalaVoluntario> findByEscalaIdAndPessoaIdAndServicoIdAndDataItem(
+            UUID escalaId,
+            UUID pessoaId,
+            UUID servicoId,
+            LocalDate dataItem
+    );
+
+    long countByEscalaIdAndServicoIdAndDataItemAndStatusIn(
+            UUID escalaId,
+            UUID servicoId,
+            LocalDate dataItem,
+            List<StatusEscalaVoluntario> status
+    );
+
     long countByEscalaIdAndServicoIdAndStatusIn(
             UUID escalaId,
             UUID servicoId,

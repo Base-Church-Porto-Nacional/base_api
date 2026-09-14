@@ -1,7 +1,12 @@
 package com.example.base_api.escala.service;
 
 import com.example.base_api.common.exception.BusinessException;
+import com.example.base_api.cronograma.entity.CronogramaEvento;
+import com.example.base_api.cronograma.repository.CronogramaEventoRepository;
 import com.example.base_api.cronograma.service.CronogramaService;
+import com.example.base_api.culto.entity.Culto;
+import com.example.base_api.culto.entity.StatusCulto;
+import com.example.base_api.culto.repository.CultoRepository;
 import com.example.base_api.escala.dto.EscalaCreateRequest;
 import com.example.base_api.escala.dto.EscalaResponse;
 import com.example.base_api.escala.dto.EscalaStatusRequest;
@@ -9,6 +14,7 @@ import com.example.base_api.escala.dto.EscalaVoluntarioCreateRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioRespostaRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioStatusRequest;
 import com.example.base_api.escala.dto.GeracaoEscalaResponse;
+import com.example.base_api.escala.dto.VisaoMensalEscalaResponse;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.EscalaServico;
 import com.example.base_api.escala.entity.EscalaVoluntario;
@@ -20,6 +26,7 @@ import com.example.base_api.escala.repository.EscalaServicoRepository;
 import com.example.base_api.escala.repository.EscalaVoluntarioRepository;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.service.IgrejaContextoService;
+import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.repository.MinisterioRepository;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.service.PessoaService;
@@ -32,6 +39,7 @@ import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -49,6 +57,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,6 +77,10 @@ class EscalaServiceTest {
     private PessoaServicoRepository pessoaServicoRepository;
     @Mock
     private CronogramaService cronogramaService;
+    @Mock
+    private CronogramaEventoRepository cronogramaEventoRepository;
+    @Mock
+    private CultoRepository cultoRepository;
     @Mock
     private IgrejaContextoService igrejaContextoService;
     @Mock
@@ -162,7 +175,7 @@ class EscalaServiceTest {
 
         assertThatThrownBy(() -> escalaService.designarVoluntario(
                 escalaId,
-                new EscalaVoluntarioCreateRequest(pessoaId, servicoId, null)
+                new EscalaVoluntarioCreateRequest(pessoaId, servicoId, null, null, null, null)
         )).isInstanceOf(BusinessException.class)
                 .hasMessageContaining("não está habilitada");
     }
@@ -194,11 +207,179 @@ class EscalaServiceTest {
 
         EscalaResponse.EscalaVoluntarioResponse response = escalaService.designarVoluntario(
                 escalaId,
-                new EscalaVoluntarioCreateRequest(pessoaId, servicoId, null)
+                new EscalaVoluntarioCreateRequest(pessoaId, servicoId, null, null, null, null)
         );
 
         assertThat(response.pessoaId()).isEqualTo(pessoaId);
         assertThat(response.status().name()).isEqualTo("PENDENTE");
+    }
+
+    @Test
+    void liderDeveVerVisaoMensalComTodosOsCultosEEventosDoMes() {
+        Ministerio ministerioLiderado = new Ministerio();
+        ministerioLiderado.setId(ministerioId);
+        ministerioLiderado.setNome("Louvor");
+        ministerioLiderado.setIgrejaId(igrejaId);
+        ministerioLiderado.setLiderPessoaId(pessoaId);
+
+        CronogramaEvento evento = eventoDeReferencia();
+        EscalaVoluntario designacao = designacao();
+        designacao.setEventoId(evento.getId());
+        designacao.setDataItem(LocalDate.of(2026, 8, 3));
+        designacao.setHorario(LocalTime.of(18, 0));
+
+        EscalaServico comDois = escalaServico();
+        comDois.setQuantidadeNecessaria(2);
+
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
+        when(autorizacaoService.requireUsuario()).thenReturn(usuarioLogado(pessoaId));
+        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(ministerioRepository.findByIgrejaIdInOrderByNomeAsc(anyList())).thenReturn(List.of(ministerioLiderado));
+        when(escalaRepository.findByMinisterioIdAndCompetenciaAndAtivoTrueOrderByDataEventoAsc(
+                ministerioId, "2026-08")).thenReturn(List.of(escalaMensal()));
+        when(escalaServicoRepository.findByEscalaId(escalaId)).thenReturn(List.of(comDois));
+        when(escalaVoluntarioRepository.findByEscalaId(escalaId)).thenReturn(List.of(designacao));
+        when(cultoRepository.filtrar(anyList(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(cultoDomingo()));
+        when(cronogramaEventoRepository
+                .findByIgrejaIdInAndDataEventoBetweenOrderByDataEventoAscHoraInicioAsc(anyList(), any(), any()))
+                .thenReturn(List.of(evento));
+        when(servicoService.buscarEntidade(servicoId)).thenReturn(servico());
+        when(pessoaService.buscarEntidade(pessoaId)).thenReturn(pessoa());
+
+        List<VisaoMensalEscalaResponse> resultado = escalaService.visaoMensal(igrejaId, "2026-08", null);
+
+        assertThat(resultado).hasSize(1);
+        VisaoMensalEscalaResponse visao = resultado.get(0);
+        assertThat(visao.ministerioId()).isEqualTo(ministerioId);
+        assertThat(visao.escalaId()).isEqualTo(escalaId);
+        assertThat(visao.itens()).hasSize(2);
+
+        VisaoMensalEscalaResponse.ItemVisao cultoVisao = visao.itens().get(0);
+        assertThat(cultoVisao.origem()).isEqualTo("CULTO");
+        assertThat(cultoVisao.data()).isEqualTo(LocalDate.of(2026, 8, 2));
+        assertThat(cultoVisao.servicos()).hasSize(1);
+        assertThat(cultoVisao.servicos().get(0).servicoNome()).isEqualTo("Violão");
+        assertThat(cultoVisao.servicos().get(0).quantidadeNecessaria()).isEqualTo(2);
+        assertThat(cultoVisao.servicos().get(0).designados()).isEmpty();
+
+        VisaoMensalEscalaResponse.ItemVisao eventoVisao = visao.itens().get(1);
+        assertThat(eventoVisao.origem()).isEqualTo("EVENTO");
+        assertThat(eventoVisao.data()).isEqualTo(LocalDate.of(2026, 8, 3));
+        assertThat(eventoVisao.servicos()).hasSize(1);
+        assertThat(eventoVisao.servicos().get(0).designados()).hasSize(1);
+        assertThat(eventoVisao.servicos().get(0).designados().get(0).pessoaNome()).isEqualTo("Gustavo");
+    }
+
+    @Test
+    void naoDevePermitirVisaoMensalDeMinisterioQueNaoLidera() {
+        Ministerio alheio = new Ministerio();
+        alheio.setId(ministerioId);
+        alheio.setNome("Teatro");
+        alheio.setIgrejaId(igrejaId);
+        alheio.setLiderPessoaId(UUID.randomUUID());
+
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
+        when(autorizacaoService.requireUsuario()).thenReturn(usuarioLogado(pessoaId));
+        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(ministerioRepository.findByIgrejaIdInOrderByNomeAsc(anyList())).thenReturn(List.of(alheio));
+
+        assertThatThrownBy(() -> escalaService.visaoMensal(igrejaId, "2026-08", ministerioId))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Sem permissão para ver a escala deste ministério");
+    }
+
+    @Test
+    void deveDesignarVoluntarioParaDataDeUmEventoEspecifico() {
+        Escala escala = escala();
+        CronogramaEvento evento = new CronogramaEvento();
+        evento.setId(UUID.randomUUID());
+        evento.setIgrejaId(igrejaId);
+        evento.setDataEvento(LocalDate.of(2026, 8, 3));
+        evento.setHoraInicio(LocalTime.of(18, 0));
+        evento.setCompetencia("2026-08");
+        evento.setAtivo(true);
+
+        PessoaServico vinculo = new PessoaServico();
+        vinculo.setAtivo(true);
+
+        when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
+        when(pessoaService.buscarEntidade(pessoaId)).thenReturn(pessoa());
+        when(servicoService.buscarEntidade(servicoId)).thenReturn(servico());
+        when(escalaServicoRepository.findByEscalaIdAndServicoId(escalaId, servicoId))
+                .thenReturn(Optional.of(escalaServico()));
+        when(pessoaServicoRepository.findByPessoaIdAndServicoId(pessoaId, servicoId))
+                .thenReturn(Optional.of(vinculo));
+        when(cronogramaService.buscarEntidade(evento.getId())).thenReturn(evento);
+        when(escalaVoluntarioRepository.findByEscalaIdAndPessoaIdAndServicoIdAndDataItem(
+                escalaId, pessoaId, servicoId, LocalDate.of(2026, 8, 3)))
+                .thenReturn(Optional.empty());
+        when(escalaVoluntarioRepository.countByEscalaIdAndServicoIdAndDataItemAndStatusIn(
+                eq(escalaId), eq(servicoId), eq(LocalDate.of(2026, 8, 3)), anyList()))
+                .thenReturn(0L);
+        when(escalaVoluntarioRepository.save(any(EscalaVoluntario.class))).thenAnswer(invocation -> {
+            EscalaVoluntario ev = invocation.getArgument(0);
+            ev.setId(UUID.randomUUID());
+            ev.setCreatedAt(Instant.now());
+            ev.setUpdatedAt(Instant.now());
+            return ev;
+        });
+
+        escalaService.designarVoluntario(
+                escalaId,
+                new EscalaVoluntarioCreateRequest(pessoaId, servicoId, null, null, evento.getId(), null)
+        );
+
+        ArgumentCaptor<EscalaVoluntario> captor = ArgumentCaptor.forClass(EscalaVoluntario.class);
+        verify(escalaVoluntarioRepository).save(captor.capture());
+        EscalaVoluntario salvo = captor.getValue();
+        assertThat(salvo.getEventoId()).isEqualTo(evento.getId());
+        assertThat(salvo.getDataItem()).isEqualTo(LocalDate.of(2026, 8, 3));
+        assertThat(salvo.getHorario()).isEqualTo(LocalTime.of(18, 0));
+    }
+
+    private Escala escalaMensal() {
+        Escala escala = new Escala();
+        escala.setId(escalaId);
+        escala.setTitulo("Louvor — agosto");
+        escala.setCompetencia("2026-08");
+        escala.setTipo(TipoEscala.MINISTERIO);
+        escala.setMinisterioId(ministerioId);
+        escala.setIgrejaId(igrejaId);
+        escala.setDataEvento(LocalDate.of(2026, 8, 1));
+        escala.setHoraInicio(LocalTime.MIDNIGHT);
+        escala.setAtivo(true);
+        escala.setStatus(StatusEscala.SUGERIDA);
+        escala.setCreatedAt(Instant.now());
+        escala.setUpdatedAt(Instant.now());
+        return escala;
+    }
+
+    private CronogramaEvento eventoDeReferencia() {
+        CronogramaEvento evento = new CronogramaEvento();
+        evento.setId(UUID.randomUUID());
+        evento.setTitulo("Adoração jovem");
+        evento.setDataEvento(LocalDate.of(2026, 8, 3));
+        evento.setHoraInicio(LocalTime.of(18, 0));
+        evento.setHoraFim(LocalTime.of(20, 0));
+        evento.setIgrejaId(igrejaId);
+        evento.setCompetencia("2026-08");
+        evento.setAtivo(true);
+        return evento;
+    }
+
+    private Culto cultoDomingo() {
+        Culto culto = new Culto();
+        culto.setId(UUID.randomUUID());
+        culto.setTitulo("Culto de domingo");
+        culto.setData(LocalDate.of(2026, 8, 2));
+        culto.setHoraInicio(LocalTime.of(9, 0));
+        culto.setHoraFim(LocalTime.of(10, 30));
+        culto.setIgrejaId(igrejaId);
+        culto.setStatus(StatusCulto.AGENDADO);
+        culto.setAtivo(true);
+        culto.setCompetencia("2026-08");
+        return culto;
     }
 
     private Escala escala() {

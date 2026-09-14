@@ -34,6 +34,11 @@ public interface EscalaRepository extends JpaRepository<Escala, UUID> {
 
     Optional<Escala> findByEventoIdAndMinisterioId(UUID eventoId, UUID ministerioId);
 
+    List<Escala> findByMinisterioIdAndCompetenciaAndAtivoTrueOrderByDataEventoAsc(
+            UUID ministerioId,
+            String competencia
+    );
+
     long countByIgrejaIdIn(List<UUID> igrejaIds);
 
     @Query("""

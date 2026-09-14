@@ -2,7 +2,11 @@ package com.example.base_api.escala.service;
 
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
+import com.example.base_api.cronograma.entity.CronogramaEvento;
+import com.example.base_api.cronograma.repository.CronogramaEventoRepository;
 import com.example.base_api.cronograma.service.CronogramaService;
+import com.example.base_api.culto.entity.Culto;
+import com.example.base_api.culto.repository.CultoRepository;
 import com.example.base_api.escala.dto.EscalaCreateRequest;
 import com.example.base_api.escala.dto.EscalaResponse;
 import com.example.base_api.escala.dto.EscalaServicoUpsertRequest;
@@ -12,6 +16,7 @@ import com.example.base_api.escala.dto.EscalaVoluntarioCreateRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioRespostaRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioStatusRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioUpdateRequest;
+import com.example.base_api.escala.dto.VisaoMensalEscalaResponse;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.EscalaServico;
 import com.example.base_api.escala.entity.EscalaVoluntario;
@@ -41,11 +46,17 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class EscalaService {
@@ -57,6 +68,8 @@ public class EscalaService {
     private final PessoaService pessoaService;
     private final PessoaServicoRepository pessoaServicoRepository;
     private final CronogramaService cronogramaService;
+    private final CronogramaEventoRepository cronogramaEventoRepository;
+    private final CultoRepository cultoRepository;
     private final IgrejaContextoService igrejaContextoService;
     private final AutorizacaoService autorizacaoService;
     private final MinisterioRepository ministerioRepository;
@@ -70,6 +83,8 @@ public class EscalaService {
             PessoaService pessoaService,
             PessoaServicoRepository pessoaServicoRepository,
             CronogramaService cronogramaService,
+            CronogramaEventoRepository cronogramaEventoRepository,
+            CultoRepository cultoRepository,
             IgrejaContextoService igrejaContextoService,
             AutorizacaoService autorizacaoService,
             MinisterioRepository ministerioRepository,
@@ -82,6 +97,8 @@ public class EscalaService {
         this.pessoaService = pessoaService;
         this.pessoaServicoRepository = pessoaServicoRepository;
         this.cronogramaService = cronogramaService;
+        this.cronogramaEventoRepository = cronogramaEventoRepository;
+        this.cultoRepository = cultoRepository;
         this.igrejaContextoService = igrejaContextoService;
         this.autorizacaoService = autorizacaoService;
         this.ministerioRepository = ministerioRepository;
@@ -129,6 +146,188 @@ public class EscalaService {
             throw new AccessDeniedException("Sem permissão para ver esta escala");
         }
         return toResponse(escala, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<VisaoMensalEscalaResponse> visaoMensal(UUID igrejaId, String competencia, UUID ministerioId) {
+        List<UUID> ids = autorizacaoService.idsParaListagem(igrejaId);
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        String competenciaValida = competencia == null || competencia.isBlank()
+                ? YearMonth.now().toString()
+                : validarCompetencia(competencia);
+        YearMonth mes = YearMonth.parse(competenciaValida);
+        LocalDate inicio = mes.atDay(1);
+        LocalDate fim = mes.atEndOfMonth();
+
+        UUID pessoaLogada = autorizacaoService.requireUsuario().getPessoaId();
+        List<Ministerio> visiveis = ministerioRepository.findByIgrejaIdInOrderByNomeAsc(ids);
+
+        List<Ministerio> selecionados;
+        if (ministerioId != null) {
+            Ministerio alvo = visiveis.stream()
+                    .filter(m -> m.getId().equals(ministerioId))
+                    .findFirst()
+                    .orElseThrow(() -> new AccessDeniedException("Ministério não encontrado ou fora do seu acesso"));
+            if (!autorizacaoService.isPastorOuAdmin(alvo.getIgrejaId())
+                    && (pessoaLogada == null || (!pessoaLogada.equals(alvo.getLiderPessoaId())
+                            && !pessoaLogada.equals(alvo.getCoordenadorPessoaId())))) {
+                throw new AccessDeniedException("Sem permissão para ver a escala deste ministério");
+            }
+            selecionados = List.of(alvo);
+        } else {
+            selecionados = visiveis.stream()
+                    .filter(m -> autorizacaoService.isPastorOuAdmin(m.getIgrejaId())
+                            || (pessoaLogada != null && (pessoaLogada.equals(m.getLiderPessoaId())
+                                    || pessoaLogada.equals(m.getCoordenadorPessoaId()))))
+                    .toList();
+            if (selecionados.isEmpty()) {
+                throw new AccessDeniedException(
+                        "Sem permissão: informe um ministerioId de um ministério que você lidera"
+                );
+            }
+        }
+
+        return selecionados.stream()
+                .map(m -> montarVisaoMensal(m, ids, competenciaValida, inicio, fim))
+                .toList();
+    }
+
+    private VisaoMensalEscalaResponse montarVisaoMensal(
+            Ministerio ministerio,
+            List<UUID> igrejaIds,
+            String competencia,
+            LocalDate inicio,
+            LocalDate fim
+    ) {
+        List<Escala> escalasDoMes = escalaRepository
+                .findByMinisterioIdAndCompetenciaAndAtivoTrueOrderByDataEventoAsc(ministerio.getId(), competencia);
+        Escala mensal = escalasDoMes.stream()
+                .filter(e -> e.getTipo() == TipoEscala.MINISTERIO && e.getEventoId() == null)
+                .findFirst()
+                .orElse(null);
+
+        Map<UUID, Integer> qtdPorServico = new HashMap<>();
+        if (mensal != null) {
+            for (EscalaServico necessidade : escalaServicoRepository.findByEscalaId(mensal.getId())) {
+                qtdPorServico.put(necessidade.getServicoId(), necessidade.getQuantidadeNecessaria());
+            }
+        }
+
+        List<EscalaVoluntario> designacoes = mensal == null
+                ? List.of()
+                : escalaVoluntarioRepository.findByEscalaId(mensal.getId());
+
+        Map<UUID, List<EscalaVoluntario>> porEvento = designacoes.stream()
+                .filter(d -> d.getEventoId() != null)
+                .collect(Collectors.groupingBy(EscalaVoluntario::getEventoId));
+
+        Map<LocalDate, List<EscalaVoluntario>> porData = designacoes.stream()
+                .filter(d -> d.getDataItem() != null)
+                .collect(Collectors.groupingBy(EscalaVoluntario::getDataItem));
+
+        List<VisaoMensalEscalaResponse.ItemVisao> itens = new ArrayList<>();
+
+        for (Culto culto : cultoRepository.filtrar(igrejaIds, null, competencia, null, inicio, fim, true)) {
+            List<EscalaVoluntario> doCulto = porData.getOrDefault(culto.getData(), List.of()).stream()
+                    .filter(d -> d.getEventoId() == null || culto.getHoraInicio().equals(d.getHorario()))
+                    .toList();
+            itens.add(new VisaoMensalEscalaResponse.ItemVisao(
+                    "CULTO",
+                    culto.getId(),
+                    culto.getTitulo(),
+                    culto.getData(),
+                    culto.getHoraInicio(),
+                    culto.getHoraFim(),
+                    null,
+                    montarServicos(qtdPorServico, doCulto)
+            ));
+        }
+
+        for (CronogramaEvento evento : cronogramaEventoRepository
+                .findByIgrejaIdInAndDataEventoBetweenOrderByDataEventoAscHoraInicioAsc(igrejaIds, inicio, fim)) {
+            if (!Boolean.TRUE.equals(evento.getAtivo())) {
+                continue;
+            }
+            itens.add(new VisaoMensalEscalaResponse.ItemVisao(
+                    "EVENTO",
+                    evento.getId(),
+                    evento.getTitulo(),
+                    evento.getDataEvento(),
+                    evento.getHoraInicio(),
+                    evento.getHoraFim(),
+                    evento.getLocalEvento(),
+                    montarServicos(qtdPorServico, porEvento.getOrDefault(evento.getId(), List.of()))
+            ));
+        }
+
+        itens.sort(Comparator.comparing(VisaoMensalEscalaResponse.ItemVisao::data)
+                .thenComparing(Comparator.comparing(VisaoMensalEscalaResponse.ItemVisao::horaInicio,
+                        Comparator.nullsLast(LocalTime::compareTo)))
+                .thenComparing(VisaoMensalEscalaResponse.ItemVisao::origem));
+
+        return new VisaoMensalEscalaResponse(
+                competencia,
+                ministerio.getIgrejaId(),
+                ministerio.getId(),
+                ministerio.getNome(),
+                mensal != null ? mensal.getId() : null,
+                mensal != null ? mensal.getTitulo() : null,
+                mensal != null ? mensal.getStatus() : null,
+                itens
+        );
+    }
+
+    private List<VisaoMensalEscalaResponse.ServicoVisao> montarServicos(
+            Map<UUID, Integer> qtdPorServico,
+            List<EscalaVoluntario> designacoes
+    ) {
+        Map<UUID, List<EscalaVoluntario>> porServico = designacoes.stream()
+                .filter(d -> d.getServicoId() != null)
+                .collect(Collectors.groupingBy(EscalaVoluntario::getServicoId));
+
+        Set<UUID> servicoIds = new LinkedHashSet<>(qtdPorServico.keySet());
+        servicoIds.addAll(porServico.keySet());
+
+        List<VisaoMensalEscalaResponse.ServicoVisao> resultado = new ArrayList<>();
+        for (UUID servicoId : servicoIds.stream()
+                .sorted(Comparator.comparing(this::servicoNome))
+                .toList()) {
+            Map<UUID, EscalaVoluntario> unicos = new LinkedHashMap<>();
+            for (EscalaVoluntario d : porServico.getOrDefault(servicoId, List.of())) {
+                unicos.putIfAbsent(d.getPessoaId(), d);
+            }
+            List<EscalaVoluntario> designados = new ArrayList<>(unicos.values());
+            designados.sort(Comparator.comparing(d -> nomePessoa(d.getPessoaId())));
+            Integer qtd = qtdPorServico.get(servicoId);
+            int quantidade = qtd != null ? qtd : designados.size();
+            resultado.add(new VisaoMensalEscalaResponse.ServicoVisao(
+                    servicoId,
+                    servicoNome(servicoId),
+                    quantidade,
+                    designados.stream().map(this::toDesignadoVisao).toList()
+            ));
+        }
+        return resultado;
+    }
+
+    private VisaoMensalEscalaResponse.DesignadoVisao toDesignadoVisao(EscalaVoluntario designacao) {
+        return new VisaoMensalEscalaResponse.DesignadoVisao(
+                designacao.getId(),
+                designacao.getPessoaId(),
+                nomePessoa(designacao.getPessoaId()),
+                designacao.getStatus(),
+                designacao.getConfirmadoPeloVoluntario(),
+                designacao.getObservacoes()
+        );
+    }
+
+    private String servicoNome(UUID servicoId) {
+        if (servicoId == null) {
+            return null;
+        }
+        return servicoService.buscarEntidade(servicoId).getNome();
     }
 
     @Transactional
@@ -403,17 +602,52 @@ public class EscalaService {
             throw new BusinessException("A pessoa não está habilitada para este serviço");
         }
 
-        escalaVoluntarioRepository
-                .findByEscalaIdAndPessoaIdAndServicoId(escala.getId(), pessoa.getId(), servico.getId())
-                .ifPresent(v -> {
-                    throw new BusinessException("A pessoa já está designada para este serviço nesta escala");
-                });
+        LocalDate dataItem = request.data();
+        UUID eventoId = request.eventoId();
+        LocalTime horario = request.horario();
+        if (eventoId != null) {
+            CronogramaEvento evento = cronogramaService.buscarEntidade(eventoId);
+            if (!evento.getIgrejaId().equals(escala.getIgrejaId())) {
+                throw new BusinessException("O evento não pertence a esta igreja");
+            }
+            if (dataItem == null) {
+                dataItem = evento.getDataEvento();
+            }
+            if (horario == null) {
+                horario = evento.getHoraInicio();
+            }
+        }
 
-        long ocupados = escalaVoluntarioRepository.countByEscalaIdAndServicoIdAndStatusIn(
-                escala.getId(),
-                servico.getId(),
-                List.of(StatusEscalaVoluntario.PENDENTE, StatusEscalaVoluntario.CONFIRMADO)
-        );
+        if (dataItem != null) {
+            escalaVoluntarioRepository
+                    .findByEscalaIdAndPessoaIdAndServicoIdAndDataItem(
+                            escala.getId(), pessoa.getId(), servico.getId(), dataItem)
+                    .ifPresent(v -> {
+                        throw new BusinessException("A pessoa já está designada para este serviço nesta data e escala");
+                    });
+        } else {
+            escalaVoluntarioRepository
+                    .findByEscalaIdAndPessoaIdAndServicoId(escala.getId(), pessoa.getId(), servico.getId())
+                    .ifPresent(v -> {
+                        throw new BusinessException("A pessoa já está designada para este serviço nesta escala");
+                    });
+        }
+
+        long ocupados;
+        if (dataItem != null) {
+            ocupados = escalaVoluntarioRepository.countByEscalaIdAndServicoIdAndDataItemAndStatusIn(
+                    escala.getId(),
+                    servico.getId(),
+                    dataItem,
+                    List.of(StatusEscalaVoluntario.PENDENTE, StatusEscalaVoluntario.CONFIRMADO)
+            );
+        } else {
+            ocupados = escalaVoluntarioRepository.countByEscalaIdAndServicoIdAndStatusIn(
+                    escala.getId(),
+                    servico.getId(),
+                    List.of(StatusEscalaVoluntario.PENDENTE, StatusEscalaVoluntario.CONFIRMADO)
+            );
+        }
         if (ocupados >= necessidade.getQuantidadeNecessaria()) {
             throw new BusinessException("Quantidade necessária para este serviço já foi preenchida");
         }
@@ -422,6 +656,9 @@ public class EscalaService {
         designacao.setEscalaId(escala.getId());
         designacao.setPessoaId(pessoa.getId());
         designacao.setServicoId(servico.getId());
+        designacao.setDataItem(dataItem);
+        designacao.setEventoId(eventoId);
+        designacao.setHorario(horario);
         designacao.setStatus(StatusEscalaVoluntario.PENDENTE);
         designacao.setObservacoes(request.observacoes());
 

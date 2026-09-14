@@ -11,6 +11,7 @@ import com.example.base_api.escala.dto.EscalaVoluntarioRespostaRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioStatusRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioUpdateRequest;
 import com.example.base_api.escala.dto.GeracaoEscalaResponse;
+import com.example.base_api.escala.dto.VisaoMensalEscalaResponse;
 import com.example.base_api.escala.service.EscalaAutomacaoService;
 import com.example.base_api.escala.service.EscalaService;
 import com.example.base_api.escala.service.GeracaoEscalaService;
@@ -63,6 +64,17 @@ public class EscalaController {
             @RequestParam(required = false) UUID pessoaId
     ) {
         return escalaService.listar(igrejaId, competencia, pessoaId);
+    }
+
+    @GetMapping("/visao-mensal")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Visão mensal do líder: todos os cultos e eventos do mês com serviços e designações do próprio ministério")
+    public List<VisaoMensalEscalaResponse> visaoMensal(
+            @RequestParam(required = false) UUID igrejaId,
+            @RequestParam(required = false) String competencia,
+            @RequestParam(required = false) UUID ministerioId
+    ) {
+        return escalaService.visaoMensal(igrejaId, competencia, ministerioId);
     }
 
     @GetMapping("/{id}")
