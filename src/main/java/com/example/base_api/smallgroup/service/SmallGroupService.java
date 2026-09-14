@@ -154,6 +154,7 @@ public class SmallGroupService {
         SmallGroupEncontro salvo = encontroRepository.save(encontro);
 
         participanteRepository.deleteByEncontroId(salvo.getId());
+        participanteRepository.flush();
         salvarParticipantes(salvo.getId(), request.compareceram());
         return toEncontroResponse(salvo);
     }

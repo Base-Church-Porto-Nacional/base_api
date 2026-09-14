@@ -195,7 +195,7 @@ public class UsuarioService {
     public void excluir(UUID id) {
         Usuario usuario = buscarEntidade(id);
         autorizacaoService.assertPastorOuAdmin(usuario.getIgrejaId());
-        usuarioRepository.delete(usuario);
+        usuarioRepository.excluirDireto(id);
     }
 
     @Transactional(readOnly = true)

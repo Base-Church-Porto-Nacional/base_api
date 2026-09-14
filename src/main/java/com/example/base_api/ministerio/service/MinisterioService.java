@@ -123,6 +123,15 @@ public class MinisterioService {
     public void excluir(UUID id) {
         Ministerio ministerio = buscarEntidade(id);
         autorizacaoService.assertPodeCriarMinisterio(ministerio.getIgrejaId());
+
+        List<UUID> servicoIds = servicoRepository.findByMinisterioIdOrderByNomeAsc(id)
+                .stream()
+                .map(Servico::getId)
+                .toList();
+        if (!servicoIds.isEmpty()) {
+            pessoaServicoRepository.deleteByServicoIdIn(servicoIds);
+            servicoRepository.deleteByMinisterioId(id);
+        }
         ministerioRepository.delete(ministerio);
     }
 

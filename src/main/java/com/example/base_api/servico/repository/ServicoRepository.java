@@ -11,6 +11,8 @@ public interface ServicoRepository extends JpaRepository<Servico, UUID> {
 
     List<Servico> findByMinisterioIdOrderByNomeAsc(UUID ministerioId);
 
+    void deleteByMinisterioId(UUID ministerioId);
+
     List<Servico> findByMinisterioIdIn(List<UUID> ministerioIds);
 
     List<Servico> findByMinisterioIdInAndAtivoTrueOrderByNomeAsc(List<UUID> ministerioIds);

@@ -2,6 +2,7 @@ package com.example.base_api.usuario.repository;
 
 import com.example.base_api.usuario.entity.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -40,4 +41,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
             @Param("papel") String papel,
             @Param("igrejaIds") List<UUID> igrejaIds
     );
+
+    @Modifying
+    @Query("delete from Usuario u where u.id = :id")
+    int excluirDireto(@Param("id") UUID id);
 }

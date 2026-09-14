@@ -22,4 +22,6 @@ public interface PessoaServicoRepository extends JpaRepository<PessoaServico, UU
     Optional<PessoaServico> findByPessoaIdAndServicoId(UUID pessoaId, UUID servicoId);
 
     boolean existsByPessoaIdAndServicoId(UUID pessoaId, UUID servicoId);
+
+    void deleteByServicoIdIn(List<UUID> servicoIds);
 }
