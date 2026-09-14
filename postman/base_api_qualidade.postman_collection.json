@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "2a85b1fc-5600-4462-9bc8-3436752f7c1d",
+    "_postman_id": "dd699b50-73f0-4ae3-af91-51393ee39818",
     "name": "Base API — Quality",
     "description": "Coleção de **quality assurance (QA / contract tests)** da Base API.\n\nAuto-configurável e repetível:\n- Auto-login: o pre-request global loga com o seed (`admin`/`admin123`) quando o token está vazio;\n- Resolvedores: requests que dependem de IDs já criados buscam na lista correspondente quando a variável está vazia;\n- Captura de IDs: as requests de criação registram os ids criados nas variáveis da coleção;\n- Dados aleatórios (`{{$randomEmail}}`, `{{$timestamp}}`...) evitam conflitos de unicidade em re-execuções.\n\nCada request valida:\n- Status code esperado (200/201/204);\n- Tempo de resposta < 2000ms;\n- Content-Type `application/json` (quando aplicável);\n- Formato do corpo (lista, objeto, campo obrigatório, download/arquivo).\n\nExecute pelo **Collection Runner** do Postman ou Newman:\n`newman run postman/base_api_qualidade.postman_collection.json`\n\nObs.: a API deve subir com o perfil `dev` para que o seed exista. Requisitos: token (auto), igrejaId/pessoaId/servicoId/escalaId/cultoId etc. (auto via resolvedores e capturas).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -160,6 +160,11 @@
       "key": "usuarioVinculadoUsername",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "adminUserId",
+      "value": "",
+      "type": "string"
     }
   ],
   "auth": {
@@ -180,7 +185,7 @@
           "(function () {\n    if (pm.collectionVariables.get('token')) { return; }\n    var base = pm.collectionVariables.get('baseUrl') || 'http://localhost:8080';\n    var req = {\n        url: base + '/api/auth/login',\n        method: 'POST',\n        header: { 'Content-Type': 'application/json' },\n        body: { mode: 'raw', raw: JSON.stringify({ username: 'admin', senha: 'admin123' }) }\n    };\n    pm.sendRequest(req, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var j = res.json();\n        pm.collectionVariables.set('token', j.token);\n    });\n})();"
         ],
         "type": "text/javascript",
-        "id": "4fba13d5-7ef1-417e-9d70-1578cacbf1d0"
+        "id": "8ff68866-5af1-47b5-90e1-94e52194ea59"
       }
     }
   ],
@@ -225,10 +230,11 @@
                   "if (jsonData.token) { pm.collectionVariables.set('token', jsonData.token); }",
                   "if (jsonData.igrejaId) { pm.collectionVariables.set('igrejaId', jsonData.igrejaId); }",
                   "if (jsonData.usuarioId) { pm.collectionVariables.set('usuarioId', jsonData.usuarioId); }",
-                  "if (jsonData.pessoaId) { pm.collectionVariables.set('pessoaId', jsonData.pessoaId); }"
+                  "if (jsonData.pessoaId) { pm.collectionVariables.set('pessoaId', jsonData.pessoaId); }",
+                  "if (jsonData.usuarioId) { pm.collectionVariables.set('adminUserId', jsonData.usuarioId); }"
                 ],
                 "type": "text/javascript",
-                "id": "04f757dc-07f2-45ee-ae49-37cedd1adba3"
+                "id": "ff5074ae-b1f5-4a99-8d2d-bfd4216bd7ab"
               }
             }
           ]
@@ -265,7 +271,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "763a24bc-7fef-4fc5-b791-d69937fc71bc"
+                "id": "8ddfcc85-e929-4d0b-a87b-5cad00981ecc"
               }
             }
           ]
@@ -310,7 +316,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "3b1eb137-bc77-47fa-905e-899a9e297c8d"
+                "id": "b3ff0206-d132-4713-9588-8558f525174e"
               }
             }
           ]
@@ -352,7 +358,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "0f58409a-1ebb-4679-b1e9-ee4140d3ae8e"
+                "id": "12cc8a9e-dfa1-49e9-aa8a-5e41cc776613"
               }
             }
           ]
@@ -394,7 +400,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "f35b4c4e-6ccf-421a-b447-20f13c546bd5"
+                "id": "69939c16-3e42-4bfe-bd8a-22bb4a4cfd93"
               }
             }
           ]
@@ -431,7 +437,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "e296ee32-a2e5-44d9-a647-7ce72662f414"
+                "id": "48acdcd6-d62b-4c46-9fb8-dbd27f797b48"
               }
             }
           ]
@@ -478,7 +484,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('filialId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "c5c8fd04-b3eb-4c7b-b666-32ef62bd13da"
+                "id": "c646d8bd-29ae-4083-a25b-c9e41aa48929"
               }
             }
           ]
@@ -523,7 +529,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "ecdd79c3-6873-49f3-a28e-fb8e73de428a"
+                "id": "3c5c4aaf-9ca1-45f6-adfd-54a96ff55b2c"
               }
             }
           ]
@@ -565,7 +571,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "ae8d54bf-0b8c-4fac-8c49-302505d1b542"
+                "id": "961c5ae3-16eb-43db-91d2-59721f55ae3c"
               }
             }
           ]
@@ -612,7 +618,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('pessoaNovaId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "8e8178d3-c624-48ce-bb5d-a6952d6c4933"
+                "id": "0f834298-a89f-4cc6-a8c8-cf7a7416466c"
               }
             }
           ]
@@ -660,7 +666,7 @@
                   "if (jsonData.email) { pm.collectionVariables.set('pessoaEmail', jsonData.email); }"
                 ],
                 "type": "text/javascript",
-                "id": "c3769255-54d1-4ff0-8925-62d6d6ce2aaa"
+                "id": "d14f951d-174d-4e3a-bbfa-153666043ece"
               }
             }
           ]
@@ -687,7 +693,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('pessoaId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/pessoas';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('pessoaId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "647211f5-e50a-4430-ab39-8a72cbf990b1"
+                "id": "32bb836f-316c-4227-b9c0-85713dc8abb9"
               }
             },
             {
@@ -707,7 +713,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "eb45e82b-faa5-4f40-9c4e-f95995dcd905"
+                "id": "58b0517a-ab26-4ea0-ba93-e55fe42ff592"
               }
             }
           ]
@@ -752,7 +758,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "4900e3e2-5f2a-4211-9e71-92f73512df43"
+                "id": "2d2def77-8e66-43eb-9332-a1df8b95d4b5"
               }
             }
           ]
@@ -775,7 +781,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"username\": \"qa{{$timestamp}}\", \"email\": \"{{pessoaEmail}}\", \"senha\": \"mudar123\", \"papeis\": [\"VOLUNTARIO\", \"MEMBRO\"], \"igrejaId\": \"{{igrejaId}}\"}"
+              "raw": "{\"username\": \"vinc{{$timestamp}}\", \"email\": \"{{pessoaEmail}}\", \"senha\": \"mudar123\", \"papeis\": [\"VOLUNTARIO\", \"MEMBRO\"], \"igrejaId\": \"{{igrejaId}}\"}"
             }
           },
           "response": [],
@@ -800,7 +806,7 @@
                   "if (jsonData.username) { pm.collectionVariables.set('usuarioVinculadoUsername', jsonData.username); }"
                 ],
                 "type": "text/javascript",
-                "id": "1557a72e-2e5c-419d-bcd6-3d232b977a6a"
+                "id": "a20f395d-fe74-4a03-a73a-9128b5c6578b"
               }
             }
           ]
@@ -842,7 +848,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "e13a888e-1304-4ef4-8673-51ef9c673531"
+                "id": "d44feaf3-8c3c-4efd-b701-e3b2974d699e"
               }
             }
           ]
@@ -889,7 +895,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('jornadaEtapaId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "5516d803-3a44-49bd-8c07-017911e1c2f1"
+                "id": "38f29363-c09f-408d-ac13-485cfdbba33f"
               }
             }
           ]
@@ -916,7 +922,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('jornadaEtapaId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/jornada-etapas';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('jornadaEtapaId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "657425ed-1e83-46ee-bd1f-d28464052689"
+                "id": "cc3b2fea-2888-463d-8b4c-a68eee0a20ed"
               }
             },
             {
@@ -936,7 +942,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "8b492692-b8af-480a-bc7c-aa6758db86e8"
+                "id": "ca1a3023-abb0-44b4-a5ba-31bb02ec5ad3"
               }
             }
           ]
@@ -981,7 +987,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "7162bef8-8b75-4183-b745-634dff37125a"
+                "id": "20be6dde-40c5-4873-a80b-163ad76b97b3"
               }
             }
           ]
@@ -1023,7 +1029,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "c258e2e3-183c-4ca2-938a-270c63a947a8"
+                "id": "c8e8cebc-b157-432e-a595-9cb61c661d37"
               }
             }
           ]
@@ -1068,7 +1074,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "54c6c610-e66b-428f-ac7c-835b1272072d"
+                "id": "fe5c84dd-6877-4385-b5a9-646b4df710ec"
               }
             }
           ]
@@ -1105,7 +1111,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "7293bd19-e393-47b0-9f77-b196f38dcaab"
+                "id": "ac1d1702-a107-40de-94ac-d1f90369b7a2"
               }
             }
           ]
@@ -1140,7 +1146,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('jornadaEtapaId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/jornada-etapas';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('jornadaEtapaId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "74619f14-aa52-49d2-885e-417622ed5473"
+                "id": "74a7c774-d86a-456b-9e66-043eddcd8df2"
               }
             },
             {
@@ -1162,7 +1168,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('pessoaEtapaId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "ebac4528-f7ed-4b61-996e-d651255f9014"
+                "id": "2726dbe1-c8c9-4695-bdfb-de64a0dfc6ce"
               }
             }
           ]
@@ -1204,7 +1210,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "2b912889-6ae9-4711-af02-1d843f60bfa1"
+                "id": "1affb459-ecb2-49f2-98b2-423e2debfbeb"
               }
             }
           ]
@@ -1251,7 +1257,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('pausaId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "d9addb16-a4a3-4365-a4f0-c6650466f332"
+                "id": "25238b39-fde6-42b8-9c45-0c8b4be62f43"
               }
             }
           ]
@@ -1286,7 +1292,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('pausaId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/pessoas/{{pessoaId}}/pausas';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('pausaId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "507cca12-2fa3-4478-bb55-08cd15367c47"
+                "id": "c5728f76-431d-469f-a943-903bcf748589"
               }
             },
             {
@@ -1306,7 +1312,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "662ceb24-92df-4394-8ed8-0b06cf5f2ebc"
+                "id": "66e56773-f1b2-440b-805d-1b1fbf0ff02c"
               }
             }
           ]
@@ -1348,7 +1354,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "f0b23918-1cae-4f0a-a648-b23d68a3a3d4"
+                "id": "b0d9e243-e817-448a-8ee7-0039f35b065e"
               }
             }
           ]
@@ -1395,7 +1401,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('historicoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "d047ab2c-d589-45ed-9088-b1b5457afc2a"
+                "id": "29092164-b910-42d4-b887-2f7c572b9d22"
               }
             }
           ]
@@ -1422,7 +1428,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('historicoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/pessoas/{{pessoaId}}/historico';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('historicoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "1781e875-502e-409f-b9a9-3d0f93886d9b"
+                "id": "02b65ef3-7d8b-4c5b-852c-675b9e84f35f"
               }
             },
             {
@@ -1442,7 +1448,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "65da0725-d619-4ea5-8e41-316f999b5a6a"
+                "id": "2063126a-b402-4555-9dcb-4e59d35d9690"
               }
             }
           ]
@@ -1477,7 +1483,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('historicoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/pessoas/{{pessoaId}}/historico';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('historicoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "d45ca943-2448-4bae-b07c-cf8e71584f06"
+                "id": "cd9e64d3-c7d9-47ce-b93b-49b22d116c06"
               }
             },
             {
@@ -1497,7 +1503,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "db734cdf-1de1-48f8-8ba1-9cc4876f4789"
+                "id": "64271505-5b2b-453c-981c-2a7c104053a0"
               }
             }
           ]
@@ -1539,7 +1545,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "76048010-0d20-4ff3-a444-fe93fb560ace"
+                "id": "1e195929-456d-4e68-958b-5db815275ad0"
               }
             }
           ]
@@ -1586,7 +1592,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('usuarioId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "d49914b1-8f95-4254-9995-2229f21b3c53"
+                "id": "8ed1a6c0-f34e-4d09-af42-dc6afae162be"
               }
             }
           ]
@@ -1613,7 +1619,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('usuarioId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/usuarios?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('usuarioId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "44310be6-c506-481c-ba4c-e290a555e57c"
+                "id": "19718461-b5e1-4cc7-8265-ea3060364e66"
               }
             },
             {
@@ -1633,7 +1639,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "425772a4-d016-422e-81f6-f1dd7c13708c"
+                "id": "66bd7199-949a-4056-9cc7-2a1759622155"
               }
             }
           ]
@@ -1662,6 +1668,16 @@
           "response": [],
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "if (pm.collectionVariables.get('usuarioId') === pm.collectionVariables.get('adminUserId')) {\n    throw new Error('usuarioId ainda aponta para o admin do seed; execute a coleção completa para criar o usuário QA antes.');\n}"
+                ],
+                "type": "text/javascript",
+                "id": "ab4e76f0-3f72-4931-b45d-80117afc5ef2"
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "exec": [
@@ -1678,7 +1694,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "31d86709-f98b-43dc-8c5a-af9f7e8df8cd"
+                "id": "8fb0e495-d2e7-4968-b3da-b0224ca82cd8"
               }
             }
           ]
@@ -1707,6 +1723,16 @@
           "response": [],
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "if (pm.collectionVariables.get('usuarioId') === pm.collectionVariables.get('adminUserId')) {\n    throw new Error('usuarioId ainda aponta para o admin do seed; execute a coleção completa para criar o usuário QA antes.');\n}"
+                ],
+                "type": "text/javascript",
+                "id": "30c45752-313a-4d80-9073-f6c4edf8e8cc"
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "exec": [
@@ -1723,7 +1749,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "a7048a04-32a9-4dbb-854d-6cf583d59240"
+                "id": "576ac65d-958b-4008-8df0-ebd29ae5f7b5"
               }
             }
           ]
@@ -1765,7 +1791,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "e7cdea13-dae4-45c4-91ed-04419c0991cc"
+                "id": "3119094f-117a-4fa6-874a-5c13d335efb0"
               }
             }
           ]
@@ -1812,7 +1838,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('papelId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "270b864d-bdeb-4121-b188-e60e48476b72"
+                "id": "9d2507ba-4b12-4dff-a6b8-31de6e10faae"
               }
             }
           ]
@@ -1839,7 +1865,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('papelId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/papeis';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('papelId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "a522adb2-d554-4638-ac61-a2a52d6d33b1"
+                "id": "3aede30d-3379-421d-b878-114f68dfce62"
               }
             },
             {
@@ -1859,7 +1885,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "319b9330-19bd-4436-9cb1-8124f9025495"
+                "id": "86513a9a-81cf-42ea-a54b-79bd61d3f1ea"
               }
             }
           ]
@@ -1904,7 +1930,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "9af6e850-6f0d-4bd6-8693-e4ca980158cf"
+                "id": "8aef7784-a1b8-4b8a-94fd-4b63f03b1c6a"
               }
             }
           ]
@@ -1946,7 +1972,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "d8c9ab1d-612f-4d6d-9278-659ebc8227bf"
+                "id": "0a56b337-feeb-46c3-b383-292dfff38b46"
               }
             }
           ]
@@ -1988,7 +2014,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "09fc815c-134f-4744-b9a1-b7e8edcb2970"
+                "id": "da812a52-6ccc-4caf-b01f-f9d7da7b2da0"
               }
             }
           ]
@@ -2035,7 +2061,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('ministerioId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "bf1bac03-8664-4083-803d-d27b93e12b76"
+                "id": "a065a852-5462-4024-8038-6813bad38acc"
               }
             }
           ]
@@ -2062,7 +2088,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('ministerioId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/ministerios?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('ministerioId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "7fe0bb0d-db85-417b-a73b-6709123b3160"
+                "id": "ac07e1a9-56f9-414a-9717-18498c5af5b9"
               }
             },
             {
@@ -2082,7 +2108,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "8d8850b9-d4ee-4114-b0a7-1399f4b72ae4"
+                "id": "fd1e54dc-b585-42b9-be58-2e597cfbd636"
               }
             }
           ]
@@ -2117,7 +2143,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('ministerioId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/ministerios?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('ministerioId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "201dcd5f-240d-4761-8982-e55cd9b2d47c"
+                "id": "4a58ed30-9694-4832-8987-37d6fc8c2f37"
               }
             },
             {
@@ -2137,7 +2163,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "c558fe18-bd6a-4c2f-81c5-a1ff86c55291"
+                "id": "895250d9-31eb-4f68-a1a4-1235ecfcc2d1"
               }
             }
           ]
@@ -2164,7 +2190,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('ministerioId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/ministerios?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('ministerioId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "695d94d8-6e68-43ab-b3f7-3e2e5d8574cd"
+                "id": "6c0e07be-4752-4462-a9a2-67ada0183446"
               }
             },
             {
@@ -2184,7 +2210,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "3e24b651-7be7-4e41-97ba-f1daa1ead0ec"
+                "id": "d865aa02-f7c4-49dd-aecf-a5cd1ac86202"
               }
             }
           ]
@@ -2219,7 +2245,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('ministerioId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/ministerios?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('ministerioId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "1afe8fa5-d2dc-4696-bdec-c10027f8b0b8"
+                "id": "e2342c21-b5e9-411b-b733-22ac5beb68c9"
               }
             },
             {
@@ -2241,7 +2267,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('servicoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "574b35a3-f721-4058-8cce-05ca80e63a4f"
+                "id": "2f99e515-a378-4bff-978a-d5e4014b2a65"
               }
             }
           ]
@@ -2273,7 +2299,7 @@
                   "(function () {{\n    var v = pm.collectionVariables.get('servicoId');\n    if (v) {{ return; }}\n    var base = pm.collectionVariables.get('baseUrl');\n    var mid = pm.collectionVariables.get('ministerioId');\n    var seed = pm.collectionVariables.get('igrejaId');\n    var fetchServicos = function (ministerioId) {{\n        pm.sendRequest(base + '/api/ministerios/' + ministerioId + '/servicos', function (err2, res2) {{\n            if (err2 || res2.code !== 200) {{ return; }}\n            var arr = res2.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                pm.collectionVariables.set('servicoId', arr[0].id);\n            }}\n        }});\n    }};\n    if (mid) {{\n        fetchServicos(mid);\n    }} else {{\n        pm.sendRequest(base + '/api/ministerios?igrejaId=' + seed, function (err, res) {{\n            if (err || res.code !== 200) {{ return; }}\n            var arr = res.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                var first = arr[0].id;\n                pm.collectionVariables.set('ministerioId', first);\n                fetchServicos(first);\n            }}\n        }});\n    }}\n}})();"
                 ],
                 "type": "text/javascript",
-                "id": "9604324a-ee67-436b-9602-2fb997ad39b5"
+                "id": "d3ac010e-c533-42cf-ace5-7721f01db827"
               }
             },
             {
@@ -2293,7 +2319,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "08e9593f-23e1-443b-bc31-1bfebcd4b170"
+                "id": "5f350038-dbe3-4ce6-b30a-b935756bfcf1"
               }
             }
           ]
@@ -2328,7 +2354,7 @@
                   "(function () {{\n    var v = pm.collectionVariables.get('servicoId');\n    if (v) {{ return; }}\n    var base = pm.collectionVariables.get('baseUrl');\n    var mid = pm.collectionVariables.get('ministerioId');\n    var seed = pm.collectionVariables.get('igrejaId');\n    var fetchServicos = function (ministerioId) {{\n        pm.sendRequest(base + '/api/ministerios/' + ministerioId + '/servicos', function (err2, res2) {{\n            if (err2 || res2.code !== 200) {{ return; }}\n            var arr = res2.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                pm.collectionVariables.set('servicoId', arr[0].id);\n            }}\n        }});\n    }};\n    if (mid) {{\n        fetchServicos(mid);\n    }} else {{\n        pm.sendRequest(base + '/api/ministerios?igrejaId=' + seed, function (err, res) {{\n            if (err || res.code !== 200) {{ return; }}\n            var arr = res.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                var first = arr[0].id;\n                pm.collectionVariables.set('ministerioId', first);\n                fetchServicos(first);\n            }}\n        }});\n    }}\n}})();"
                 ],
                 "type": "text/javascript",
-                "id": "7cd93a07-9970-4605-a8cb-12be626611d3"
+                "id": "9db079c3-5d89-45b3-9aae-62a6f7a88921"
               }
             },
             {
@@ -2348,7 +2374,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "b9fbe988-7651-4cc5-abcd-2967a447abbd"
+                "id": "99c3e674-c95f-40e9-81c8-48deb42c7dc2"
               }
             }
           ]
@@ -2390,7 +2416,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "7008bb54-5b26-4fc3-8f31-28b1b760e49c"
+                "id": "63d4e2a8-d4d4-4757-9dc8-55c4a5c8682d"
               }
             }
           ]
@@ -2427,7 +2453,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "de7b3ebc-72af-4730-878d-08a89e61987d"
+                "id": "4c14926d-bc43-4618-9934-9c9a96314097"
               }
             }
           ]
@@ -2454,7 +2480,7 @@
                   "(function () {{\n    var v = pm.collectionVariables.get('servicoId');\n    if (v) {{ return; }}\n    var base = pm.collectionVariables.get('baseUrl');\n    var mid = pm.collectionVariables.get('ministerioId');\n    var seed = pm.collectionVariables.get('igrejaId');\n    var fetchServicos = function (ministerioId) {{\n        pm.sendRequest(base + '/api/ministerios/' + ministerioId + '/servicos', function (err2, res2) {{\n            if (err2 || res2.code !== 200) {{ return; }}\n            var arr = res2.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                pm.collectionVariables.set('servicoId', arr[0].id);\n            }}\n        }});\n    }};\n    if (mid) {{\n        fetchServicos(mid);\n    }} else {{\n        pm.sendRequest(base + '/api/ministerios?igrejaId=' + seed, function (err, res) {{\n            if (err || res.code !== 200) {{ return; }}\n            var arr = res.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                var first = arr[0].id;\n                pm.collectionVariables.set('ministerioId', first);\n                fetchServicos(first);\n            }}\n        }});\n    }}\n}})();"
                 ],
                 "type": "text/javascript",
-                "id": "c34285dc-7f17-447b-aed7-b6289813675a"
+                "id": "c871e57e-f105-4ccb-99ae-09047ae52c51"
               }
             },
             {
@@ -2474,7 +2500,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "9fa250e4-e436-4a91-bc93-ed71061f47c9"
+                "id": "2bd673ad-1acf-4604-b1b7-b8f8633129e1"
               }
             }
           ]
@@ -2509,7 +2535,7 @@
                   "(function () {{\n    var v = pm.collectionVariables.get('servicoId');\n    if (v) {{ return; }}\n    var base = pm.collectionVariables.get('baseUrl');\n    var mid = pm.collectionVariables.get('ministerioId');\n    var seed = pm.collectionVariables.get('igrejaId');\n    var fetchServicos = function (ministerioId) {{\n        pm.sendRequest(base + '/api/ministerios/' + ministerioId + '/servicos', function (err2, res2) {{\n            if (err2 || res2.code !== 200) {{ return; }}\n            var arr = res2.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                pm.collectionVariables.set('servicoId', arr[0].id);\n            }}\n        }});\n    }};\n    if (mid) {{\n        fetchServicos(mid);\n    }} else {{\n        pm.sendRequest(base + '/api/ministerios?igrejaId=' + seed, function (err, res) {{\n            if (err || res.code !== 200) {{ return; }}\n            var arr = res.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                var first = arr[0].id;\n                pm.collectionVariables.set('ministerioId', first);\n                fetchServicos(first);\n            }}\n        }});\n    }}\n}})();"
                 ],
                 "type": "text/javascript",
-                "id": "3686697d-bfbc-489c-b5cd-3c8ddb8317c3"
+                "id": "c7f65f52-2fb3-4c50-990a-fe497f2ee1a3"
               }
             },
             {
@@ -2531,7 +2557,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('voluntarioId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "20c43a69-afd0-4ec9-9578-5e25f38d5088"
+                "id": "39cbf34d-5afd-48cf-97d3-c515f305e647"
               }
             }
           ]
@@ -2558,7 +2584,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('voluntarioId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/voluntarios';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('voluntarioId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "85afa9e8-8d28-4106-9580-eeae451c3fb7"
+                "id": "75b40930-f714-44af-844d-3136f6c5d918"
               }
             },
             {
@@ -2578,7 +2604,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "6ceebc0d-6480-4a53-9815-2e2aaadee5a2"
+                "id": "4ae04f84-a325-4eb2-b6bf-db6404012de8"
               }
             }
           ]
@@ -2613,7 +2639,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('voluntarioId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/voluntarios';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('voluntarioId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "dc9667ea-3b31-4aa9-80a8-82167109d4ca"
+                "id": "0118b48f-ccf9-4675-bd2b-c4fcb7917ed4"
               }
             },
             {
@@ -2633,7 +2659,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "31d88116-7cc4-4d9c-bee4-b1e7062477f8"
+                "id": "da3cbc83-3afc-425b-a384-698723466a06"
               }
             }
           ]
@@ -2675,7 +2701,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "1605ce95-a9a6-4b4e-9c4f-3cde565300d6"
+                "id": "5b457a77-c116-4738-8ec1-bfc8e5ed90d6"
               }
             }
           ]
@@ -2722,7 +2748,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('baseMinisterialId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "ce7d38ad-1f19-41ee-98c1-a2b48aab9ca4"
+                "id": "6ffeb08f-fa02-4f7d-ab28-06f22b8a9d76"
               }
             }
           ]
@@ -2749,7 +2775,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('baseMinisterialId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/bases-ministeriais?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('baseMinisterialId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "c63353b5-ff79-4c27-8253-fbdb55be0448"
+                "id": "409c058d-1113-4437-83fc-12c8651258e4"
               }
             },
             {
@@ -2769,7 +2795,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "df97c9db-db74-46db-8a93-86ad6d3dc79b"
+                "id": "87b828f1-bc0e-4f2b-bbbb-13ada60433f8"
               }
             }
           ]
@@ -2804,7 +2830,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('baseMinisterialId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/bases-ministeriais?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('baseMinisterialId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "c99c07cf-100f-451d-9ddd-9ac1d0f262e4"
+                "id": "6ae5c73a-8712-49b7-950c-742410823db0"
               }
             },
             {
@@ -2824,7 +2850,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "dd819445-69b4-469b-bc6a-be82b8049284"
+                "id": "9702df7a-e524-40e0-8267-1758be2583c0"
               }
             }
           ]
@@ -2866,7 +2892,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "6c1b3956-c6fe-4069-9e20-baf3cd52f417"
+                "id": "3e6c38e0-a9f2-4c1e-8f1a-dd306fa076b2"
               }
             }
           ]
@@ -2913,7 +2939,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('smallGroupId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "c5422792-352c-4fda-8d40-06111e9aba68"
+                "id": "0073188e-3f7a-4b85-9be5-54e8895ba0d9"
               }
             }
           ]
@@ -2940,7 +2966,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('smallGroupId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/small-groups?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('smallGroupId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "485bc707-e91c-4f3d-9ba2-577b7536a542"
+                "id": "2381495c-389e-4096-a925-53e5b9044b8e"
               }
             },
             {
@@ -2960,7 +2986,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "c0d723f9-364e-439c-9820-d4a9caac6b6a"
+                "id": "ac586c89-c31c-4962-a655-056eb73e9e31"
               }
             }
           ]
@@ -2995,7 +3021,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('smallGroupId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/small-groups?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('smallGroupId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "d897b4f4-5520-45f2-a0d2-229df5ac405e"
+                "id": "6dd6ae55-9191-47b1-aad7-02580e12128f"
               }
             },
             {
@@ -3015,7 +3041,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "102767f4-a718-415f-b6ec-58b1690aa29e"
+                "id": "7348f1fe-90ca-4580-9a8e-2b99ca03a7a2"
               }
             }
           ]
@@ -3050,7 +3076,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('smallGroupId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/small-groups?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('smallGroupId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "05f6a0bf-5ec3-4bd5-8c23-8bb96136ba45"
+                "id": "af448ea8-c8dd-4d22-9c36-bcff07bfa6d7"
               }
             },
             {
@@ -3072,7 +3098,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('encontroId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "ccad820e-89d0-4b5c-8a9e-fc11fcf58011"
+                "id": "f12e1ecd-1707-4d4c-8a05-e09d0367a7c1"
               }
             }
           ]
@@ -3117,7 +3143,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "df95a29a-75bd-4884-a496-b329e439731d"
+                "id": "82f703ec-63ab-4478-b0d0-4a6ae5fc348d"
               }
             }
           ]
@@ -3159,7 +3185,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "c0062c32-4c52-47a2-8603-d6a65a100b8b"
+                "id": "24d91b8c-afca-4a3d-83ac-835327966101"
               }
             }
           ]
@@ -3206,7 +3232,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('eventoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "a4b290b1-902f-425b-b15e-f8b6bf1fd78c"
+                "id": "039775be-8c81-497d-987f-7de12115227b"
               }
             }
           ]
@@ -3233,7 +3259,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('eventoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/cronograma?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('eventoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "d0700fb9-588f-42df-8ef7-4fb5962a0fd5"
+                "id": "dd54f6b9-e288-41f9-8080-ee14e17cf552"
               }
             },
             {
@@ -3253,7 +3279,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "e3bd4e90-79d3-4fba-b543-3b2d97fba52b"
+                "id": "d48cecf8-81ae-41bd-a931-18d6342fa1ac"
               }
             }
           ]
@@ -3280,7 +3306,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('eventoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/cronograma?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('eventoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "eb539cdb-0be1-4302-b5ec-8be7e1da6861"
+                "id": "33d5cb0f-2bbf-48b7-a424-00c8bea0b0a9"
               }
             },
             {
@@ -3300,7 +3326,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "55971c30-2f17-4f39-9b66-2c6f5361ddd6"
+                "id": "cd7a7485-1ab7-4e37-ad11-5a3a6e131ac7"
               }
             }
           ]
@@ -3335,7 +3361,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('eventoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/cronograma?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('eventoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "f9291ce8-ce0a-456c-8952-26248bdaed41"
+                "id": "960c0c40-785c-4916-a33b-0726e96ee46a"
               }
             },
             {
@@ -3355,7 +3381,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "ed0c01ad-f51e-4e8f-9179-3ed4daa772a0"
+                "id": "b31f4be6-79ef-4174-9f97-e9a4eea55406"
               }
             }
           ]
@@ -3390,7 +3416,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('eventoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/cronograma?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('eventoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "c67e0de7-095d-4166-9ada-df450bcf474c"
+                "id": "8b6849b6-579e-4d6c-940f-98be2955076b"
               }
             },
             {
@@ -3410,7 +3436,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "7f5a7c35-8188-4fa2-949a-c8796b206291"
+                "id": "0ceb52d7-3875-450a-a211-c86fb09e802f"
               }
             }
           ]
@@ -3452,7 +3478,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "d8237e80-f4b8-4ecb-83f5-79dc1d3028f6"
+                "id": "2ed0a949-fd51-45f2-a1b9-df0c058b882b"
               }
             }
           ]
@@ -3499,7 +3525,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('dispSemanalId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "d9a44748-bf8e-4303-a972-5383806fb0e2"
+                "id": "6881c84d-3cc8-4c91-95b5-607fa1fb4e45"
               }
             }
           ]
@@ -3534,7 +3560,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('dispSemanalId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/disponibilidades/semanal/pessoa/{{pessoaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('dispSemanalId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "d136b343-df3a-4c80-9f05-67b63b6da293"
+                "id": "0678129e-044c-4369-a8f5-2caf9d879d72"
               }
             },
             {
@@ -3554,7 +3580,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "7d05bb5c-b0c8-45fb-8d2b-e018f32222ca"
+                "id": "3a940f11-1336-4ca9-b44b-b15dc2202995"
               }
             }
           ]
@@ -3591,7 +3617,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "6bda7c46-2741-45ff-b9bd-adbe6ac55849"
+                "id": "0c569ac9-961e-44fc-8454-873dabbca763"
               }
             }
           ]
@@ -3638,7 +3664,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('indispId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "85ca1155-b43c-45b5-9290-1d8b49a384d7"
+                "id": "4f8dd776-f193-4407-b32e-545dc6126b6c"
               }
             }
           ]
@@ -3673,7 +3699,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('indispId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/disponibilidades/indisponibilidades/pessoa/{{pessoaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('indispId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "4f1ec008-afbd-439a-b074-55ef61e976ca"
+                "id": "6f087fba-032b-481c-b618-d0ca9a4bea96"
               }
             },
             {
@@ -3693,7 +3719,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "20c9c6dc-dde5-4c3f-bb84-58384bcdc406"
+                "id": "1ad09af1-07f0-475d-be87-de47283b8c55"
               }
             }
           ]
@@ -3735,7 +3761,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "77be2263-2caf-4674-a0de-9d44e80aca88"
+                "id": "f5de058c-09fd-46b4-9aaf-0d39f3fe2eaf"
               }
             }
           ]
@@ -3782,7 +3808,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('escalaId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "f42b35ff-118e-4478-b7a7-46f2f26b2cf6"
+                "id": "d432542d-15d3-44fe-be49-c9e4e8539452"
               }
             }
           ]
@@ -3817,7 +3843,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('escalaId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/escalas?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('escalaId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "50a180cd-e214-4c0c-9438-dbac8f14b5ba"
+                "id": "954500bb-fab6-42f1-a833-b60ec4e487c3"
               }
             },
             {
@@ -3837,7 +3863,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "b32667cc-dbbf-4384-a603-aa22fec4a693"
+                "id": "adfc74fc-15b5-4ee3-b811-4d2def73e3dc"
               }
             }
           ]
@@ -3872,7 +3898,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('escalaId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/escalas?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('escalaId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "cd36372a-2549-4a75-8d41-d4697a068058"
+                "id": "69a48337-3098-44f2-acce-bc98baec3d03"
               }
             },
             {
@@ -3892,7 +3918,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "22bf0a0f-9bc5-4640-860e-656b448571ab"
+                "id": "6705ec85-9fc2-4bbd-9f6d-350558735aef"
               }
             }
           ]
@@ -3919,7 +3945,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('escalaId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/escalas?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('escalaId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "a88d42de-cf2b-4154-8590-20c3995fc944"
+                "id": "9d852fcf-781a-47c6-ad2b-308e20dd6dc0"
               }
             },
             {
@@ -3939,7 +3965,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "fc609b5b-4075-44de-b10d-bb1fed7796e1"
+                "id": "f65dd53a-367a-413c-8b88-68cf7288f2b8"
               }
             }
           ]
@@ -3974,7 +4000,7 @@
                   "(function () {{\n    var v = pm.collectionVariables.get('servicoId');\n    if (v) {{ return; }}\n    var base = pm.collectionVariables.get('baseUrl');\n    var mid = pm.collectionVariables.get('ministerioId');\n    var seed = pm.collectionVariables.get('igrejaId');\n    var fetchServicos = function (ministerioId) {{\n        pm.sendRequest(base + '/api/ministerios/' + ministerioId + '/servicos', function (err2, res2) {{\n            if (err2 || res2.code !== 200) {{ return; }}\n            var arr = res2.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                pm.collectionVariables.set('servicoId', arr[0].id);\n            }}\n        }});\n    }};\n    if (mid) {{\n        fetchServicos(mid);\n    }} else {{\n        pm.sendRequest(base + '/api/ministerios?igrejaId=' + seed, function (err, res) {{\n            if (err || res.code !== 200) {{ return; }}\n            var arr = res.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                var first = arr[0].id;\n                pm.collectionVariables.set('ministerioId', first);\n                fetchServicos(first);\n            }}\n        }});\n    }}\n}})();"
                 ],
                 "type": "text/javascript",
-                "id": "13e150d1-3d48-4178-890c-a5e5a4268f73"
+                "id": "887185bb-6b29-4bed-b50d-42070c65e98e"
               }
             },
             {
@@ -3996,7 +4022,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('escalaServicoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "6a551057-f2d1-4001-a201-fea787f270fd"
+                "id": "5005f7a5-f8f7-4852-9597-a9caa3185bc3"
               }
             }
           ]
@@ -4031,7 +4057,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('escalaServicoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/escalas/{{escalaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('servicos[0].id');\n        if (val) { pm.collectionVariables.set('escalaServicoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "e18ae470-ae81-4918-b842-76e04a1b2bba"
+                "id": "6f6de41c-6337-4190-985a-8753b35732ef"
               }
             },
             {
@@ -4051,7 +4077,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "cbac83ce-2794-400d-8738-817068406358"
+                "id": "4135201a-6483-4ab1-9478-afb12a13af58"
               }
             }
           ]
@@ -4086,7 +4112,7 @@
                   "(function () {{\n    var v = pm.collectionVariables.get('servicoId');\n    if (v) {{ return; }}\n    var base = pm.collectionVariables.get('baseUrl');\n    var mid = pm.collectionVariables.get('ministerioId');\n    var seed = pm.collectionVariables.get('igrejaId');\n    var fetchServicos = function (ministerioId) {{\n        pm.sendRequest(base + '/api/ministerios/' + ministerioId + '/servicos', function (err2, res2) {{\n            if (err2 || res2.code !== 200) {{ return; }}\n            var arr = res2.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                pm.collectionVariables.set('servicoId', arr[0].id);\n            }}\n        }});\n    }};\n    if (mid) {{\n        fetchServicos(mid);\n    }} else {{\n        pm.sendRequest(base + '/api/ministerios?igrejaId=' + seed, function (err, res) {{\n            if (err || res.code !== 200) {{ return; }}\n            var arr = res.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                var first = arr[0].id;\n                pm.collectionVariables.set('ministerioId', first);\n                fetchServicos(first);\n            }}\n        }});\n    }}\n}})();"
                 ],
                 "type": "text/javascript",
-                "id": "6ce3fa39-c933-4093-9e36-8880df032870"
+                "id": "f77aa595-38eb-4537-90b0-0f87cff474f5"
               }
             },
             {
@@ -4108,7 +4134,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('designacaoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "2d987465-574c-4d4c-a7d7-68aa3490a154"
+                "id": "d19ff684-cb37-4bc5-a2fc-10830d4de901"
               }
             }
           ]
@@ -4143,7 +4169,7 @@
                   "(function () {{\n    var v = pm.collectionVariables.get('servicoId');\n    if (v) {{ return; }}\n    var base = pm.collectionVariables.get('baseUrl');\n    var mid = pm.collectionVariables.get('ministerioId');\n    var seed = pm.collectionVariables.get('igrejaId');\n    var fetchServicos = function (ministerioId) {{\n        pm.sendRequest(base + '/api/ministerios/' + ministerioId + '/servicos', function (err2, res2) {{\n            if (err2 || res2.code !== 200) {{ return; }}\n            var arr = res2.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                pm.collectionVariables.set('servicoId', arr[0].id);\n            }}\n        }});\n    }};\n    if (mid) {{\n        fetchServicos(mid);\n    }} else {{\n        pm.sendRequest(base + '/api/ministerios?igrejaId=' + seed, function (err, res) {{\n            if (err || res.code !== 200) {{ return; }}\n            var arr = res.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                var first = arr[0].id;\n                pm.collectionVariables.set('ministerioId', first);\n                fetchServicos(first);\n            }}\n        }});\n    }}\n}})();"
                 ],
                 "type": "text/javascript",
-                "id": "06631db2-f1b1-47ae-a938-92e2c19da709"
+                "id": "cff593b2-61d6-46aa-92ff-f92c89a9fac3"
               }
             },
             {
@@ -4163,7 +4189,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "7635a183-b270-4d32-8ebc-a5778fc37906"
+                "id": "e9039d92-5e41-42db-8386-b24016196a31"
               }
             }
           ]
@@ -4198,7 +4224,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('designacaoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/escalas/{{escalaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('voluntarios[0].id');\n        if (val) { pm.collectionVariables.set('designacaoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "413e3c2f-b8d9-4a66-a396-de7d5385860d"
+                "id": "18e7bac4-4346-4a79-b3fb-ccd15ddfeaae"
               }
             },
             {
@@ -4218,7 +4244,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "04b86a79-4cd0-442e-a06b-96c0bff98344"
+                "id": "7a6a6ba9-d2ae-411b-802f-4d7d0ee53ee7"
               }
             }
           ]
@@ -4263,7 +4289,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "6ee8080c-128a-4bbd-ae27-6f1b6b655a76"
+                "id": "9dfe5492-3816-476f-8c58-3228012ce82d"
               }
             }
           ]
@@ -4294,7 +4320,7 @@
                   "(function () {\n    if (!pm.collectionVariables.get('adminToken')) {\n        pm.collectionVariables.set('adminToken', pm.collectionVariables.get('token') || '');\n    }\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "a69b5a67-0f50-447c-adb1-86ceef5f5e1f"
+                "id": "d3a0464e-8e22-426b-99df-08ad386fc6ad"
               }
             },
             {
@@ -4316,7 +4342,7 @@
                   "if (jv.token) { pm.collectionVariables.set('token', jv.token); }"
                 ],
                 "type": "text/javascript",
-                "id": "0337dfe1-ea61-4a5a-9d7b-38a64365caa6"
+                "id": "f5cf6ab6-deae-4498-a296-b5bebbe01dca"
               }
             }
           ]
@@ -4351,7 +4377,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('designacaoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/escalas/{{escalaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('voluntarios[0].id');\n        if (val) { pm.collectionVariables.set('designacaoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "2e42959f-bfbc-44ba-a8e6-7fd43a65544a"
+                "id": "5abc36a0-5242-459d-8512-46f262f9ce48"
               }
             },
             {
@@ -4371,7 +4397,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "40a727ed-3ed4-46d3-ade5-ae78198d11dd"
+                "id": "57138c9b-6860-4c1e-a1c1-c321510c4b2c"
               }
             }
           ]
@@ -4398,7 +4424,7 @@
                   "pm.collectionVariables.set('token', pm.collectionVariables.get('adminToken'));"
                 ],
                 "type": "text/javascript",
-                "id": "6c170542-fa34-41a6-811b-175450dfcc5b"
+                "id": "2c87f015-6d9d-462f-8015-73d465f4de97"
               }
             },
             {
@@ -4418,7 +4444,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "bbb68402-3afd-4e31-a2c5-2f9cbddc68bb"
+                "id": "4689b566-7b62-4a2e-b5af-36902eb9e709"
               }
             }
           ]
@@ -4445,7 +4471,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('escalaId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/escalas?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('escalaId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "48be7254-5aca-4501-845c-81249628b717"
+                "id": "c857d767-04fd-47d6-ad91-3be223c07389"
               }
             },
             {
@@ -4465,7 +4491,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "1fa62fea-5545-4de3-b6b0-ef1b608aa108"
+                "id": "f0733510-efdd-4384-b206-652ec84c010d"
               }
             }
           ]
@@ -4499,7 +4525,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "3d083b42-70fd-4021-b5b2-f620b46e4354"
+                "id": "8b73bcc0-b536-472f-8be3-e18162e39b94"
               }
             }
           ]
@@ -4526,7 +4552,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('escalaId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/escalas?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('escalaId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "e6c142a8-0558-45e9-a165-69934836a85a"
+                "id": "27b8667b-5b8d-4200-bee6-6fbbb62c38ec"
               }
             },
             {
@@ -4546,7 +4572,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "4694542b-8dd1-4e2d-86b7-6cec3f7b4ae4"
+                "id": "c82d6632-ce6c-4e3c-93e8-8f47c487d912"
               }
             }
           ]
@@ -4588,7 +4614,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "5629c9f8-c6b6-441c-927a-79c3c9c03dc0"
+                "id": "c48b3f1f-fc3e-420c-a45a-6dcd84c72295"
               }
             }
           ]
@@ -4635,7 +4661,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('categoriaCultoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "41e5e18b-a5af-47e8-ae02-9285494933b9"
+                "id": "817a5bc1-9422-4b3f-ba1b-2c852beb14bd"
               }
             }
           ]
@@ -4662,7 +4688,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('categoriaCultoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/categorias-culto?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('categoriaCultoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "f12e97b7-01a1-4c6b-8e2b-86053270c217"
+                "id": "c143a70a-0d35-405b-9637-17db5bef2b7b"
               }
             },
             {
@@ -4682,7 +4708,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "9a9e94a3-ba4b-4edd-8e78-1d42cee7d2ba"
+                "id": "0dec8eb2-7797-4ceb-bd70-1fe9635c45dd"
               }
             }
           ]
@@ -4717,7 +4743,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('categoriaCultoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/categorias-culto?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('categoriaCultoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "8c715869-ecb1-4f9d-92bc-329a2d8ac5f3"
+                "id": "0285ee0a-e696-48e1-a794-303b7d824fb3"
               }
             },
             {
@@ -4737,7 +4763,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "321ea7c4-6041-4fa8-9f1c-9d2ad36fd8e7"
+                "id": "125d54b8-f0be-4c8b-a79c-2d4fdccfa45a"
               }
             }
           ]
@@ -4764,7 +4790,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('categoriaCultoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/categorias-culto?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('categoriaCultoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "e8571cdf-5465-44c8-86c5-8c1c0d72528d"
+                "id": "57d5ea1a-7ae6-4fbb-8c2e-f72360ffec7f"
               }
             },
             {
@@ -4781,7 +4807,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "71a0c77c-6b9d-4795-8ade-8930d62eee2e"
+                "id": "3d95bc9c-12c3-425b-b8e1-829f3244f199"
               }
             }
           ]
@@ -4823,7 +4849,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "e3b582f8-1223-45f9-a30f-8d60f118be51"
+                "id": "106f1a78-c124-403c-b983-b65770c63c18"
               }
             }
           ]
@@ -4870,7 +4896,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('cultoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "417985dd-60f6-44ad-b06c-9baf10dfeaf8"
+                "id": "c5e9c7da-138d-4899-a4eb-00ea04a40b55"
               }
             }
           ]
@@ -4917,7 +4943,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('cultoDeleteId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "cad77ef8-35dd-4c6d-a877-14f9c8d26dd5"
+                "id": "4c1257d1-305a-4927-bfde-0626f322cb28"
               }
             }
           ]
@@ -4944,7 +4970,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('cultoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/cultos?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('cultoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "f8e0be14-ee0b-4ea4-bee0-916ecd7bf600"
+                "id": "88bf8a2c-1a81-4bbd-9fe6-ed3d220228fd"
               }
             },
             {
@@ -4964,7 +4990,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "8db8c7fd-ebaa-4477-b4f4-9afd6cdf726a"
+                "id": "3f6acd43-6bd9-41f5-970a-9d094f28e6b1"
               }
             }
           ]
@@ -4999,7 +5025,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('cultoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/cultos?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('cultoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "e8d89c27-605c-49d7-be49-e27a2e2d6775"
+                "id": "45e3e809-0fca-4a1d-a152-157665d10e87"
               }
             },
             {
@@ -5019,7 +5045,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "d63af47a-9c96-4c43-a3fb-a00e7a17579d"
+                "id": "a5c92f98-8b1d-4730-8d48-f72ee2e90dd8"
               }
             }
           ]
@@ -5046,7 +5072,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('cultoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/cultos?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('cultoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "c9450101-041e-4aec-a369-e2dbe9175d6a"
+                "id": "de48443b-634d-429b-85ff-81f37456a35c"
               }
             },
             {
@@ -5066,7 +5092,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "fbd48a4e-3452-4a10-b295-1f5af183f537"
+                "id": "959432c3-1be7-4965-8133-683c23726b92"
               }
             }
           ]
@@ -5101,7 +5127,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('cultoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/cultos?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('cultoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "ce1b1f98-d558-4a32-93a0-82ab7eac51c3"
+                "id": "8c2b5553-b82d-4f51-abae-80011253f729"
               }
             },
             {
@@ -5121,7 +5147,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "189825aa-510d-4e9c-95ee-d394093ebae4"
+                "id": "2eb369c3-cd4f-4071-b88b-b15bff27070c"
               }
             }
           ]
@@ -5148,7 +5174,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('cultoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/cultos?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('cultoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "74ba5f43-8046-434f-bd55-491410a5f4dd"
+                "id": "8e656fab-35bc-4a35-ae9b-7bafc2427528"
               }
             },
             {
@@ -5168,7 +5194,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "fde2c8f5-8bea-4afa-a9e5-2f5c8da24525"
+                "id": "e6e55cd6-8d66-4604-8b45-a606ad867b85"
               }
             }
           ]
@@ -5203,7 +5229,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('cultoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/cultos?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('cultoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "dc6ecc55-61cb-4e64-bde1-b36f8400ef74"
+                "id": "68593097-9f38-4d8f-aae0-fb5ce408fd5b"
               }
             },
             {
@@ -5223,7 +5249,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "e3511f78-c222-431b-a4f0-f0357700025c"
+                "id": "9cec3dce-2e2d-4ed0-8a8d-2e1a89b2d0f2"
               }
             }
           ]
@@ -5262,7 +5288,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "308a6c84-eda8-4ad9-9e6f-21d2910a4508"
+                "id": "0a684c70-7c1a-40b9-a6fb-36d0b313f024"
               }
             }
           ]
@@ -5296,7 +5322,7 @@
                   "pm.test('Corpo não vazio', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
                 ],
                 "type": "text/javascript",
-                "id": "8250b801-beda-4fd1-a883-6b2596204e31"
+                "id": "85f7be63-6d37-4fec-aafc-4af12faba4e6"
               }
             }
           ]
@@ -5337,7 +5363,7 @@
                   "pm.test('Arquivo não vazio', function () { pm.expect(pm.response.responseSize).to.be.above(50); });"
                 ],
                 "type": "text/javascript",
-                "id": "3bf540a5-6dbc-4338-ac5b-0e7f161b94c2"
+                "id": "9b4545d6-ebf5-4579-a63d-3a5e2062ef8e"
               }
             }
           ]
@@ -5373,7 +5399,7 @@
                   "pm.test('Arquivo não vazio', function () { pm.expect(pm.response.responseSize).to.be.above(50); });"
                 ],
                 "type": "text/javascript",
-                "id": "e5623caa-41f1-4fc4-9ea3-9aa28c0d3423"
+                "id": "dcaea567-8b07-4a56-99e3-6ef15be6c962"
               }
             }
           ]
@@ -5409,7 +5435,7 @@
                   "pm.test('Arquivo não vazio', function () { pm.expect(pm.response.responseSize).to.be.above(50); });"
                 ],
                 "type": "text/javascript",
-                "id": "cd0f41d6-d681-4a68-806b-00c75c3bb7b4"
+                "id": "c1b670e7-d18d-4fa0-beca-e216553e8ee6"
               }
             }
           ]
@@ -5441,7 +5467,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('designacaoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/escalas/{{escalaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('voluntarios[0].id');\n        if (val) { pm.collectionVariables.set('designacaoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "011e7efe-96eb-4126-bf7c-94a722312ff1"
+                "id": "0de608c9-46ba-4968-98d3-5dc23daa87ab"
               }
             },
             {
@@ -5456,7 +5482,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "1a7937b7-5c9b-4427-bdac-3f15561a8c5c"
+                "id": "abcd5e29-7a39-4639-8197-41f65ba36bb3"
               }
             }
           ]
@@ -5483,7 +5509,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('escalaServicoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/escalas/{{escalaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('servicos[0].id');\n        if (val) { pm.collectionVariables.set('escalaServicoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "1c11fd26-e8ce-4cc4-89b5-dba2b6cc6354"
+                "id": "2e1127e8-4ecb-4eea-b72f-002dc88c4ab7"
               }
             },
             {
@@ -5498,7 +5524,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "98a8b4dc-f116-4d46-ad0d-3330ee87e3be"
+                "id": "3b83fb7a-597b-4168-aff5-d9b0ad18a138"
               }
             }
           ]
@@ -5525,7 +5551,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('escalaId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/escalas?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('escalaId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "1bb26021-105e-41c8-a594-daef66d7f3be"
+                "id": "e0190879-ae59-4b57-a177-5a819c43cab2"
               }
             },
             {
@@ -5540,7 +5566,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "5ef47eac-b6d3-40ed-b43a-5a3b6558ffde"
+                "id": "8c5b6d44-8d47-44bc-aa69-9b0b95e95df9"
               }
             }
           ]
@@ -5567,7 +5593,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('voluntarioId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/voluntarios';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('voluntarioId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "b7f599b4-261f-45cf-827a-d34e649ecbfc"
+                "id": "fbd141df-3c31-4301-a07f-a9c68ebdf31b"
               }
             },
             {
@@ -5582,7 +5608,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "5e7c352e-086b-4399-a72b-ad35fea2632e"
+                "id": "e2790bd6-8972-4910-90e4-ffe1925f7763"
               }
             }
           ]
@@ -5609,7 +5635,7 @@
                   "(function () {{\n    var v = pm.collectionVariables.get('servicoId');\n    if (v) {{ return; }}\n    var base = pm.collectionVariables.get('baseUrl');\n    var mid = pm.collectionVariables.get('ministerioId');\n    var seed = pm.collectionVariables.get('igrejaId');\n    var fetchServicos = function (ministerioId) {{\n        pm.sendRequest(base + '/api/ministerios/' + ministerioId + '/servicos', function (err2, res2) {{\n            if (err2 || res2.code !== 200) {{ return; }}\n            var arr = res2.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                pm.collectionVariables.set('servicoId', arr[0].id);\n            }}\n        }});\n    }};\n    if (mid) {{\n        fetchServicos(mid);\n    }} else {{\n        pm.sendRequest(base + '/api/ministerios?igrejaId=' + seed, function (err, res) {{\n            if (err || res.code !== 200) {{ return; }}\n            var arr = res.json();\n            if (Array.isArray(arr) && arr.length > 0) {{\n                var first = arr[0].id;\n                pm.collectionVariables.set('ministerioId', first);\n                fetchServicos(first);\n            }}\n        }});\n    }}\n}})();"
                 ],
                 "type": "text/javascript",
-                "id": "85c6393e-19b6-47dd-8547-dc41946e1bc3"
+                "id": "291d9d91-57e5-46c8-939c-b3dc49d2cb3a"
               }
             },
             {
@@ -5624,7 +5650,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "2486c716-38f9-4a5c-bf58-8a5366b1eb93"
+                "id": "88a97daf-2356-44ce-a0bd-9da50252da90"
               }
             }
           ]
@@ -5651,7 +5677,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('ministerioId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/ministerios?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('ministerioId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "f3f74aba-9c2e-4ccb-a925-971af5c106b2"
+                "id": "570c8f24-d189-4372-9e57-85d7fcd56947"
               }
             },
             {
@@ -5666,7 +5692,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "bdd47225-ae3c-4df0-bdcd-2974ece2adca"
+                "id": "f93b5166-dc55-4abc-b7c1-5fbd0a8b259a"
               }
             }
           ]
@@ -5693,7 +5719,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('cultoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/cultos?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('cultoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "f7e7f4a4-3671-483c-97c4-b6561f6b32d2"
+                "id": "a7b0c058-2f69-4760-973a-442f5114bb5c"
               }
             },
             {
@@ -5708,7 +5734,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "1fa8d1b9-1422-4efd-82d4-8c0302c6f769"
+                "id": "34e82cfa-ffe8-4bde-b82e-0df6f21e7c6c"
               }
             }
           ]
@@ -5735,7 +5761,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('categoriaCultoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/categorias-culto?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('categoriaCultoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "3e951b88-aa54-47d5-b806-3414ef7392ed"
+                "id": "24d8a37f-15da-434c-ba02-02248134d1db"
               }
             },
             {
@@ -5750,7 +5776,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "0e270d18-fb94-4011-b1a9-f4d333292746"
+                "id": "4b9022e2-e4ea-4008-a7c1-fa0737e2ec06"
               }
             }
           ]
@@ -5777,7 +5803,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('eventoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/cronograma?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('eventoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "26a295d4-0b86-4583-8347-ba21ce2e7a4d"
+                "id": "7092110b-0cb7-487d-8f6b-32091553949d"
               }
             },
             {
@@ -5792,7 +5818,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "3d3d025d-c162-43a3-8f2b-2c5d5737d698"
+                "id": "d3589b3e-8670-4d77-9f4a-3cee9fe600d3"
               }
             }
           ]
@@ -5819,7 +5845,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('smallGroupId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/small-groups?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('smallGroupId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "8b294f88-f91c-49fc-8161-d12eb10e67b0"
+                "id": "4c9e2e42-5bcd-41ab-804c-9e7e04e6604e"
               }
             },
             {
@@ -5834,7 +5860,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "17565817-20be-4880-b8fa-4e9fa3e00cc8"
+                "id": "9eaadf2d-ff5d-4bb7-b34e-9b6152a0fb18"
               }
             }
           ]
@@ -5861,7 +5887,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('baseMinisterialId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/bases-ministeriais?igrejaId={{igrejaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('baseMinisterialId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "00ce27c7-dfe1-42ac-ba4c-a112bf7d42c8"
+                "id": "371d2fab-238f-4576-9f6c-12039ec49f9f"
               }
             },
             {
@@ -5876,7 +5902,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "ea688aca-7324-421d-a46a-680f979ab90e"
+                "id": "4dc53d1f-d771-44fe-9254-884c5d41de1b"
               }
             }
           ]
@@ -5908,7 +5934,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "95d7ee2e-0dbb-4f04-96ce-cdf4fc6f08d9"
+                "id": "0cf1ee79-ed88-4761-834b-7d4ab2201348"
               }
             }
           ]
@@ -5940,7 +5966,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "0162258b-5b15-4ad6-bdbc-06ab4ddab714"
+                "id": "3c18dfb3-850e-4ff3-967e-1ad9612b8f1e"
               }
             }
           ]
@@ -5972,7 +5998,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "10a81a9c-8ebb-42e8-9276-2d653dfa32db"
+                "id": "d9fbb8cd-2ad1-4f74-83ee-d70b94c0ee49"
               }
             }
           ]
@@ -5999,7 +6025,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('pausaId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/pessoas/{{pessoaId}}/pausas';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('pausaId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "a33bc77c-f411-4ee0-98c9-c4960d573776"
+                "id": "1bcc6ba3-9473-44c2-9727-dd95c6954d38"
               }
             },
             {
@@ -6014,7 +6040,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "329dfb76-0e55-499f-97a9-119393c92d57"
+                "id": "bdd8a292-a447-4722-8e4c-649267c4599d"
               }
             }
           ]
@@ -6041,7 +6067,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('historicoId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/pessoas/{{pessoaId}}/historico';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('historicoId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "c830471a-ea0c-45ca-b4ad-a9978cac704d"
+                "id": "f3032b17-090f-4241-8418-69b07c24541c"
               }
             },
             {
@@ -6056,7 +6082,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "b1add5b8-8e1e-4b07-9f3f-bd3d0e0a6029"
+                "id": "185d128f-ec84-4257-8ab6-e7727510addc"
               }
             }
           ]
@@ -6083,7 +6109,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('pessoaEtapaId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/pessoas/{{pessoaId}}/jornada/etapas';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('pessoaEtapaId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "dc11163a-195f-4e0a-847c-20a6cecca24a"
+                "id": "1dc353bf-ea4a-4e7e-9ae4-16913d71da3c"
               }
             },
             {
@@ -6098,7 +6124,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "7b44b6ea-7bb5-46bd-8256-a21f0cf55694"
+                "id": "6714076a-e480-4a7c-bdff-694c4056c75d"
               }
             }
           ]
@@ -6130,7 +6156,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "e1e50555-9274-4049-812e-9ed9664b9a0e"
+                "id": "634c2e1f-ee56-4d72-b95c-a04334b1ef14"
               }
             }
           ]
@@ -6162,7 +6188,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "5250b3a3-c609-4c17-9cc6-4cb44486983d"
+                "id": "54b84d53-2892-4160-92ae-56809f650ec5"
               }
             }
           ]
@@ -6189,7 +6215,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('dispSemanalId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/disponibilidades/semanal/pessoa/{{pessoaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('dispSemanalId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "1bb8cd27-78a1-4d71-abce-6aa2c4ace35b"
+                "id": "0cf98ce2-5acd-4c48-b7f9-bdc182e0968a"
               }
             },
             {
@@ -6204,7 +6230,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "4ddbd6e3-aec5-42d8-8ba3-30de44a37950"
+                "id": "20f05a0f-ee0f-4b87-95da-7c5d3e02e610"
               }
             }
           ]
@@ -6231,7 +6257,7 @@
                   "(function () {\n    var v = pm.collectionVariables.get('indispId');\n    if (v) { return; }\n    var url = pm.collectionVariables.get('baseUrl') + '/api/disponibilidades/indisponibilidades/pessoa/{{pessoaId}}';\n    pm.sendRequest(url, function (err, res) {\n        if (err || res.code !== 200) { return; }\n        var data = res.json();\n        var pick = function (fieldExpr) {\n            if (fieldExpr.indexOf('[') > -1) {\n                var parts = fieldExpr.split('.');\n                var cur = data;\n                for (var i = 0; i < parts.length; i++) {\n                    var idx = null;\n                    var p = parts[i];\n                    var m = p.match(/^(.*)\\[(\\d+)\\]$/);\n                    if (m) { p = m[1]; idx = parseInt(m[2]); }\n                    cur = cur[p];\n                    if (idx !== null && cur) { cur = cur[idx]; }\n                }\n                return cur;\n            } else {\n                if (Array.isArray(data) && data.length > 0) return data[0][fieldExpr];\n                if (data && data[fieldExpr] !== undefined) return data[fieldExpr];\n                return undefined;\n            }\n        };\n        var val = pick('id');\n        if (val) { pm.collectionVariables.set('indispId', val); }\n    });\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "2b1b90a1-3a67-4a96-b82a-41d2305aaf9d"
+                "id": "98391c58-4418-4e29-a58f-b693ca5c7bb2"
               }
             },
             {
@@ -6246,7 +6272,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "6a4f0414-0498-4ab1-bff5-0e71c9db9b24"
+                "id": "89fdbf33-b072-4976-b996-d8f1c797ec06"
               }
             }
           ]

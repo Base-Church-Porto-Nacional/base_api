@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "9936c1fd-10b9-4c31-9d27-6b774663b2bc",
+    "_postman_id": "1b5edbeb-11b4-4e48-8640-6122088219ce",
     "name": "Base API — Testes e Criação",
     "description": "Coleção para **testar e criar** todos os endpoints da Base API.\n\nComo usar:\n1. Suba a API em dev: `SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run` (seed: `admin` / `admin123`).\n2. Rode o **\"Login (admin)\"** primeiro — ele grava token, igrejaId, usuarioId e pessoaId.\n3. Rode as requests de cada pasta na ordem: o id criado é capturado na resposta e reutilizado pelas requests seguintes (tudo automático).\n4. `igrejaId` padrão = UUID da matriz do seed (`c1000000-0000-4000-8000-000000000001`).\n5. Dados usando variáveis dinâmicas do Postman (`{{$randomEmail}}`, `{{$timestamp}}`...) evitam conflito de unicidade em re-execuções.\n\nRecursos de exportação (GET /api/export/{recurso}): pessoas, jornadas, ministerios, servicos, voluntarios, escalas, disponibilidades, usuarios, completo. Formatos: txt, md, xlsx.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -160,6 +160,11 @@
       "key": "usuarioVinculadoUsername",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "adminUserId",
+      "value": "",
+      "type": "string"
     }
   ],
   "auth": {
@@ -207,10 +212,11 @@
                   "if (jsonData.token) { pm.collectionVariables.set('token', jsonData.token); }",
                   "if (jsonData.igrejaId) { pm.collectionVariables.set('igrejaId', jsonData.igrejaId); }",
                   "if (jsonData.usuarioId) { pm.collectionVariables.set('usuarioId', jsonData.usuarioId); }",
-                  "if (jsonData.pessoaId) { pm.collectionVariables.set('pessoaId', jsonData.pessoaId); }"
+                  "if (jsonData.pessoaId) { pm.collectionVariables.set('pessoaId', jsonData.pessoaId); }",
+                  "if (jsonData.usuarioId) { pm.collectionVariables.set('adminUserId', jsonData.usuarioId); }"
                 ],
                 "type": "text/javascript",
-                "id": "f09409d3-4b0e-41d4-abdf-5d7b88e103a2"
+                "id": "965a282d-2061-45bd-b35e-34b031d7c9b8"
               }
             }
           ]
@@ -239,7 +245,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "ae6a91c9-cf0e-4b40-b22a-17ad79e5ecc8"
+                "id": "c86b20d5-9ed7-4349-89a2-a1d58aa5e9c1"
               }
             }
           ]
@@ -276,7 +282,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "bf250889-5075-4e57-84ac-8e870e57ca86"
+                "id": "66e1cf20-58f3-466a-bf38-dabd91884429"
               }
             }
           ]
@@ -310,7 +316,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "9dc2de46-8d3f-466d-b693-f3dc7aa581da"
+                "id": "0e95b3f5-3ad5-4ced-82f4-965d01fba6bf"
               }
             }
           ]
@@ -344,7 +350,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "56d3bc48-1cb5-483b-bf57-0afffbceb8bf"
+                "id": "0d03d537-2a12-4b4d-98f2-a555bdf0051a"
               }
             }
           ]
@@ -373,7 +379,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "4ab40244-6725-4a49-8f3b-6d20503b332d"
+                "id": "fd553eae-ff29-4268-ab1e-68988d78ca4b"
               }
             }
           ]
@@ -412,7 +418,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('filialId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "99458e96-e95d-4490-a746-6fc04b3f84f4"
+                "id": "6b7b8936-1724-4c9b-9f9a-c2ab2a89a2d5"
               }
             }
           ]
@@ -449,7 +455,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "898a7ff2-00a7-4895-9dab-5a90d63a8e84"
+                "id": "0b7b5bf1-e60e-48fe-9405-5d462d016d76"
               }
             }
           ]
@@ -483,7 +489,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "72b757d6-079b-4ab2-8f85-8c5dd7f93269"
+                "id": "70117a0f-a81d-413f-95d5-cabfc3c34cb4"
               }
             }
           ]
@@ -522,7 +528,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('pessoaNovaId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "f791dd26-7389-47f7-bde1-57c8eb359897"
+                "id": "8456effe-0fcd-45fb-b1cf-91e9ba1bd956"
               }
             }
           ]
@@ -562,7 +568,7 @@
                   "if (jsonData.email) { pm.collectionVariables.set('pessoaEmail', jsonData.email); }"
                 ],
                 "type": "text/javascript",
-                "id": "f1637ea4-910d-413c-981a-f57f2d7ba516"
+                "id": "c2db14fb-5791-49a4-b04e-4ffed24828dc"
               }
             }
           ]
@@ -591,7 +597,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "bd961d57-4b3c-486d-9ec7-c9a1784c0d8a"
+                "id": "b3caa93c-1626-4a9e-9426-0c2a0d1e7554"
               }
             }
           ]
@@ -628,7 +634,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "96c6e6e1-016c-43d2-90a9-eb760a95b3b6"
+                "id": "3291a0c9-b210-4e81-8227-98451750129c"
               }
             }
           ]
@@ -651,7 +657,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"username\": \"qa{{$timestamp}}\", \"email\": \"{{pessoaEmail}}\", \"senha\": \"mudar123\", \"papeis\": [\"VOLUNTARIO\", \"MEMBRO\"], \"igrejaId\": \"{{igrejaId}}\"}"
+              "raw": "{\"username\": \"vinc{{$timestamp}}\", \"email\": \"{{pessoaEmail}}\", \"senha\": \"mudar123\", \"papeis\": [\"VOLUNTARIO\", \"MEMBRO\"], \"igrejaId\": \"{{igrejaId}}\"}"
             }
           },
           "response": [],
@@ -668,7 +674,7 @@
                   "if (jsonData.username) { pm.collectionVariables.set('usuarioVinculadoUsername', jsonData.username); }"
                 ],
                 "type": "text/javascript",
-                "id": "ef177ee2-43ca-451e-80cd-23cb002c3edc"
+                "id": "ede3ea52-2683-4404-bf52-3ae3db7d3984"
               }
             }
           ]
@@ -702,7 +708,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "ec57b7e5-b191-4b88-8251-6531ed10a22f"
+                "id": "c6c96a37-6f7e-48c3-946a-e7dee7170376"
               }
             }
           ]
@@ -741,7 +747,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('jornadaEtapaId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "1ac5e31c-e208-40ae-becf-9d104d51765b"
+                "id": "8a71f0cf-e438-4f61-9368-ec6d9eacae3c"
               }
             }
           ]
@@ -770,7 +776,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "f49d4d8b-ed43-440b-9f77-dd7ad802bfbc"
+                "id": "2d412284-3689-4e86-9089-f48186f3250e"
               }
             }
           ]
@@ -807,7 +813,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "d2021416-9748-41b8-a85f-91223969ca91"
+                "id": "e090a1f2-3887-41ad-aeb1-662de43a5f49"
               }
             }
           ]
@@ -841,7 +847,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "01944cb0-33a5-41d2-9482-de175112f746"
+                "id": "17042e01-6781-4d80-a0d9-aec6de9d3789"
               }
             }
           ]
@@ -878,7 +884,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "1245bea5-6210-47b4-a4cf-a831aa87491e"
+                "id": "f146ffec-d7c1-4904-8021-5ef854c3638a"
               }
             }
           ]
@@ -907,7 +913,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "a605bd95-30d0-4bb2-af56-fd9b8c6991a1"
+                "id": "cf99bdd8-7076-45d8-a2a5-c3b8c5c46943"
               }
             }
           ]
@@ -946,7 +952,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('pessoaEtapaId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "69ef3bba-f600-42a5-aec1-242d8b94be50"
+                "id": "400f36ff-af8e-4dfa-9b96-b500f60a17be"
               }
             }
           ]
@@ -980,7 +986,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "7ca42199-3f63-47ec-92e6-77961a299e2c"
+                "id": "756d745f-35d4-4896-bc3c-f10d517dfddb"
               }
             }
           ]
@@ -1019,7 +1025,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('pausaId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "3fd8fd02-1346-4356-b0ce-df4f7ff98f2f"
+                "id": "4e2cddc4-ced7-486d-b35e-b5ded8b07a6f"
               }
             }
           ]
@@ -1056,7 +1062,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "417092f8-3fb6-4208-af6d-1f7782852622"
+                "id": "7c3980ba-76d0-4949-9459-e92cca765ef2"
               }
             }
           ]
@@ -1090,7 +1096,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "53e03b11-0cc7-42d2-845e-bc570e6ba997"
+                "id": "179903aa-5875-4aaa-8c44-aecbcd4bc804"
               }
             }
           ]
@@ -1129,7 +1135,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('historicoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "f3ba98af-26f2-4ebf-8a48-89af15c00982"
+                "id": "7b64bb48-8eac-4528-a25e-f47e70477e3b"
               }
             }
           ]
@@ -1158,7 +1164,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "cd2cf72f-19ed-47d5-bd6e-e40520bb4b42"
+                "id": "bfe060e7-69e8-46c0-a37f-514a7cdbc080"
               }
             }
           ]
@@ -1195,7 +1201,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "99ffeec3-e80e-4b23-a01b-68493d04e459"
+                "id": "202205f4-a722-4aa5-b26e-a2871ee436cf"
               }
             }
           ]
@@ -1229,7 +1235,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "572a24bd-bda7-4545-8c1c-6680b3218302"
+                "id": "5a00c45e-08c9-48c4-81a6-415b6edb2909"
               }
             }
           ]
@@ -1268,7 +1274,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('usuarioId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "7ea41a8c-1749-4304-8668-edc7d6640dc9"
+                "id": "21d22e44-a8fd-47b0-a9f0-00254d475ad4"
               }
             }
           ]
@@ -1297,7 +1303,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "24bf51d8-dfaf-44cc-b74a-b9a0ee48391a"
+                "id": "e0aba4a1-a7ca-4a17-be9f-4a6711302d22"
               }
             }
           ]
@@ -1326,6 +1332,16 @@
           "response": [],
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "if (pm.collectionVariables.get('usuarioId') === pm.collectionVariables.get('adminUserId')) {\n    throw new Error('usuarioId ainda aponta para o admin do seed; execute a coleção completa para criar o usuário QA antes.');\n}"
+                ],
+                "type": "text/javascript",
+                "id": "9bc54e71-282f-41df-a7b0-f22a6a60900c"
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "exec": [
@@ -1334,7 +1350,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "3bdff735-593b-4096-b50d-34f7a088a561"
+                "id": "17a37aa4-8aa1-4853-96d3-a65fed69fe81"
               }
             }
           ]
@@ -1363,6 +1379,16 @@
           "response": [],
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "if (pm.collectionVariables.get('usuarioId') === pm.collectionVariables.get('adminUserId')) {\n    throw new Error('usuarioId ainda aponta para o admin do seed; execute a coleção completa para criar o usuário QA antes.');\n}"
+                ],
+                "type": "text/javascript",
+                "id": "7bee9102-4976-436c-a8af-bb4b1da8106f"
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "exec": [
@@ -1371,7 +1397,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "8f59c3df-de4b-4d5f-bad3-0bf4f19141db"
+                "id": "77682b6c-e06b-453a-83e9-b56733c051dc"
               }
             }
           ]
@@ -1405,7 +1431,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "3a3acf47-b09d-478a-8347-df0909fe9778"
+                "id": "e78886fb-66eb-4592-9160-6103b29a73b6"
               }
             }
           ]
@@ -1444,7 +1470,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('papelId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "4b5d00f3-62f4-48ab-9759-0e383978b0d3"
+                "id": "e06f2170-3e33-43a4-adde-ae9b0f073e65"
               }
             }
           ]
@@ -1473,7 +1499,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "d0450f26-694b-4568-a5d7-29767b64ae9e"
+                "id": "abe47b89-2505-4b8b-862e-70d43dd232c8"
               }
             }
           ]
@@ -1510,7 +1536,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "b279bea1-badb-4d08-aff2-faea9d2d1ad0"
+                "id": "5a4ed2c8-1176-40f2-b94d-8ba10e5da59e"
               }
             }
           ]
@@ -1544,7 +1570,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "cbc3f410-8f60-4edb-8cee-94419126ce63"
+                "id": "4ee8a750-7925-49c5-8926-f407ccf9837e"
               }
             }
           ]
@@ -1578,7 +1604,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "832229bb-b4b5-4b7e-ab02-376a513622af"
+                "id": "eb87a21e-25ff-4225-8267-b66b78a0f2cb"
               }
             }
           ]
@@ -1617,7 +1643,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('ministerioId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "cf1059b0-e2a2-43fc-a6b8-f49de5f2baee"
+                "id": "e98becb9-3ca0-4d2f-b55f-3570dbfbd559"
               }
             }
           ]
@@ -1646,7 +1672,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "30541889-5327-45a3-86e6-c6bdd877e75b"
+                "id": "e9259b64-4b28-42ae-8a53-bc20a642b94d"
               }
             }
           ]
@@ -1683,7 +1709,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "b6e5d950-d597-4f00-b76f-2c6843e276f8"
+                "id": "35af62c9-26a7-4f98-95c1-968c96f00d0b"
               }
             }
           ]
@@ -1712,7 +1738,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "0ea78ae4-d318-4c64-9a89-14d2cce46eac"
+                "id": "7dfc2278-e5cc-4824-8156-71c28515710e"
               }
             }
           ]
@@ -1751,7 +1777,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('servicoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "1c4e697b-4a27-448e-a328-7d26f4d50e61"
+                "id": "d7f384e4-dc47-4d70-b94b-4624b81ea0dd"
               }
             }
           ]
@@ -1785,7 +1811,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "3e335920-91ba-40f7-ad49-3b4373e1b006"
+                "id": "a29ab0c0-30fb-4f31-8ae2-e800c858efdf"
               }
             }
           ]
@@ -1822,7 +1848,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "0dbef324-5a90-4b6e-8872-fe7228d2ba2c"
+                "id": "777528a8-ce39-47f9-9d93-3ac8ae020aaa"
               }
             }
           ]
@@ -1856,7 +1882,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "77c3a0c6-b436-4716-a55b-e10578ac4bb4"
+                "id": "556e03b3-5086-4cfe-924f-f9c53ee25ee7"
               }
             }
           ]
@@ -1885,7 +1911,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "c17d350e-8f9e-4aed-bb89-6a9e215188bd"
+                "id": "cea4dd5c-7217-4629-bd8c-09127aa3cad5"
               }
             }
           ]
@@ -1914,7 +1940,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "c9a6bf13-cc69-4d8f-b5a9-5ea2fe804179"
+                "id": "acacca55-8c93-4e23-84c1-f0ef7682ee3b"
               }
             }
           ]
@@ -1953,7 +1979,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('voluntarioId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "9144f6c8-c751-430e-a4f9-f68c328a3212"
+                "id": "3979849b-5bfc-4f2d-bc34-3d020bfef2d5"
               }
             }
           ]
@@ -1982,7 +2008,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "457a203b-ddf7-4f65-8db7-ead9df2c417d"
+                "id": "6d49597c-c6e2-4b34-9cc4-43527fc49301"
               }
             }
           ]
@@ -2019,7 +2045,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "c347f6a7-6457-4d05-b297-f24c3a3427a9"
+                "id": "6a632ee3-5f22-4a5d-b180-f7f7b1529501"
               }
             }
           ]
@@ -2053,7 +2079,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "bae72774-6fdf-41d1-b853-0e28458e0fdf"
+                "id": "876eee9b-a7cd-474f-a531-3f1fc03a9ec8"
               }
             }
           ]
@@ -2092,7 +2118,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('baseMinisterialId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "43cf5808-39de-45c5-b71a-8d98728ea168"
+                "id": "03dabcfd-71c5-43bc-9207-79d4b1a0de71"
               }
             }
           ]
@@ -2121,7 +2147,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "682fb594-2b5b-46d9-bcf1-a158460eb7f5"
+                "id": "6028e77b-8a4e-477f-9d94-19b745a43d0c"
               }
             }
           ]
@@ -2158,7 +2184,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "14e1756a-b263-4e64-8f8b-19231417806f"
+                "id": "219ae4df-c039-446a-8dd7-86daf4a6b5d8"
               }
             }
           ]
@@ -2192,7 +2218,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "c8de031f-0db2-4d56-ba30-f4623852ecbe"
+                "id": "a363e805-98a3-4c29-b46d-113df59039c9"
               }
             }
           ]
@@ -2231,7 +2257,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('smallGroupId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "b0cfd5c1-a395-4e8c-aa05-6739f76a1b26"
+                "id": "328673c7-e011-4790-bd7f-f2c54b52f19b"
               }
             }
           ]
@@ -2260,7 +2286,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "d8cf4e8a-a696-4be3-85d6-f583b2b80555"
+                "id": "c607ce26-d885-4407-9177-f926218d044d"
               }
             }
           ]
@@ -2297,7 +2323,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "4c5ce220-dda4-4286-ae79-8047047192a4"
+                "id": "16c47146-53c5-435a-a29d-7b94583c14f2"
               }
             }
           ]
@@ -2336,7 +2362,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('encontroId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "adda2b82-6cd8-44eb-939a-3549e749c6ee"
+                "id": "e813fb64-2579-4c4d-a619-07045851e6a1"
               }
             }
           ]
@@ -2373,7 +2399,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "efe2cdce-3e16-4694-a523-c3dcdb2f6be6"
+                "id": "8b79068c-f9e9-4ee5-9980-adb9af6b894c"
               }
             }
           ]
@@ -2407,7 +2433,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "840d0b84-b7fa-42b2-8ade-c794b5895773"
+                "id": "23d72728-efaf-4186-9c0d-5690d14efb3e"
               }
             }
           ]
@@ -2446,7 +2472,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('eventoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "ef09f4f5-7800-4c21-9368-5282dd567694"
+                "id": "926a1ac9-7808-4ea8-924f-1988cb370f36"
               }
             }
           ]
@@ -2475,7 +2501,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "8602d4f4-d5a5-4395-aa7c-9aa5dd96733b"
+                "id": "874f08c7-ea6f-40de-adf7-227b7a25ba7e"
               }
             }
           ]
@@ -2504,7 +2530,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "6fdb8daa-6a47-4d1c-bf66-e50ae9bac9bf"
+                "id": "0a25d265-b54b-4cf6-b3a0-27c3fb062766"
               }
             }
           ]
@@ -2541,7 +2567,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "fe8ab3e1-f07a-4381-94a4-7391673c78f4"
+                "id": "8be4b7e6-4a59-417b-b106-f630b41e1053"
               }
             }
           ]
@@ -2578,7 +2604,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "21558cd4-fd51-4386-bd15-bcf5b13cb00c"
+                "id": "af1ac784-9bf8-4ae6-b09f-988bc189c13d"
               }
             }
           ]
@@ -2612,7 +2638,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "c8500c0a-2be0-46b1-9ee6-271662f83510"
+                "id": "abc848f1-1919-4d4c-ba96-dbb6923a2c2e"
               }
             }
           ]
@@ -2651,7 +2677,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('dispSemanalId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "de7f5727-5a1b-496d-a8a2-93fc70d693a7"
+                "id": "c5f244fa-2572-4d38-8a70-215258a825c6"
               }
             }
           ]
@@ -2688,7 +2714,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "acbf28ac-2e0f-4e48-bb56-5cf5e18b32cb"
+                "id": "d8bdab6e-12aa-4d68-95dd-fbe92d9fd70a"
               }
             }
           ]
@@ -2717,7 +2743,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "6d489891-2aa0-4284-8dd4-26e2a5ae71f6"
+                "id": "756c97da-157a-401f-bf03-e7f951bda01e"
               }
             }
           ]
@@ -2756,7 +2782,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('indispId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "84cef966-9e61-4f67-9bf8-137e94dcad74"
+                "id": "3ce93a29-8310-445b-a5b4-9f08495ccd40"
               }
             }
           ]
@@ -2793,7 +2819,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "9739f39e-2bc6-4bfa-8f24-aeb3af2f789e"
+                "id": "7638cfc6-4006-4623-a4a7-4963ddadfa3b"
               }
             }
           ]
@@ -2827,7 +2853,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "b71442a2-a4bd-4904-bce2-1e86be2e0b5d"
+                "id": "9680f628-f6c0-42ea-bc4f-6780254eae8c"
               }
             }
           ]
@@ -2866,7 +2892,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('escalaId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "53702688-3308-4d43-93ad-7bf39a1d936e"
+                "id": "781bb700-40b8-4e16-bbe6-f6ec771c37fe"
               }
             }
           ]
@@ -2903,7 +2929,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "fbbdc1f9-8208-404e-b06b-b7ae31426036"
+                "id": "2dec12e5-8d19-4637-b352-13e150ea60a1"
               }
             }
           ]
@@ -2940,7 +2966,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "202bd4cc-032a-4bc0-9e55-da59d57889b8"
+                "id": "dd9185a7-7e74-4e13-98ac-f4e773a40624"
               }
             }
           ]
@@ -2969,7 +2995,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "aa759a0c-9889-41d9-8cca-6a9deb9d99fb"
+                "id": "baf990fd-fdd8-414e-9254-ec38d291fc1d"
               }
             }
           ]
@@ -3008,7 +3034,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('escalaServicoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "c2443cde-ad7e-4bb9-8579-ecb4e3eb4fa8"
+                "id": "ee6cbf83-ccd1-448c-9538-f9c1d2ed732f"
               }
             }
           ]
@@ -3045,7 +3071,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "77758d6c-b418-49ff-a51d-c54ea7335728"
+                "id": "8faa4cdf-94b6-4b87-934d-0e417ec12f56"
               }
             }
           ]
@@ -3084,7 +3110,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('designacaoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "599559be-79b4-4e1c-b059-fcca0be8b655"
+                "id": "aece29da-2aec-4ae8-9990-ce7a743c3d91"
               }
             }
           ]
@@ -3121,7 +3147,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "1d6e0058-0246-4fab-a7b6-74a97ed54d96"
+                "id": "92d6e077-e7ea-43a0-a8ea-61f2dc0f90e5"
               }
             }
           ]
@@ -3158,7 +3184,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "0e9ef84d-fe55-40d2-a2e3-bb63aeb62417"
+                "id": "42f62be8-e9f8-4619-9734-83f94946f1d4"
               }
             }
           ]
@@ -3195,7 +3221,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "1a88df4a-376c-4908-a957-b1e198916089"
+                "id": "25dd4d39-8449-42c3-8dd6-7b69d61e856a"
               }
             }
           ]
@@ -3226,7 +3252,7 @@
                   "(function () {\n    if (!pm.collectionVariables.get('adminToken')) {\n        pm.collectionVariables.set('adminToken', pm.collectionVariables.get('token') || '');\n    }\n})();"
                 ],
                 "type": "text/javascript",
-                "id": "ec5deadf-96e8-494f-a428-6dd7cbb90bfb"
+                "id": "4e34570d-86dd-4178-b5d8-c632c5d609e2"
               }
             },
             {
@@ -3240,7 +3266,7 @@
                   "if (jv.token) { pm.collectionVariables.set('token', jv.token); }"
                 ],
                 "type": "text/javascript",
-                "id": "02b19665-73ab-41f1-8785-ea86f9673992"
+                "id": "62a53ed7-5872-4411-bf1a-641253a882aa"
               }
             }
           ]
@@ -3277,7 +3303,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "48cea41b-9c07-4ea5-af33-3e4f35994017"
+                "id": "44701905-01d2-4201-9839-9fa284e29dc7"
               }
             }
           ]
@@ -3304,7 +3330,7 @@
                   "pm.collectionVariables.set('token', pm.collectionVariables.get('adminToken'));"
                 ],
                 "type": "text/javascript",
-                "id": "e5deb19a-0bfc-49e8-b814-135a31114ebf"
+                "id": "2a20e51e-1b97-4792-89c0-50134b55db90"
               }
             },
             {
@@ -3316,7 +3342,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "111ce6ac-ec73-4e71-862a-e1dd0ac9a88f"
+                "id": "d0997127-4f8b-4ec5-a2d0-dcd7a6a7398b"
               }
             }
           ]
@@ -3345,7 +3371,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "44227984-99f2-49a7-a43c-ca0dd008df14"
+                "id": "c8bcba4f-f020-4cce-abbb-5ed90fd9ae11"
               }
             }
           ]
@@ -3374,7 +3400,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "59f96489-b96b-4200-a282-195534b6a73b"
+                "id": "78250ab5-d718-4031-957a-7a5028aa8ba5"
               }
             }
           ]
@@ -3403,7 +3429,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "9a867567-cb33-427e-8c52-e528c3939c6a"
+                "id": "cd0a0201-def9-4a09-8ff7-48fce3b79032"
               }
             }
           ]
@@ -3437,7 +3463,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "d72343eb-8320-483c-a3b1-93db33265bfc"
+                "id": "fb1edfa4-a847-4cd5-bcd1-6a24ac7a6fa7"
               }
             }
           ]
@@ -3476,7 +3502,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('categoriaCultoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "eafae6ef-63b4-4823-be32-3b05cc3951ce"
+                "id": "41de6fa4-bef6-4948-aa87-a2c32b877374"
               }
             }
           ]
@@ -3505,7 +3531,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "e53dc507-b707-44d4-98ea-1f64aee63d24"
+                "id": "da061e9a-1ec1-449b-aec3-e30b0f121494"
               }
             }
           ]
@@ -3542,7 +3568,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "3a80b12b-3d0c-4953-8650-2057ae4f0004"
+                "id": "dbdfb603-e76f-4aeb-8d24-76f90c442fab"
               }
             }
           ]
@@ -3571,7 +3597,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "e224d87e-c6b6-42aa-923e-dc2584058e62"
+                "id": "333bdf0e-ceb8-462a-a717-6766719fe6df"
               }
             }
           ]
@@ -3605,7 +3631,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "54ce5e2d-79b6-4c06-af9a-90833eb4bb71"
+                "id": "f86d791f-b76d-46b8-a4dd-105064a6b3bf"
               }
             }
           ]
@@ -3644,7 +3670,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('cultoId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "a3deeae6-2410-4332-a2cb-bd27a09e63e3"
+                "id": "e81cb86a-ff51-44d8-bc42-ee0c5cff5105"
               }
             }
           ]
@@ -3683,7 +3709,7 @@
                   "if (jsonData.id) { pm.collectionVariables.set('cultoDeleteId', jsonData.id); }"
                 ],
                 "type": "text/javascript",
-                "id": "66b8c540-56c3-4e3d-bbbe-20f3a37e58bf"
+                "id": "09a52500-6428-49b6-a246-a1dec6511320"
               }
             }
           ]
@@ -3712,7 +3738,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "f5476cb2-f106-4c15-9186-19924565403f"
+                "id": "0a19373a-c31b-4abb-abfe-31b49e7f92a9"
               }
             }
           ]
@@ -3749,7 +3775,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "8e43fb1c-7bfe-4c50-91c3-86ab568ea75e"
+                "id": "b266c1a4-6dc7-446d-8b86-73845d2ae1c5"
               }
             }
           ]
@@ -3778,7 +3804,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "39e1b5a4-87a6-4423-a8c3-7e96deec89e2"
+                "id": "244009db-029f-4628-80e4-a663af60aac9"
               }
             }
           ]
@@ -3815,7 +3841,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "7c6b0ef6-d260-40f5-8665-ced3f5c7d3f6"
+                "id": "526ca36c-80a7-4a2b-8b26-b64d714ec885"
               }
             }
           ]
@@ -3844,7 +3870,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "f15c5b2b-24c9-4388-acf4-d50f4de7d655"
+                "id": "4f307e7a-07fd-4db2-b7fc-b6648e2cd287"
               }
             }
           ]
@@ -3881,7 +3907,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "36995030-cf65-4b25-8690-453976eaac26"
+                "id": "c86a27e1-4b00-4f71-8421-4f13a911b06b"
               }
             }
           ]
@@ -3915,7 +3941,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "54aad237-c5ed-426f-bb48-4c39460c16b4"
+                "id": "1ac840b8-c799-49a7-9d9a-d91478f05eee"
               }
             }
           ]
@@ -3944,7 +3970,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "320f998d-a9f8-45c8-9704-8c867619d65e"
+                "id": "8154be83-19cc-409b-a908-52d565117354"
               }
             }
           ]
@@ -3978,7 +4004,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "a1f88987-6505-443f-8b5c-254691b0367d"
+                "id": "883ffb27-483b-4922-a2ef-2d39956375e4"
               }
             }
           ]
@@ -4007,7 +4033,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "7a684d03-e497-451b-b57b-e2cf67740190"
+                "id": "296de7c9-24cb-40cc-8e0a-35b6082677db"
               }
             }
           ]
@@ -4036,7 +4062,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "d6048954-274c-4e0e-a379-001310ef747b"
+                "id": "826fc4fe-eda1-444c-8367-990456ab6b85"
               }
             }
           ]
@@ -4070,7 +4096,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "0cbb912d-167c-4c55-bc1b-4e07700cf0e7"
+                "id": "8de24bd7-78f4-4ed0-89ef-42aacd3f57dd"
               }
             }
           ]
@@ -4099,7 +4125,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "3b2d9f9b-d6e3-43f3-972e-2c51b6324fe9"
+                "id": "33d675bf-ff1a-4d1a-bd54-555e2fa3272f"
               }
             }
           ]
@@ -4128,7 +4154,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "d7fd46ca-31cd-49c4-a483-382e39d287f0"
+                "id": "2d134310-da0d-41b9-9121-00c338a55891"
               }
             }
           ]
@@ -4157,7 +4183,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "09950082-854d-4ef2-a5fb-a6ff4f15968b"
+                "id": "e7cb22de-c2b7-4524-acea-35c9ca6a8df9"
               }
             }
           ]
@@ -4186,7 +4212,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "f9f2801f-dd48-4a3a-8f1b-33ba14658dff"
+                "id": "a6d01ad5-e11e-4e00-9b56-d3f5a68ba387"
               }
             }
           ]
@@ -4215,7 +4241,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "90730da8-8ece-45d8-a5be-7f2243e4b424"
+                "id": "1369a90a-a179-443c-89de-e52072097624"
               }
             }
           ]
@@ -4244,7 +4270,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "50d41f77-6e71-4641-b739-20a79ad9a82e"
+                "id": "2c3d3595-5b38-46bc-aea5-8ec447997e30"
               }
             }
           ]
@@ -4273,7 +4299,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "266e61ef-2625-4a7c-a251-2456c67eba38"
+                "id": "65dd80e6-6af1-4342-bf02-bda869a8cae3"
               }
             }
           ]
@@ -4302,7 +4328,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "4c486c17-f2ef-4ac4-a4d6-c079603abea6"
+                "id": "93446e3f-6fe5-409a-8dca-839811136fdf"
               }
             }
           ]
@@ -4331,7 +4357,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "b77f99d1-e063-428d-af83-51e8cdbf1e08"
+                "id": "90b03b67-6d29-4ca8-a28e-3564b689fab9"
               }
             }
           ]
@@ -4360,7 +4386,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "29a3b55c-540a-4b69-bdf9-db70b806bb83"
+                "id": "17599638-5ae2-4471-8127-6a0577f4ca4b"
               }
             }
           ]
@@ -4389,7 +4415,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "3d4f4233-9f53-4fd0-819c-42b38972e0c0"
+                "id": "5be9339c-2c53-4f80-9f8b-c06d3451c2a2"
               }
             }
           ]
@@ -4418,7 +4444,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "f8408a77-c923-4b6a-921f-d3a02af8ffec"
+                "id": "af1b1d64-501b-44d5-a34d-1b3e702a5c0a"
               }
             }
           ]
@@ -4447,7 +4473,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "9ab550fe-46a7-429c-8d6a-ac7b72010a7d"
+                "id": "d827b983-3579-4a06-8e97-289f2364cc5a"
               }
             }
           ]
@@ -4476,7 +4502,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "9d3a061b-5f37-42ae-9291-0f8777583525"
+                "id": "ca7b988f-981c-4ecb-94ea-692b0ced604e"
               }
             }
           ]
@@ -4505,7 +4531,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "9c01d0c7-653b-498c-b07d-3d852b78e1aa"
+                "id": "f0238a87-ed6f-4bc4-a049-c38a0fe8eccc"
               }
             }
           ]
@@ -4534,7 +4560,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "abfff23a-30b9-40ea-a7d6-e741d20b0d42"
+                "id": "8fc20e38-0d11-4e05-947b-88315e9653e9"
               }
             }
           ]
@@ -4563,7 +4589,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "d411f950-ace3-4a69-a80c-c1b6de4af00a"
+                "id": "5b1de152-6c47-4543-afff-502e401446ab"
               }
             }
           ]
@@ -4592,7 +4618,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "38c2d075-1ab4-4849-888a-b08cd79821f9"
+                "id": "5057e276-0be3-4573-be07-4f75248e85a5"
               }
             }
           ]
@@ -4621,7 +4647,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "7ac83708-dfe3-43d6-ab68-3bba92631540"
+                "id": "67f3c463-c8b7-4cc5-8160-470cc682ec43"
               }
             }
           ]
@@ -4650,7 +4676,7 @@
                   "});"
                 ],
                 "type": "text/javascript",
-                "id": "4022d0ff-6471-4b2b-b5de-ea7d2ace39d9"
+                "id": "ae3d9204-388e-480a-849c-d2f9420f5571"
               }
             }
           ]
