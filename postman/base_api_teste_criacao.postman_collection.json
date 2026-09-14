@@ -1,0 +1,4588 @@
+{
+  "info": {
+    "_postman_id": "c487c3cc-da93-4eb3-88e0-4e1174d81d4c",
+    "name": "Base API — Testes e Criação",
+    "description": "Coleção para **testar e criar** todos os endpoints da Base API.\n\nComo usar:\n1. Suba a API em dev: `SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run` (seed: `admin` / `admin123`).\n2. Rode o **\"Login (admin)\"** primeiro — ele grava token, igrejaId, usuarioId e pessoaId.\n3. Rode as requests de cada pasta na ordem: o id criado é capturado na resposta e reutilizado pelas requests seguintes (tudo automático).\n4. `igrejaId` padrão = UUID da matriz do seed (`c1000000-0000-4000-8000-000000000001`).\n5. Dados usando variáveis dinâmicas do Postman (`{{$randomEmail}}`, `{{$timestamp}}`...) evitam conflito de unicidade em re-execuções.\n\nRecursos de exportação (GET /api/export/{recurso}): pessoas, jornadas, ministerios, servicos, voluntarios, escalas, disponibilidades, usuarios, completo. Formatos: txt, md, xlsx.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "igrejaId",
+      "value": "c1000000-0000-4000-8000-000000000001",
+      "type": "string"
+    },
+    {
+      "key": "usuarioId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pessoaId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pessoaNovaId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pessoaEmail",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "jornadaEtapaId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pessoaEtapaId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pausaId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "historicoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "papelId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ministerioId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "servicoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "voluntarioId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "baseMinisterialId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "smallGroupId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "encontroId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "eventoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "dispSemanalId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "indispId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "escalaId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "escalaServicoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "designacaoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cultoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "categoriaCultoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "filialId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cultoDeleteId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "usuarioVinculadoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "usuarioVinculadoUsername",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [],
+  "item": [
+    {
+      "name": "01 Autenticação e Perfil",
+      "item": [
+        {
+          "name": "Login (admin)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Autentica e guarda o token JWT, igrejaId, usuarioId e pessoaId nas variáveis da coleção. Seed dev: admin / admin123",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"admin\", \"senha\": \"admin123\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) { pm.collectionVariables.set('token', jsonData.token); }",
+                  "if (jsonData.igrejaId) { pm.collectionVariables.set('igrejaId', jsonData.igrejaId); }",
+                  "if (jsonData.usuarioId) { pm.collectionVariables.set('usuarioId', jsonData.usuarioId); }",
+                  "if (jsonData.pessoaId) { pm.collectionVariables.set('pessoaId', jsonData.pessoaId); }"
+                ],
+                "type": "text/javascript",
+                "id": "cf5d4137-0e41-4171-8949-5d2725b7b811"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Meu perfil (GET)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/me",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "ff9c2b29-d41b-4720-b630-c3e4c1ba029b"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar meu perfil",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/me",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"Ana Costa\", \"email\": \"ana.costa@base.church\", \"telefone\": \"(11) 98888-1001\", \"dataNascimento\": \"1990-05-14\", \"observacoes\": \"Perfil atualizado via Postman\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "0609be7c-624b-429a-979c-daf0be3b1292"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 Dashboard",
+      "item": [
+        {
+          "name": "Resumo do dashboard",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/dashboard",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "db9b4d5c-f2d6-41e2-bb28-998089b9b3d6"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 Igrejas",
+      "item": [
+        {
+          "name": "Listar igrejas",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/igrejas",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "6aa4a5cf-1648-4b3e-b3bc-8c68ac75abb5"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar igreja por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/igrejas/{{igrejaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "0b07fb56-7c1d-4679-afe6-c34954628bbd"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar filial",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/igrejas/{{igrejaId}}/filiais",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"QA Base Church — Norte {{$timestamp}}\", \"pastorPessoaId\": \"{{pessoaId}}\", \"adminNome\": \"Admin QA Norte\", \"adminEmail\": \"{{$randomEmail}}\", \"adminUsername\": \"qa{{$randomUserName}}\", \"adminSenha\": \"admin123\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('filialId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "d9f23b3c-3675-45fe-aacc-e1f3466de252"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar igreja",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/igrejas/{{igrejaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"Base Church\", \"pastorPessoaId\": \"{{pessoaId}}\", \"ativo\": true}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "72c602ff-37c7-4cd9-a950-390b192a1624"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 Pessoas",
+      "item": [
+        {
+          "name": "Listar pessoas",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/pessoas?igrejaId={{igrejaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "eb58045a-a804-4fca-8ce4-745cc290df0a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cadastrar pessoa",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/pessoas",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"Novo Membro QA\", \"email\": \"{{$randomEmail}}\", \"telefone\": \"(11) 99999-0000\", \"dataNascimento\": \"1995-01-10\", \"observacoes\": \"Cadastrado via Postman\", \"igrejaId\": \"{{igrejaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('pessoaNovaId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "8904657d-a865-45a6-b9b5-863f54668738"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cadastrar pessoa (id de referência)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/pessoas",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"Pessoa Principal QA\", \"email\": \"{{$randomEmail}}\", \"telefone\": \"(11) 98888-7777\", \"igrejaId\": \"{{igrejaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('pessoaId', jsonData.id); }",
+                  "if (jsonData.email) { pm.collectionVariables.set('pessoaEmail', jsonData.email); }"
+                ],
+                "type": "text/javascript",
+                "id": "eaf2b85b-1633-43f3-af7c-94d0cadae093"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar pessoa por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "8ca456ba-1c68-4b5a-b735-db456e900820"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar pessoa",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"Pessoa Principal QA\", \"email\": \"{{pessoaEmail}}\", \"telefone\": \"(11) 98888-7777\", \"ativo\": true, \"observacoes\": \"Atualizada via Postman\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "20a01204-7af0-4c0f-bc11-e00d7e0d560e"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar usuário a partir da pessoa",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/usuario",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"qa{{$timestamp}}\", \"email\": \"{{pessoaEmail}}\", \"senha\": \"mudar123\", \"papeis\": [\"VOLUNTARIO\", \"MEMBRO\"], \"igrejaId\": \"{{igrejaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('usuarioVinculadoId', jsonData.id); }",
+                  "if (jsonData.username) { pm.collectionVariables.set('usuarioVinculadoUsername', jsonData.username); }"
+                ],
+                "type": "text/javascript",
+                "id": "2ee648be-d274-4c86-883b-93e5fdf86369"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 Catálogo de Etapas da Jornada",
+      "item": [
+        {
+          "name": "Listar etapas do catálogo",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/jornada-etapas",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "11be7f7a-04c2-4500-96b9-b2de4d531e2c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar etapa no catálogo",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/jornada-etapas",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"codigo\": \"QA{{$timestamp}}\", \"nome\": \"Confiança QA\", \"descricao\": \"Etapa criada via Postman\", \"ordem\": 8, \"ativo\": true}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('jornadaEtapaId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "842b6477-073d-4274-9a7a-17c42c782004"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar etapa por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/jornada-etapas/{{jornadaEtapaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "13bc0048-b64a-4314-93de-1a7ef9eeff6d"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar etapa do catálogo",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/jornada-etapas/{{jornadaEtapaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"codigo\": \"QA{{$timestamp}}\", \"nome\": \"Confiança QA\", \"descricao\": \"Etapa atualizada\", \"ordem\": 8, \"ativo\": true}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "b8a128ad-6ad1-44bb-a365-69674fd4c988"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 Jornada da Pessoa",
+      "item": [
+        {
+          "name": "Consultar jornada",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/jornada",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "bd2aad86-89e4-4760-bec3-ac9057025309"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar jornada",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/jornada",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"aceitouJesus\": true, \"dataAceitouJesus\": \"2023-01-15\", \"batizado\": true, \"dataBatismo\": \"2023-03-01\", \"concluiuTrilhaBase\": true, \"dataConclusaoTrilhaBase\": \"2023-05-01\", \"membro\": true, \"dataMembro\": \"2023-06-01\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "5228ddf0-1b21-4f03-ad14-7e97e6b50bf8"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar etapas da jornada",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/jornada/etapas",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "bc61a0a4-a52a-4359-b317-e9aeaf241d96"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar etapa extensível",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/jornada/etapas",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"etapaId\": \"{{jornadaEtapaId}}\", \"concluida\": true, \"dataConclusao\": \"2026-09-01\", \"observacoes\": \"Etapa registrada via Postman\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('pessoaEtapaId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "2690d741-7b5f-4508-82e1-35a3d533142b"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 Pausas",
+      "item": [
+        {
+          "name": "Listar pausas da pessoa",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/pausas",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "d8447b42-79cd-4848-8833-ae082fa78786"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar pausa",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/pausas",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"dataInicio\": \"2026-10-01\", \"dataFim\": \"2026-10-31\", \"motivo\": \"Viagem\", \"observacoes\": \"Pausa via Postman\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('pausaId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "683da8f4-026a-4821-85a2-2844a056961d"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar pausa",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/pausas/{{pausaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"dataInicio\": \"2026-10-01\", \"dataFim\": \"2026-10-20\", \"motivo\": \"Viagem\", \"observacoes\": \"Ajustada\", \"ativa\": true}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "e14c470d-21ae-4cc2-b5ba-9e0a7ae4f212"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 Histórico da Pessoa",
+      "item": [
+        {
+          "name": "Listar histórico",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/historico",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "28b80576-abc8-4bb1-a149-b18b4bb98eec"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Adicionar registro ao histórico",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/historico",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Conversou sobre batismo\", \"autorNome\": \"Ana Costa\", \"autorCargo\": \"Pastora\", \"autorPessoaId\": \"{{pessoaId}}\", \"dataRegistro\": \"2026-09-13\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('historicoId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "78d67058-f2dc-4a43-8467-e589e255ffcc"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar registro do histórico",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/historico/{{historicoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "f22c502e-90ed-4f18-a3b0-e26b2d04e912"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar registro do histórico",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/historico/{{historicoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Conversou sobre batismo (atualizado)\", \"autorNome\": \"Ana Costa\", \"autorCargo\": \"Pastora\", \"autorPessoaId\": \"{{pessoaId}}\", \"dataRegistro\": \"2026-09-13\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "947827e0-178f-4b61-9a64-1a9d969b5469"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 Usuários",
+      "item": [
+        {
+          "name": "Listar usuários",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/usuarios?igrejaId={{igrejaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "b6a69ea8-579e-4e84-85c4-d934b37384ca"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar usuário",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/usuarios",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"qa{{$timestamp}}\", \"email\": \"qa{{$timestamp}}@mail.com\", \"senha\": \"mudar123\", \"papeis\": [\"VOLUNTARIO\"], \"igrejaId\": \"{{igrejaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('usuarioId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "490ea241-013b-4ec3-84d8-7059938b223c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar usuário por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "8baebb47-b9ef-40e3-a659-6f09ad082c9d"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar usuário",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"qa{{$timestamp}}@mail.com\", \"ativo\": true, \"papeis\": [\"VOLUNTARIO\", \"MEMBRO\"]}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "8e46d3ef-2bbb-424f-bee2-9bb7afec8b5b"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Promover ADMIN/PASTOR",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}/gestao",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"papeis\": [\"PASTOR\"], \"igrejaId\": \"{{igrejaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "aa1f4bab-a4c5-4eca-9923-ca647363564e"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10 Papéis",
+      "item": [
+        {
+          "name": "Listar papéis",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/papeis",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "0789fca4-00eb-4322-a6bc-e9d2c00c1230"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar papel",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/papeis",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"QA-{{$timestamp}}\", \"descricao\": \"Papel criado via Postman\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('papelId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "2d1ae2b6-c3cb-4210-af1e-a51f408ed34d"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar papel por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/papeis/{{papelId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "cfef71da-06f6-4b5c-834b-8edec3b6ac44"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar papel",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/papeis/{{papelId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"QA-{{$timestamp}}\", \"descricao\": \"Papel atualizado\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "d68a3ef4-90e8-4166-bde3-e88d47ffea2d"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11 Líderes",
+      "item": [
+        {
+          "name": "Listar líderes",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/lideres?igrejaId={{igrejaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "7e403335-471a-4151-93bd-73875c922168"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "12 Ministérios",
+      "item": [
+        {
+          "name": "Listar ministérios",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/ministerios?igrejaId={{igrejaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "c1729add-705c-4767-afaf-2d6658fa9584"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar ministério",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/ministerios",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"QA-Min{{$timestamp}}\", \"descricao\": \"Criado via Postman\", \"ativo\": true, \"igrejaId\": \"{{igrejaId}}\", \"tipo\": \"GERAL\", \"liderPessoaId\": \"{{pessoaId}}\", \"coordenadorPessoaId\": \"{{pessoaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('ministerioId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "853ce78a-9781-4980-ab68-af60e4778f04"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar ministério por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/ministerios/{{ministerioId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "1412a16d-2624-4544-b5b3-2f0fc7bbee4a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar ministério",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/ministerios/{{ministerioId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"QA-Min{{$timestamp}}\", \"descricao\": \"Atualizado via Postman\", \"ativo\": true, \"tipo\": \"GERAL\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "ba9d07c8-4d21-4a0f-baff-723c01dd19c0"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar serviços do ministério",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/ministerios/{{ministerioId}}/servicos",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "f94c6d65-47a2-4960-af01-7db404b639c5"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar serviço no ministério",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/ministerios/{{ministerioId}}/servicos",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"QA-Serv-{{$timestamp}}\", \"descricao\": \"Serviço criado via Postman\", \"ficcao\": false}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('servicoId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "6fe5dbb5-d63a-4ee8-a83f-94d751b6c84a"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "13 Serviços",
+      "item": [
+        {
+          "name": "Buscar serviço por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/servicos/{{servicoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "3a4b35f4-ff65-4e3d-a7ed-8a2654284523"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar serviço",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/servicos/{{servicoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"QA-Serv-{{$timestamp}}\", \"descricao\": \"Atualizado via Postman\", \"ativo\": true, \"ficcao\": false}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "3d5304e9-09ef-4b77-818e-af46a60f2ddf"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "14 Voluntários",
+      "item": [
+        {
+          "name": "Listar vínculos de voluntariado",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/voluntarios",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "3e64a0c9-3f9c-4e4f-843a-e58079c54b5a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Vínculos de uma pessoa",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/voluntarios/pessoa/{{pessoaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "b0b24e87-1731-4e24-9846-cad21447a329"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Voluntários qualificados por serviço",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/voluntarios/servico/{{servicoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "69968866-e18d-4a9f-9d3a-3b6f37b30547"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar vínculo de voluntariado",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/voluntarios",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"pessoaId\": \"{{pessoaId}}\", \"servicoId\": \"{{servicoId}}\", \"cargo\": \"Membro\", \"dataEntrada\": \"2026-09-01\", \"observacoes\": \"Vínculo via Postman\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('voluntarioId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "f41bcb1a-c7f5-4129-870e-9caaa793f161"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar vínculo por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/voluntarios/{{voluntarioId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "13e2344e-fe7b-40b7-bc68-767154d74739"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar vínculo",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/voluntarios/{{voluntarioId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"pessoaId\": \"{{pessoaId}}\", \"servicoId\": \"{{servicoId}}\", \"cargo\": \"Líder de equipe\", \"dataEntrada\": \"2026-09-01\", \"ativo\": true, \"observacoes\": \"Atualizado\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "d7634448-8c16-48b2-bcd3-1a88a4002c7d"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "15 Bases Ministeriais",
+      "item": [
+        {
+          "name": "Listar bases ministeriais",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/bases-ministeriais?igrejaId={{igrejaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "78d555cd-a72f-445e-9d9a-07811ba342c0"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar base ministerial",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/bases-ministeriais",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"QA-Base-{{$timestamp}}\", \"descricao\": \"Base criada via Postman\", \"ativo\": true, \"igrejaId\": \"{{igrejaId}}\", \"liderPessoaId\": \"{{pessoaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('baseMinisterialId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "9f1c80af-0ad0-4bce-925c-6f226de70259"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar base por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/bases-ministeriais/{{baseMinisterialId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "8445e1a4-e5ea-4067-9686-61a9927308fc"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar base ministerial",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/bases-ministeriais/{{baseMinisterialId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"QA-Base-{{$timestamp}}\", \"descricao\": \"Atualizada via Postman\", \"ativo\": true, \"ordem\": \"3\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "a2e684d0-6f49-4260-a21e-7876dc17e046"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "16 Pequenos Grupos",
+      "item": [
+        {
+          "name": "Listar pequenos grupos",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/small-groups?igrejaId={{igrejaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "ef75bdeb-85fd-46cc-b0a5-697df797025a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar pequeno grupo",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/small-groups",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"QA-Grupo-{{$timestamp}}\", \"igrejaId\": \"{{igrejaId}}\", \"diaSemana\": \"QUARTA\", \"horario\": \"20:00\", \"liderPessoaId\": \"{{pessoaId}}\", \"ativo\": true, \"nota\": 4}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('smallGroupId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "1f2564fb-f3c2-4fc6-8c58-f3885cea6ede"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar pequeno grupo por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/small-groups/{{smallGroupId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "21a7b4b9-fa99-43b1-bfd3-37bebe29e831"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar pequeno grupo",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/small-groups/{{smallGroupId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"QA-Grupo-{{$timestamp}}\", \"diaSemana\": \"QUARTA\", \"horario\": \"20:30\", \"liderPessoaId\": \"{{pessoaId}}\", \"ativo\": true, \"nota\": 5}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "2f3a586d-1fcf-432f-a018-54632590b944"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar encontro",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/small-groups/{{smallGroupId}}/encontros",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"smallGroupId\": \"{{smallGroupId}}\", \"data\": \"2026-09-16\", \"anfitriaoPessoaId\": \"{{pessoaId}}\", \"compareceram\": [{\"pessoaId\": \"{{pessoaId}}\", \"pessoaNome\": \"Pessoa Principal QA\"}], \"anotacoes\": \"Encontro registrado via Postman\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('encontroId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "9c040fde-bc40-4134-954b-5a430b972aca"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar encontro",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/small-groups/encontros/{{encontroId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"smallGroupId\": \"{{smallGroupId}}\", \"data\": \"2026-09-16\", \"anfitriaoPessoaId\": \"{{pessoaId}}\", \"compareceram\": [{\"pessoaId\": \"{{pessoaId}}\", \"pessoaNome\": \"Pessoa Principal QA\"}], \"anotacoes\": \"Encontro atualizado\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "958c047b-4e59-4ff9-bb08-be0ee84054e0"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "17 Cronograma",
+      "item": [
+        {
+          "name": "Listar eventos",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/cronograma?igrejaId={{igrejaId}}&inicio=2026-09-01&fim=2026-09-30",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "deebae69-302b-4bb1-8664-70c19e196a95"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar evento no cronograma",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/cronograma",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"titulo\": \"Culto de domingo QA\", \"tipo\": \"CULTO\", \"descricao\": \"Criado via Postman\", \"dataEvento\": \"2026-09-27\", \"horaInicio\": \"18:00\", \"horaFim\": \"20:00\", \"localEvento\": \"Templo principal\", \"igrejaId\": \"{{igrejaId}}\", \"supervisorPessoaId\": \"{{pessoaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('eventoId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "a22cdbf7-0b7c-4710-aed3-e74f9e2cb5d9"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar evento por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/cronograma/{{eventoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "22f8c6d4-d6de-4450-848e-63ac4f034f35"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obter conteúdo do evento",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/cronograma/{{eventoId}}/conteudo",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "49b5186f-2a1e-45ca-8ea5-183c0ed28b8b"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Salvar conteúdo do evento",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/cronograma/{{eventoId}}/conteudo",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"textoPregacao\": \"João 15 — Permanecei em mim.\", \"louvor\": \"1. Bondade de Deus\\n2. Oceanos\", \"pregadorPessoaId\": \"{{pessoaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "3d9ba5b7-c84a-4620-9b1b-33863adf791a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar evento",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/cronograma/{{eventoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"titulo\": \"Culto de domingo QA\", \"tipo\": \"CULTO\", \"dataEvento\": \"2026-09-27\", \"horaInicio\": \"18:00\", \"horaFim\": \"21:00\", \"status\": \"AGENDADO\", \"ativo\": true, \"supervisorPessoaId\": \"{{pessoaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "ba71225a-c480-4bad-a702-2b49bd2ee60e"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "18 Disponibilidade",
+      "item": [
+        {
+          "name": "Listar disponibilidade semanal",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/disponibilidades/semanal/pessoa/{{pessoaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "fac89809-c6ae-4e2a-8c1c-2fbd055fc412"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar disponibilidade semanal",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/disponibilidades/semanal",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"pessoaId\": \"{{pessoaId}}\", \"diaSemana\": \"DOMINGO\", \"horaInicio\": \"08:00\", \"horaFim\": \"12:00\", \"disponivel\": true, \"observacoes\": \"Disponível aos domingos pela manhã\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('dispSemanalId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "90f249c9-5a6b-47f8-a73b-68387982b8de"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar disponibilidade semanal",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/disponibilidades/semanal/{{dispSemanalId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"pessoaId\": \"{{pessoaId}}\", \"diaSemana\": \"DOMINGO\", \"horaInicio\": \"08:00\", \"horaFim\": \"14:00\", \"disponivel\": true}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "1749d91d-53c9-47aa-9945-958b19b3eb23"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar indisponibilidades",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/disponibilidades/indisponibilidades/pessoa/{{pessoaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "a2ccabba-17a9-4d71-97a4-2d2603d7c550"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar indisponibilidade",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/disponibilidades/indisponibilidades",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"pessoaId\": \"{{pessoaId}}\", \"dataInicio\": \"2026-11-01\", \"dataFim\": \"2026-11-15\", \"motivo\": \"Férias\", \"observacoes\": \"Indisponibilidade via Postman\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('indispId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "65650bc2-8f62-409c-a632-e93ac7d5048b"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar indisponibilidade",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/disponibilidades/indisponibilidades/{{indispId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"pessoaId\": \"{{pessoaId}}\", \"dataInicio\": \"2026-11-01\", \"dataFim\": \"2026-11-20\", \"motivo\": \"Férias\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "6d8ac87d-edd7-43e7-a6d3-615fda05ed8d"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "19 Escalas",
+      "item": [
+        {
+          "name": "Listar escalas",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/escalas?igrejaId={{igrejaId}}&competencia=2026-09",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "77199ea6-bac6-41fd-967f-005cc48bf5d2"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar escala",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/escalas",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"titulo\": \"Escala QA — setembro\", \"descricao\": \"Escala criada via Postman\", \"competencia\": \"2026-09\", \"tipo\": \"SUPERVISOR\", \"igrejaId\": \"{{igrejaId}}\", \"supervisorPessoaId\": \"{{pessoaId}}\", \"dataEvento\": \"2026-09-01\", \"horaInicio\": \"18:00\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('escalaId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "6bfc2afb-2ded-42e4-8a5a-0a7b56c39794"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar escala",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"titulo\": \"Escala QA — setembro\", \"descricao\": \"Escala atualizada\", \"competencia\": \"2026-09\", \"tipo\": \"SUPERVISOR\", \"supervisorPessoaId\": \"{{pessoaId}}\", \"ativo\": true}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "13ac16d8-f0ca-44de-82a4-8513de2f486c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Alterar status da escala",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}/status",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"EDITANDO\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "44fa8922-cdef-4387-9f93-9d7c57f2305c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar candidatos da escala",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}/candidatos?data=2026-09-06",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "28a99c7e-0b83-44d2-93cd-b931590bad2e"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Adicionar serviço à escala",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}/servicos",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"servicoId\": \"{{servicoId}}\", \"quantidadeNecessaria\": 2}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('escalaServicoId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "a99594d5-757c-4d13-8d99-21bfef6ffa7a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar serviço da escala",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}/servicos/{{escalaServicoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"servicoId\": \"{{servicoId}}\", \"quantidadeNecessaria\": 3}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "bde558dc-1089-4c99-9e62-71a4a90e9fca"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Designar voluntário",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}/voluntarios",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"pessoaId\": \"{{pessoaId}}\", \"servicoId\": \"{{servicoId}}\", \"observacoes\": \"Designação via Postman\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('designacaoId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "cff599fd-9e5e-4c27-b5c6-a6b0f38bc859"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar designação",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}/voluntarios/{{designacaoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"pessoaId\": \"{{pessoaId}}\", \"servicoId\": \"{{servicoId}}\", \"status\": \"PENDENTE\", \"observacoes\": \"Ajustada\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "33562135-1e62-411f-953f-5de1a2286e5d"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Status da designação (interno)",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}/voluntarios/{{designacaoId}}/status",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"CONFIRMADO\", \"observacoes\": \"Confirmada\", \"confirmadoPeloVoluntario\": false}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "f5c9b2ba-ce82-4cb1-b4d6-65d0681afd76"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lançar escala (EM_ANDAMENTO)",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}/status",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"EM_ANDAMENTO\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "4a72e2e8-7e33-45b2-9eae-b3224e285409"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resposta do voluntário",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}/voluntarios/{{designacaoId}}/resposta",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"CONFIRMADO\", \"observacoes\": \"Aceito!\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "(function () {{\n    var adminT = pm.collectionVariables.get('adminToken');\n    if (!adminT) {{\n        pm.collectionVariables.set('adminToken', pm.collectionVariables.get('token') || '');\n    }}\n    var req = {{\n        url: pm.collectionVariables.get('baseUrl') + '/api/auth/login',\n        method: 'POST',\n        header: {{ 'Content-Type': 'application/json' }},\n        body: {{ mode: 'raw', raw: JSON.stringify({{\n            username: pm.collectionVariables.get('usuarioVinculadoUsername'),\n            senha: 'mudar123'\n        }}) }}\n    }};\n    pm.sendRequest(req, function (err, res) {{\n        if (err || res.code !== 200) {{ return; }}\n        var j = res.json();\n        pm.collectionVariables.set('token', j.token);\n    }});\n}})();"
+                ],
+                "type": "text/javascript",
+                "id": "dad6d2b7-4326-40bc-9b9b-a5302cbb7a5a"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.collectionVariables.set('token', pm.collectionVariables.get('adminToken'));"
+                ],
+                "type": "text/javascript",
+                "id": "308b4548-57cf-4c80-981f-62d2c287fc85"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gerar sugestão automática",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}/gerar-sugestao",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "5e0607c5-5166-4062-82de-f0cb48bcf3fa"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Automação do próximo mês",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/escalas/automacao/proximo-mes",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "3c0e7aa0-cd43-41fe-9d11-00b603e8ed3a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar escala por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "b3e5d7c5-ad31-4320-a42c-c8812738c14f"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "20 Gestão de Cultos — Categorias",
+      "item": [
+        {
+          "name": "Listar categorias de culto",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/categorias-culto?igrejaId={{igrejaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "f4dbcef3-7b3e-47ce-83f4-401b50e99011"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar categoria de culto",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/categorias-culto",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"titulo\": \"QA-Culto-{{$timestamp}}\", \"descricao\": \"Categoria criada via Postman\", \"diaSemana\": \"SABADO\", \"horaInicio\": \"19:00\", \"duracaoMinutos\": 90, \"pregadorPadraoId\": \"{{pessoaId}}\", \"igrejaId\": \"{{igrejaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('categoriaCultoId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "71003fa3-abbb-4123-bc15-f54d57744b28"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar categoria por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/categorias-culto/{{categoriaCultoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "e5bde4a9-38fb-47f3-a98f-78ed7c74fe77"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar categoria de culto",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/categorias-culto/{{categoriaCultoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"titulo\": \"QA-Culto-{{$timestamp}}\", \"descricao\": \"Atualizada via Postman\", \"diaSemana\": \"SABADO\", \"horaInicio\": \"19:30\", \"duracaoMinutos\": 90, \"pregadorPadraoId\": \"{{pessoaId}}\", \"ativo\": true}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "21c294dc-d531-4e2c-8c30-28143cfc74af"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gerar cultos da categoria",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/categorias-culto/{{categoriaCultoId}}/gerar-cultos?competencia=2026-10",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "1dd8f9fa-ad96-437f-b936-af7f415cb139"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "21 Gestão de Cultos — Cultos",
+      "item": [
+        {
+          "name": "Listar cultos",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/cultos?igrejaId={{igrejaId}}&competencia=2026-09",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "1e455122-55b0-4a1a-ab52-852917b6b585"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar culto",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/cultos",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"categoriaCultoId\": \"{{categoriaCultoId}}\", \"igrejaId\": \"{{igrejaId}}\", \"titulo\": \"Culto QA\", \"tema\": \"Deus Conosco\", \"data\": \"2026-09-27\", \"horaInicio\": \"20:00\", \"horaFim\": \"21:30\", \"pregadorId\": \"{{pessoaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('cultoId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "860336fd-aaf3-48db-aeca-9027d4b171be"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar culto (compartimento de exclusão)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/cultos",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"categoriaCultoId\": \"{{categoriaCultoId}}\", \"igrejaId\": \"{{igrejaId}}\", \"titulo\": \"Culto QA para excluir\", \"tema\": \"Tema\", \"data\": \"2026-09-28\", \"horaInicio\": \"20:00\", \"horaFim\": \"21:30\", \"pregadorId\": \"{{pessoaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.id) { pm.collectionVariables.set('cultoDeleteId', jsonData.id); }"
+                ],
+                "type": "text/javascript",
+                "id": "f439a33c-39f4-4278-ac2d-9328d93828b6"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar culto por ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/cultos/{{cultoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "b886c6a4-2a33-41d1-88c0-08ab4bfc39ba"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar culto",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/cultos/{{cultoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"titulo\": \"Culto QA\", \"tema\": \"Deus Conosco\", \"data\": \"2026-09-27\", \"horaInicio\": \"20:00\", \"horaFim\": \"21:30\", \"pregadorId\": \"{{pessoaId}}\", \"status\": \"ABERTO\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "adc3b45a-bc60-4d34-906e-8e9aab0c6a67"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obter conteúdo do culto",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/cultos/{{cultoId}}/conteudo",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "e366ec4b-57d4-458d-ba02-556e2e01ddfd"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Salvar conteúdo do culto",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/cultos/{{cultoId}}/conteudo",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"textoPregacao\": \"Isaías 61 — Conforto aos destravados.\", \"louvor\": \"1. Bondade de Deus\\n2. Oceanos\", \"tema\": \"Deus Conosco\", \"pregadorPessoaId\": \"{{pessoaId}}\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "29c0f36d-1629-4529-944a-a49914540736"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obter relatório do culto",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/cultos/{{cultoId}}/relatorio",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "f0831e77-7f57-4bc7-8cfd-ebc2d6a2633a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Salvar relatório do culto",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/cultos/{{cultoId}}/relatorio",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"adultos\": 30, \"criancas\": 4, \"conversoes\": 1, \"reconciliacoes\": 0, \"aliancas\": 2, \"carros\": 10, \"motos\": 3, \"bicicletas\": 0, \"observacoes\": \"Relatório via Postman\"}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "6f443443-586d-48e3-8e84-3afc62f4d42f"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "22 Gestão de Cultos — Automação",
+      "item": [
+        {
+          "name": "Gerar cultos do próximo mês",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/cultos/automacao/proximo-mes?igrejaId={{igrejaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "5ef2008c-7a0f-44cb-8a27-0a4e235e2b4d"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gerar cultos de uma competência",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/cultos/automacao/mes/2026-10?igrejaId={{igrejaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "540d9711-492f-461f-b9a1-4a32f4577bc1"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "23 Exportação",
+      "item": [
+        {
+          "name": "Exportar pessoas (xlsx)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/export/pessoas?formato=xlsx",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "5dbe1ae0-c901-4d6e-a379-2e626e36dcef"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Exportar escalas (txt)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/export/escalas?formato=txt",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "c546d300-d365-40fd-a00d-2472af8b3b12"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Exportar completo (md)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/export/completo?formato=md",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (200)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "84b39b52-3494-4642-b468-5b5e5e77c1b5"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "24 Limpeza (final — DELETE)",
+      "item": [
+        {
+          "name": "Remover designação",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}/voluntarios/{{designacaoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "fa36bc17-1c63-465b-b2ab-d991174e8840"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remover serviço da escala",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}/servicos/{{escalaServicoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "307a683f-d3e1-4a00-92e9-31f3e281f1b1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir escala",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/escalas/{{escalaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "29db6f1e-8866-4864-bf6d-dd4be9916393"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir vínculo",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/voluntarios/{{voluntarioId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "dc805495-855d-4733-af98-cf609b2cdb0b"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir serviço",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/servicos/{{servicoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "175efc72-008a-4dea-be2a-754d0375a4ce"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir ministério",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/ministerios/{{ministerioId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "fa542ad6-5a08-4fcd-800c-b4c6552d3252"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir culto",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/cultos/{{cultoDeleteId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "3b1486de-a5e3-4881-9a13-521826525863"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir categoria de culto",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/categorias-culto/{{categoriaCultoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "02bdf8c1-3ef0-40d6-afda-7d21798f8ad7"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir evento",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/cronograma/{{eventoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "3d3918e6-93b3-4bcb-bb74-23a2128fa744"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir pequeno grupo",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/small-groups/{{smallGroupId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "df19a018-f341-443a-ae1e-abbc9b829230"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir base ministerial",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/bases-ministeriais/{{baseMinisterialId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "17308606-944c-4b3a-a0d3-6592d3f8dd94"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir papel",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/papeis/{{papelId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "aa0b94e2-f79e-4a11-8da4-4de5da64195a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir usuário",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "71591f55-b8a8-4efc-b037-e14e17e8d359"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir usuário vinculado",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/usuarios/{{usuarioVinculadoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "4ff895e0-8569-48f7-af55-7c9f93ea23b2"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir pausa",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/pausas/{{pausaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "0b92f515-ff66-4515-9b91-153700fc2c9c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir registro do histórico",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/historico/{{historicoId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "30fcb354-31d0-4363-afd6-5c9fa55437ed"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir etapa da jornada",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaId}}/jornada/etapas/{{pessoaEtapaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "dfc44c9e-7834-4dd3-8624-6ffca64e43b3"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir etapa do catálogo",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/jornada-etapas/{{jornadaEtapaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "292eb4b8-a8f6-4dfb-b0d1-319aeafccbab"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir pessoa",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/pessoas/{{pessoaNovaId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "90d5a1a9-d292-4fe4-b4b7-110360bc7efb"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir disponibilidade semanal",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/disponibilidades/semanal/{{dispSemanalId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "8166a8b9-ced5-4ba9-aebc-a9d5ae15e72c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir indisponibilidade",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/disponibilidades/indisponibilidades/{{indispId}}",
+            "description": "Endpoint mapeado automaticamente do código-fonte.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resposta com status esperado (204)', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "id": "c52ae5d4-b025-4a83-b2ff-cffe3d8fce96"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
