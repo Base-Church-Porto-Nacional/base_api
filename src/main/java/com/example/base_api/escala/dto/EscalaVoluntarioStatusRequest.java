@@ -7,6 +7,8 @@ public record EscalaVoluntarioStatusRequest(
         @NotNull(message = "Status é obrigatório")
         StatusEscalaVoluntario status,
 
-        String observacoes
+        String observacoes,
+
+        Boolean confirmadoPeloVoluntario
 ) {
 }

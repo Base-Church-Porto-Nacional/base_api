@@ -6,11 +6,14 @@ import com.example.base_api.escala.dto.EscalaCreateRequest;
 import com.example.base_api.escala.dto.EscalaResponse;
 import com.example.base_api.escala.dto.EscalaStatusRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioCreateRequest;
+import com.example.base_api.escala.dto.EscalaVoluntarioRespostaRequest;
+import com.example.base_api.escala.dto.EscalaVoluntarioStatusRequest;
 import com.example.base_api.escala.dto.GeracaoEscalaResponse;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.EscalaServico;
 import com.example.base_api.escala.entity.EscalaVoluntario;
 import com.example.base_api.escala.entity.StatusEscala;
+import com.example.base_api.escala.entity.StatusEscalaVoluntario;
 import com.example.base_api.escala.entity.TipoEscala;
 import com.example.base_api.escala.repository.EscalaRepository;
 import com.example.base_api.escala.repository.EscalaServicoRepository;
@@ -23,6 +26,7 @@ import com.example.base_api.pessoa.service.PessoaService;
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.servico.entity.Servico;
 import com.example.base_api.servico.service.ServicoService;
+import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.voluntario.entity.PessoaServico;
 import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -288,5 +293,150 @@ class EscalaServiceTest {
                 escalaId, new EscalaStatusRequest(StatusEscala.SUGERIDA)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Transição de status inválida");
+    }
+
+    @Test
+    void deveConfirmarPropriaDesignacaoAposEscalaLancada() {
+        Escala escala = escala();
+        escala.setStatus(StatusEscala.EM_ANDAMENTO);
+        EscalaVoluntario designacao = designacao();
+        Usuario usuario = usuarioLogado(pessoaId);
+
+        when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
+        when(escalaVoluntarioRepository.findById(designacao.getId())).thenReturn(Optional.of(designacao));
+        when(autorizacaoService.requireUsuario()).thenReturn(usuario);
+        when(servicoService.buscarEntidade(servicoId)).thenReturn(servico());
+        when(pessoaService.buscarEntidade(pessoaId)).thenReturn(pessoa());
+        when(escalaVoluntarioRepository.save(any(EscalaVoluntario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        EscalaResponse.EscalaVoluntarioResponse response = escalaService.responder(
+                escalaId,
+                designacao.getId(),
+                new EscalaVoluntarioRespostaRequest(StatusEscalaVoluntario.CONFIRMADO, "Confirmo a minha participação")
+        );
+
+        assertThat(response.status()).isEqualTo(StatusEscalaVoluntario.CONFIRMADO);
+        assertThat(response.confirmadoPeloVoluntario()).isTrue();
+        assertThat(response.observacoes()).isEqualTo("Confirmo a minha participação");
+    }
+
+    @Test
+    void naoDeveResponderDesignacaoDeOutraPessoa() {
+        Escala escala = escala();
+        escala.setStatus(StatusEscala.EM_ANDAMENTO);
+        EscalaVoluntario designacao = designacao();
+        designacao.setPessoaId(UUID.randomUUID());
+
+        when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
+        when(escalaVoluntarioRepository.findById(designacao.getId())).thenReturn(Optional.of(designacao));
+        when(autorizacaoService.requireUsuario()).thenReturn(usuarioLogado(pessoaId));
+
+        assertThatThrownBy(() -> escalaService.responder(
+                escalaId,
+                designacao.getId(),
+                new EscalaVoluntarioRespostaRequest(StatusEscalaVoluntario.CONFIRMADO, null)
+        )).isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("própria designação");
+    }
+
+    @Test
+    void naoDeveResponderDesignacaoAntesDaEscalaSerLancada() {
+        Escala escala = escala();
+        escala.setStatus(StatusEscala.EDITANDO);
+        when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
+
+        assertThatThrownBy(() -> escalaService.responder(
+                escalaId,
+                UUID.randomUUID(),
+                new EscalaVoluntarioRespostaRequest(StatusEscalaVoluntario.CONFIRMADO, null)
+        )).isInstanceOf(BusinessException.class)
+                .hasMessageContaining("escala ser lançada");
+    }
+
+    @Test
+    void deveExigirMotivoNaRecusa() {
+        Escala escala = escala();
+        escala.setStatus(StatusEscala.EM_ANDAMENTO);
+        EscalaVoluntario designacao = designacao();
+
+        when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
+        when(escalaVoluntarioRepository.findById(designacao.getId())).thenReturn(Optional.of(designacao));
+        when(autorizacaoService.requireUsuario()).thenReturn(usuarioLogado(pessoaId));
+
+        assertThatThrownBy(() -> escalaService.responder(
+                escalaId,
+                designacao.getId(),
+                new EscalaVoluntarioRespostaRequest(StatusEscalaVoluntario.RECUSADO, " ")
+        )).isInstanceOf(BusinessException.class)
+                .hasMessageContaining("motivo da recusa");
+    }
+
+    @Test
+    void liderDeveRegistrarAprovacaoEmNomeDoVoluntario() {
+        Escala escala = escala();
+        EscalaVoluntario designacao = designacao();
+
+        when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
+        when(escalaVoluntarioRepository.findById(designacao.getId())).thenReturn(Optional.of(designacao));
+        when(servicoService.buscarEntidade(servicoId)).thenReturn(servico());
+        when(pessoaService.buscarEntidade(pessoaId)).thenReturn(pessoa());
+        when(escalaVoluntarioRepository.save(any(EscalaVoluntario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        EscalaResponse.EscalaVoluntarioResponse response = escalaService.atualizarStatus(
+                escalaId,
+                designacao.getId(),
+                new EscalaVoluntarioStatusRequest(
+                        StatusEscalaVoluntario.CONFIRMADO,
+                        "Confirmado pelo líder, o voluntário não tem acesso ao sistema",
+                        true
+                )
+        );
+
+        assertThat(response.status()).isEqualTo(StatusEscalaVoluntario.CONFIRMADO);
+        assertThat(response.confirmadoPeloVoluntario()).isTrue();
+    }
+
+    @Test
+    void liderDeveConfirmarSemMarcarComoAprovadoPeloVoluntario() {
+        Escala escala = escala();
+        EscalaVoluntario designacao = designacao();
+
+        when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
+        when(escalaVoluntarioRepository.findById(designacao.getId())).thenReturn(Optional.of(designacao));
+        when(servicoService.buscarEntidade(servicoId)).thenReturn(servico());
+        when(pessoaService.buscarEntidade(pessoaId)).thenReturn(pessoa());
+        when(escalaVoluntarioRepository.save(any(EscalaVoluntario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        EscalaResponse.EscalaVoluntarioResponse response = escalaService.atualizarStatus(
+                escalaId,
+                designacao.getId(),
+                new EscalaVoluntarioStatusRequest(StatusEscalaVoluntario.CONFIRMADO, null, null)
+        );
+
+        assertThat(response.status()).isEqualTo(StatusEscalaVoluntario.CONFIRMADO);
+        assertThat(response.confirmadoPeloVoluntario()).isFalse();
+    }
+
+    private EscalaVoluntario designacao() {
+        EscalaVoluntario designacao = new EscalaVoluntario();
+        designacao.setId(UUID.randomUUID());
+        designacao.setEscalaId(escalaId);
+        designacao.setPessoaId(pessoaId);
+        designacao.setServicoId(servicoId);
+        designacao.setStatus(StatusEscalaVoluntario.PENDENTE);
+        designacao.setConfirmadoPeloVoluntario(false);
+        designacao.setCreatedAt(Instant.now());
+        designacao.setUpdatedAt(Instant.now());
+        return designacao;
+    }
+
+    private Usuario usuarioLogado(UUID pessoaLogadaId) {
+        Usuario usuario = new Usuario();
+        usuario.setId(UUID.randomUUID());
+        usuario.setPessoaId(pessoaLogadaId);
+        usuario.setUsername("voluntario");
+        usuario.setEmail("voluntario@igreja.com");
+        usuario.setSenhaHash("hash");
+        return usuario;
     }
 }

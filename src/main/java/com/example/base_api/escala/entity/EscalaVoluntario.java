@@ -48,6 +48,9 @@ public class EscalaVoluntario extends AuditableEntity {
     @Column(nullable = false, length = 30)
     private StatusEscalaVoluntario status = StatusEscalaVoluntario.PENDENTE;
 
+    @Column(name = "confirmado_pelo_voluntario", nullable = false)
+    private Boolean confirmadoPeloVoluntario = false;
+
     @Column(columnDefinition = "TEXT")
     private String observacoes;
 }

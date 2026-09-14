@@ -9,6 +9,7 @@ import com.example.base_api.escala.dto.EscalaServicoUpsertRequest;
 import com.example.base_api.escala.dto.EscalaStatusRequest;
 import com.example.base_api.escala.dto.EscalaUpdateRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioCreateRequest;
+import com.example.base_api.escala.dto.EscalaVoluntarioRespostaRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioStatusRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioUpdateRequest;
 import com.example.base_api.escala.entity.Escala;
@@ -443,6 +444,51 @@ public class EscalaService {
         }
 
         designacao.setStatus(request.status());
+        if (request.status() == StatusEscalaVoluntario.CONFIRMADO) {
+            designacao.setConfirmadoPeloVoluntario(Boolean.TRUE.equals(request.confirmadoPeloVoluntario()));
+        } else {
+            designacao.setConfirmadoPeloVoluntario(false);
+        }
+        if (request.observacoes() != null) {
+            designacao.setObservacoes(request.observacoes());
+        }
+
+        return toVoluntarioResponse(escalaVoluntarioRepository.save(designacao));
+    }
+
+    @Transactional
+    public EscalaResponse.EscalaVoluntarioResponse responder(
+            UUID escalaId,
+            UUID designacaoId,
+            EscalaVoluntarioRespostaRequest request
+    ) {
+        Escala escalaRef = buscarEntidade(escalaId);
+        if (escalaRef.getStatus() != StatusEscala.EM_ANDAMENTO) {
+            throw new BusinessException("Só é possível responder à designação após a escala ser lançada");
+        }
+        EscalaVoluntario designacao = escalaVoluntarioRepository.findById(designacaoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Designação não encontrada"));
+
+        if (!designacao.getEscalaId().equals(escalaId)) {
+            throw new BusinessException("A designação não pertence a esta escala");
+        }
+
+        Usuario usuario = autorizacaoService.requireUsuario();
+        if (usuario.getPessoaId() == null || !usuario.getPessoaId().equals(designacao.getPessoaId())) {
+            throw new AccessDeniedException("Só é possível responder à própria designação");
+        }
+
+        StatusEscalaVoluntario status = request.status();
+        if (status != StatusEscalaVoluntario.CONFIRMADO && status != StatusEscalaVoluntario.RECUSADO) {
+            throw new BusinessException("O voluntário só pode confirmar ou recusar a designação");
+        }
+        if (status == StatusEscalaVoluntario.RECUSADO
+                && (request.observacoes() == null || request.observacoes().isBlank())) {
+            throw new BusinessException("Informe o motivo da recusa");
+        }
+
+        designacao.setStatus(status);
+        designacao.setConfirmadoPeloVoluntario(status == StatusEscalaVoluntario.CONFIRMADO);
         if (request.observacoes() != null) {
             designacao.setObservacoes(request.observacoes());
         }
@@ -699,7 +745,8 @@ public class EscalaService {
                 designacao.getServicoId(),
                 servicoNome,
                 designacao.getHorario(),
-                designacao.getStatus()
+                designacao.getStatus(),
+                designacao.getConfirmadoPeloVoluntario()
         );
     }
 
@@ -716,6 +763,7 @@ public class EscalaService {
                 designacao.getServicoId(),
                 servicoNome,
                 designacao.getStatus(),
+                designacao.getConfirmadoPeloVoluntario(),
                 designacao.getObservacoes(),
                 designacao.getCreatedAt(),
                 designacao.getUpdatedAt()

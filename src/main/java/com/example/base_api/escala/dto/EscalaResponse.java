@@ -47,7 +47,8 @@ public record EscalaResponse(
             UUID servicoId,
             String servicoNome,
             LocalTime horario,
-            StatusEscalaVoluntario status
+            StatusEscalaVoluntario status,
+            Boolean confirmadoPeloVoluntario
     ) {
     }
 
@@ -66,6 +67,7 @@ public record EscalaResponse(
             UUID servicoId,
             String servicoNome,
             StatusEscalaVoluntario status,
+            Boolean confirmadoPeloVoluntario,
             String observacoes,
             Instant createdAt,
             Instant updatedAt

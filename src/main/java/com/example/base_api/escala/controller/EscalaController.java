@@ -7,6 +7,7 @@ import com.example.base_api.escala.dto.EscalaServicoUpsertRequest;
 import com.example.base_api.escala.dto.EscalaStatusRequest;
 import com.example.base_api.escala.dto.EscalaUpdateRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioCreateRequest;
+import com.example.base_api.escala.dto.EscalaVoluntarioRespostaRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioStatusRequest;
 import com.example.base_api.escala.dto.EscalaVoluntarioUpdateRequest;
 import com.example.base_api.escala.dto.GeracaoEscalaResponse;
@@ -181,6 +182,17 @@ public class EscalaController {
             @Valid @RequestBody EscalaVoluntarioStatusRequest request
     ) {
         return escalaService.atualizarStatus(id, designacaoId, request);
+    }
+
+    @PostMapping("/{id}/voluntarios/{designacaoId}/resposta")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Voluntário confirma ou recusa a própria designação (após a escala ser lançada)")
+    public EscalaResponse.EscalaVoluntarioResponse responder(
+            @PathVariable UUID id,
+            @PathVariable UUID designacaoId,
+            @Valid @RequestBody EscalaVoluntarioRespostaRequest request
+    ) {
+        return escalaService.responder(id, designacaoId, request);
     }
 
     @DeleteMapping("/{id}/voluntarios/{designacaoId}")
