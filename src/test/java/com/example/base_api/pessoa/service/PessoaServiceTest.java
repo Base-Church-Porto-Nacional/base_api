@@ -9,6 +9,9 @@ import com.example.base_api.pessoa.dto.PessoaUpdateRequest;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
+import com.example.base_api.usuario.entity.Papel;
+import com.example.base_api.usuario.entity.Usuario;
+import com.example.base_api.usuario.entity.UsuarioPapel;
 import com.example.base_api.usuario.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -164,5 +167,71 @@ class PessoaServiceTest {
 
         assertThatThrownBy(() -> pessoaService.listar(outraIgreja))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void deveIncluirPapeisDaPessoaNaResposta() {
+        when(pessoaRepository.findById(pessoa.getId())).thenReturn(Optional.of(pessoa));
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.of(usuarioComPapeis()));
+
+        PessoaResponse response = pessoaService.buscarPorId(pessoa.getId());
+
+        assertThat(response.papeis()).contains("VOLUNTARIO", "LIDER");
+    }
+
+    @Test
+    void naoDeveIncluirPapeisDeIgrejaDiferente() {
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.of(usuarioComPapeis()));
+
+        PessoaResponse response = pessoaService.toResponse(pessoa);
+
+        assertThat(response.papeis()).doesNotContain("ADMIN");
+    }
+
+    private Usuario usuarioComPapeis() {
+        Usuario usuario = new Usuario();
+        usuario.setId(UUID.randomUUID());
+        usuario.setPessoaId(pessoa.getId());
+        usuario.setIgrejaId(igrejaId);
+        usuario.setUsername("pessoa");
+        usuario.setEmail("pessoa@email.com");
+        usuario.setSenhaHash("hash");
+
+        Papel voluntario = new Papel();
+        voluntario.setId(UUID.randomUUID());
+        voluntario.setNome("VOLUNTARIO");
+
+        Papel lider = new Papel();
+        lider.setId(UUID.randomUUID());
+        lider.setNome("LIDER");
+
+        Papel admin = new Papel();
+        admin.setId(UUID.randomUUID());
+        admin.setNome("ADMIN");
+
+        UUID outraIgreja = UUID.randomUUID();
+
+        UsuarioPapel vp = new UsuarioPapel();
+        vp.setUsuarioId(usuario.getId());
+        vp.setPapelId(voluntario.getId());
+        vp.setIgrejaId(igrejaId);
+        vp.setPapel(voluntario);
+
+        UsuarioPapel lp = new UsuarioPapel();
+        lp.setUsuarioId(usuario.getId());
+        lp.setPapelId(lider.getId());
+        lp.setIgrejaId(igrejaId);
+        lp.setPapel(lider);
+
+        UsuarioPapel ap = new UsuarioPapel();
+        ap.setUsuarioId(usuario.getId());
+        ap.setPapelId(admin.getId());
+        ap.setIgrejaId(outraIgreja);
+        ap.setPapel(admin);
+
+        usuario.getPapeisIgreja().add(vp);
+        usuario.getPapeisIgreja().add(lp);
+        usuario.getPapeisIgreja().add(ap);
+        return usuario;
     }
 }

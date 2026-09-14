@@ -2,6 +2,7 @@ package com.example.base_api.pessoa.dto;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Set;
 import java.util.UUID;
 
 public record PessoaResponse(
@@ -16,6 +17,7 @@ public record PessoaResponse(
         String observacoes,
         UUID igrejaId,
         UUID usuarioId,
+        Set<String> papeis,
         Instant createdAt,
         Instant updatedAt
 ) {

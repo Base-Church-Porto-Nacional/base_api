@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -124,9 +125,10 @@ public class PessoaService {
     }
 
     public PessoaResponse toResponse(Pessoa pessoa) {
-        UUID usuarioId = usuarioRepository.findByPessoaId(pessoa.getId())
-                .map(Usuario::getId)
-                .orElse(null);
+        Usuario usuario = usuarioRepository.findByPessoaId(pessoa.getId()).orElse(null);
+        Set<String> papeis = usuario == null
+                ? Set.of()
+                : usuario.nomesPapeis(pessoa.getIgrejaId());
         return new PessoaResponse(
                 pessoa.getId(),
                 pessoa.getNome(),
@@ -138,7 +140,8 @@ public class PessoaService {
                 pessoa.getAtivo(),
                 pessoa.getObservacoes(),
                 pessoa.getIgrejaId(),
-                usuarioId,
+                usuario != null ? usuario.getId() : null,
+                papeis,
                 pessoa.getCreatedAt(),
                 pessoa.getUpdatedAt()
         );
