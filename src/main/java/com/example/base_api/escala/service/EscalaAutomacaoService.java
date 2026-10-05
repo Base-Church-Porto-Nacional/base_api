@@ -138,8 +138,8 @@ public class EscalaAutomacaoService {
     }
 
     private Resultado processarMinisterio(Igreja igreja, Ministerio ministerio, String competencia) {
-        Optional<Escala> existente = escalaRepository.findFirstByIgrejaIdAndCompetenciaAndTipo(
-                igreja.getId(), competencia, TipoEscala.MINISTERIO);
+        Optional<Escala> existente = escalaRepository.findFirstByIgrejaIdAndCompetenciaAndTipoAndMinisterioId(
+                igreja.getId(), competencia, TipoEscala.MINISTERIO, ministerio.getId());
         if (existente.isPresent()) {
             return regenerarSeRascunho(existente.get());
         }

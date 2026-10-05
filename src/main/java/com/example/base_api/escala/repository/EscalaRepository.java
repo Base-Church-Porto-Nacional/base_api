@@ -24,6 +24,13 @@ public interface EscalaRepository extends JpaRepository<Escala, UUID> {
             TipoEscala tipo
     );
 
+    Optional<Escala> findFirstByIgrejaIdAndCompetenciaAndTipoAndMinisterioId(
+            UUID igrejaId,
+            String competencia,
+            TipoEscala tipo,
+            UUID ministerioId
+    );
+
     List<Escala> findByIgrejaIdAndCompetenciaAndTipo(
             UUID igrejaId,
             String competencia,
