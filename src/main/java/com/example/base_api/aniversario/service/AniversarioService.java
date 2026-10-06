@@ -52,7 +52,7 @@ public class AniversarioService {
         this.auditService = auditService;
     }
 
-    @Scheduled(cron = "${app.aniversario.cron:0 0 12 * * *}")
+    @Scheduled(cron = "${app.aniversario.cron:0 0 12 * * *}", zone = "${app.timezone:America/Sao_Paulo}")
     public String enviarAniversariantesDoDia() {
         if (!properties.isAtivo()) {
             String msg = "Mensagem de aniversário desativada por configuração";

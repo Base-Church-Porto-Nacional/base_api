@@ -14,6 +14,9 @@ RUN ./mvnw -q -B -DskipTests package
 FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 
+# Datas "de hoje" (aniversariantes, competência) seguem o horário de Brasília.
+ENV TZ=America/Sao_Paulo
+
 RUN addgroup -S app && adduser -S app -G app
 USER app
 

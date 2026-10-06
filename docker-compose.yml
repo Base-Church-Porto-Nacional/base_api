@@ -39,6 +39,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -53,6 +55,17 @@ services:
       RABBIT_USER: ${RABBIT_USER:-guest}
       RABBIT_PASSWORD: ${RABBIT_PASSWORD:-guest}
       SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      CORS_ALLOWED_ORIGIN_PATTERNS: ${CORS_ALLOWED_ORIGIN_PATTERNS:-http://localhost:*,http://127.0.0.1:*}
+      TZ: ${APP_TIMEZONE:-America/Sao_Paulo}
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Sao_Paulo}
+      MESSAGE_ANIVERSARIO_ATIVO: ${MESSAGE_ANIVERSARIO_ATIVO:-true}
+      MESSAGE_ANIVERSARIO_CRON: ${MESSAGE_ANIVERSARIO_CRON:-0 0 12 * * *}
+      WHATSAPP_HABILITADO: ${WHATSAPP_HABILITADO:-false}
+      WHATSAPP_URL_BASE: ${WHATSAPP_URL_BASE:-}
+      WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
+      WHATSAPP_INSTANCIA: ${WHATSAPP_INSTANCIA:-}
+      WHATSAPP_DELAY_MS: ${WHATSAPP_DELAY_MS:-1200}
     ports:
       - "${SERVER_PORT:-8080}:8080"
 
