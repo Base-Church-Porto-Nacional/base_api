@@ -22,15 +22,40 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:guest}
+    password: ${RABBIT_PASSWORD:guest}
+    virtual-host: ${RABBIT_VHOST:/}
+
 server:
   port: ${SERVER_PORT:8080}
 
 app:
+  # Fuso usado pelos agendamentos (aniversário às 12h, automação de cultos/escalas no dia 20).
+  timezone: ${APP_TIMEZONE:America/Sao_Paulo}
   jwt:
     secret: ${JWT_SECRET:change-me-use-a-long-secure-secret-key-at-least-256-bits}
     expiration-ms: ${JWT_EXPIRATION_MS:14400000}
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
+  aniversario:
+    ativo: ${MESSAGE_ANIVERSARIO_ATIVO:true}
+    cron: ${MESSAGE_ANIVERSARIO_CRON:0 0 12 * * *}
+    template: ${MESSAGE_ANIVERSARIO_TEMPLATE:Feliz aniversário, {primeiroNome}! Que Deus abençoe a sua vida e lhe conceda um dia cheio de paz, alegria e gratidão. Com carinho, {igreja}.}
+  whatsapp:
+    habilitado: ${WHATSAPP_HABILITADO:false}
+    url-base: ${WHATSAPP_URL_BASE:}
+    api-key: ${WHATSAPP_API_KEY:}
+    instancia: ${WHATSAPP_INSTANCIA:}
+    delay-ms: ${WHATSAPP_DELAY_MS:1200}
+    link-preview: ${WHATSAPP_LINK_PREVIEW:true}
+
+  rabbit:
+    # false = envio síncrono direto ao canal (sem broker);
+    # true = publica na fila e o consumidor entrega e grava o status final.
+    habilitado: ${RABBIT_HABILITADO:false}
 
 springdoc:
   api-docs:

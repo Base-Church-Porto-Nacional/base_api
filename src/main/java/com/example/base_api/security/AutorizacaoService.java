@@ -86,6 +86,28 @@ public class AutorizacaoService {
         return igrejaContextoService.isPastorOuAdmin(igrejaId);
     }
 
+    /**
+     * Contagem do culto: pastor/admin (inclusive da matriz) ou quem tem, nesta
+     * igreja, um papel customizado com permissão de contagem (ex.: CONTADOR).
+     */
+    public boolean podeLancarContagem(UUID igrejaId) {
+        if (isPastorOuAdmin(igrejaId)) {
+            return true;
+        }
+        Usuario usuario = requireUsuario();
+        return usuario.getPapeisIgreja() != null && usuario.getPapeisIgreja().stream()
+                .anyMatch(up -> igrejaId.equals(up.getIgrejaId())
+                        && up.getPapel() != null
+                        && up.getPapel().isPodeLancarContagem());
+    }
+
+    public void assertPodeLancarContagem(UUID igrejaId) {
+        assertAcesso(igrejaId);
+        if (!podeLancarContagem(igrejaId)) {
+            throw new AccessDeniedException("Somente pastor, admin ou papel com permissão de contagem desta igreja");
+        }
+    }
+
     public void assertPodeMutarPessoas(UUID igrejaId) {
         assertPastorOuAdmin(igrejaId);
     }

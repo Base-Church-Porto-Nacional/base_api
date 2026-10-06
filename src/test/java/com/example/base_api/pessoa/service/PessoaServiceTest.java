@@ -72,7 +72,7 @@ class PessoaServiceTest {
     @Test
     void deveCriarPessoaEIniciarJornada() {
         PessoaCreateRequest request = new PessoaCreateRequest(
-                "Maria Souza", null, "maria@email.com", "11999999999", null, null, igrejaId
+                "Maria Souza", null, "maria@email.com", "11999999999", null, null, null, igrejaId
         );
 
         when(pessoaRepository.findByEmailIgnoreCase("maria@email.com")).thenReturn(Optional.empty());
@@ -99,7 +99,7 @@ class PessoaServiceTest {
         when(pessoaRepository.findByEmailIgnoreCase("joao@email.com")).thenReturn(Optional.of(pessoa));
 
         PessoaCreateRequest request = new PessoaCreateRequest(
-                "Outro", null, "joao@email.com", null, null, null, igrejaId
+                "Outro", null, "joao@email.com", null, null, null, null, igrejaId
         );
 
         assertThatThrownBy(() -> pessoaService.criar(request))
@@ -136,13 +136,15 @@ class PessoaServiceTest {
         when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.empty());
 
-        PessoaUpdateRequest request = new PessoaUpdateRequest(
-                "João Atualizado", null, "joao@email.com", "11888888888", null, true, "obs"
+PessoaUpdateRequest request = new PessoaUpdateRequest(
+                "João Atualizado", null, "joao@email.com", "11888888888", "11977776666", null, true, "obs"
         );
 
         PessoaResponse response = pessoaService.atualizar(pessoa.getId(), request);
 
         assertThat(response.nome()).isEqualTo("João Atualizado");
+        assertThat(response.telefone()).isEqualTo("11888888888");
+        assertThat(response.whatsapp()).isEqualTo("11977776666");
         assertThat(response.observacoes()).isEqualTo("obs");
         verify(autorizacaoService).assertPodeMutarPessoas(igrejaId);
     }

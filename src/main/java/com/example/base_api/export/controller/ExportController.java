@@ -32,7 +32,7 @@ public class ExportController {
     @GetMapping("/{recurso}")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Exportar dados em texto, Markdown ou Excel",
-            description = "Recursos: pessoas, jornadas, ministerios, servicos, voluntarios, escalas, disponibilidades, usuarios, completo. Formatos: txt, md, xlsx.")
+            description = "Recursos: pessoas, jornadas, ministerios, servicos, voluntarios, escalas, disponibilidades, usuarios, cultos, completo. Formatos: txt, md, xlsx.")
     public ResponseEntity<byte[]> exportar(
             @PathVariable String recurso,
             @Parameter(description = "txt | md | xlsx")

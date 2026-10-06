@@ -328,6 +328,7 @@ public class DataInitializer {
             p.setNome(nome);
             p.setEmail(email);
             p.setTelefone(telefone);
+            p.setWhatsapp(telefone);
             p.setIgrejaId(igrejaId);
             p.setDataCadastro(cadastro);
             p.setAtivo(true);

@@ -51,7 +51,7 @@ public class CultoAutomacaoService {
         this.autorizacaoService = autorizacaoService;
     }
 
-    @Scheduled(cron = "0 30 8 20 * *")
+    @Scheduled(cron = "0 30 8 20 * *", zone = "${app.timezone:America/Sao_Paulo}")
     @Transactional
     public String gerarProximoMesAgendado() {
         String competencia = YearMonth.now().plusMonths(1).toString();

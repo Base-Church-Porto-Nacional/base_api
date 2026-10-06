@@ -16,11 +16,30 @@ services:
       timeout: 5s
       retries: 10
 
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: igreja_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD:-guest}
+    ports:
+      - "${RABBIT_PORT:-5672}:5672"
+      - "${RABBIT_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
   backend:
     build: .
     container_name: igreja_backend
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     environment:
       DB_HOST: postgres
@@ -30,9 +49,26 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-igreja}
       JWT_SECRET: ${JWT_SECRET:-change-me-use-a-long-secure-secret-key-at-least-256-bits}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      RABBIT_HABILITADO: ${RABBIT_HABILITADO:-true}
+      RABBIT_HOST: rabbitmq
+      RABBIT_PORT: 5672
+      RABBIT_USER: ${RABBIT_USER:-guest}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD:-guest}
       SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      CORS_ALLOWED_ORIGIN_PATTERNS: ${CORS_ALLOWED_ORIGIN_PATTERNS:-http://localhost:*,http://127.0.0.1:*}
+      TZ: ${APP_TIMEZONE:-America/Sao_Paulo}
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Sao_Paulo}
+      MESSAGE_ANIVERSARIO_ATIVO: ${MESSAGE_ANIVERSARIO_ATIVO:-true}
+      MESSAGE_ANIVERSARIO_CRON: ${MESSAGE_ANIVERSARIO_CRON:-0 0 12 * * *}
+      WHATSAPP_HABILITADO: ${WHATSAPP_HABILITADO:-false}
+      WHATSAPP_URL_BASE: ${WHATSAPP_URL_BASE:-}
+      WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
+      WHATSAPP_INSTANCIA: ${WHATSAPP_INSTANCIA:-}
+      WHATSAPP_DELAY_MS: ${WHATSAPP_DELAY_MS:-1200}
     ports:
       - "${SERVER_PORT:-8080}:8080"
 
 volumes:
   postgres_data:
+  rabbitmq_data:

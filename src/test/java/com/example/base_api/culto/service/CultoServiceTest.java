@@ -6,6 +6,7 @@ import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.culto.dto.CultoConteudoResponse;
 import com.example.base_api.culto.dto.CultoConteudoUpdateRequest;
 import com.example.base_api.culto.dto.CultoCreateRequest;
+import com.example.base_api.culto.dto.CultoRelatorioConsolidadoResponse;
 import com.example.base_api.culto.dto.CultoRelatorioRequest;
 import com.example.base_api.culto.dto.CultoRelatorioResponse;
 import com.example.base_api.culto.dto.CultoResponse;
@@ -638,5 +639,83 @@ class CultoServiceTest {
         pessoa.setNome(nome);
         pessoa.setAtivo(true);
         return pessoa;
+    }
+
+    @Test
+    void deveConsolidarContagemDoMesIgnorandoCultosCancelados() {
+        UUID igrejaId = UUID.randomUUID();
+        Culto primeiro = culto(igrejaId, StatusCulto.REALIZADO);
+        Culto segundo = culto(igrejaId, StatusCulto.REALIZADO);
+        Culto semRelatorio = culto(igrejaId, StatusCulto.AGENDADO);
+        Culto cancelado = culto(igrejaId, StatusCulto.CANCELADO);
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
+        when(cultoRepository.filtrar(List.of(igrejaId), null, "2026-08", null, null, null, true))
+                .thenReturn(List.of(primeiro, segundo, semRelatorio, cancelado));
+        when(relatorioRepository.findByCultoIdIn(List.of(primeiro.getId(), segundo.getId(), semRelatorio.getId())))
+                .thenReturn(List.of(
+                        relatorio(primeiro.getId(), 100, 20, 3, 40),
+                        relatorio(segundo.getId(), 81, 10, 1, 30)
+                ));
+
+        CultoRelatorioConsolidadoResponse consolidado =
+                cultoService.relatorioConsolidado(igrejaId, null, "2026-08", null, null);
+
+        assertThat(consolidado.totalCultos()).isEqualTo(3);
+        assertThat(consolidado.cultosComRelatorio()).isEqualTo(2);
+        assertThat(consolidado.cultosSemRelatorio()).isEqualTo(1);
+        assertThat(consolidado.adultos()).isEqualTo(181);
+        assertThat(consolidado.criancas()).isEqualTo(30);
+        assertThat(consolidado.totalPresentes()).isEqualTo(211);
+        assertThat(consolidado.conversoes()).isEqualTo(4);
+        assertThat(consolidado.totalVeiculos()).isEqualTo(70);
+        assertThat(consolidado.mediaPresentes()).isEqualTo(105.5);
+        assertThat(consolidado.mediaVeiculos()).isEqualTo(35.0);
+        assertThat(consolidado.cultos()).hasSize(3);
+        assertThat(consolidado.cultos().get(2).temRelatorio()).isFalse();
+        assertThat(consolidado.cultos().get(2).relatorio()).isNull();
+        assertThat(consolidado.cultos().get(0).relatorio().totalPresentes()).isEqualTo(120);
+    }
+
+    @Test
+    void deveDevolverConsolidadoZeradoSemIgrejasNoEscopo() {
+        when(autorizacaoService.idsParaListagem(null)).thenReturn(List.of());
+
+        CultoRelatorioConsolidadoResponse consolidado =
+                cultoService.relatorioConsolidado(null, null, "2026-08", null, null);
+
+        assertThat(consolidado.totalCultos()).isZero();
+        assertThat(consolidado.mediaPresentes()).isZero();
+        assertThat(consolidado.cultos()).isEmpty();
+        verify(cultoRepository, never()).filtrar(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void deveRejeitarConsolidadoComCompetenciaInvalida() {
+        assertThatThrownBy(() -> cultoService.relatorioConsolidado(null, null, "08/2026", null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("YYYY-MM");
+    }
+
+    private CultoRelatorio relatorio(UUID cultoId, int adultos, int criancas, int conversoes, int carros) {
+        CultoRelatorio relatorio = CultoRelatorio.vazio(cultoId);
+        relatorio.setAdultos(adultos);
+        relatorio.setCriancas(criancas);
+        relatorio.setConversoes(conversoes);
+        relatorio.setCarros(carros);
+        return relatorio;
+    }
+
+    @Test
+    void naoDeveLancarContagemSemPermissao() {
+        UUID igrejaId = UUID.randomUUID();
+        Culto culto = culto(igrejaId, StatusCulto.ABERTO);
+        when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
+        doThrow(new AccessDeniedException("Somente pastor, admin ou papel com permissão de contagem desta igreja"))
+                .when(autorizacaoService).assertPodeLancarContagem(igrejaId);
+
+        assertThatThrownBy(() -> cultoService.salvarRelatorio(culto.getId(),
+                new CultoRelatorioRequest(10, 2, 0, 0, 0, 0, 0, 0, null)))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(relatorioRepository, never()).save(any());
     }
 }

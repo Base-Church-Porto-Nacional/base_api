@@ -2,6 +2,7 @@ package com.example.base_api.usuario.service;
 
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.usuario.dto.PapelRequest;
+import com.example.base_api.usuario.dto.PapelResponse;
 import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.repository.PapelRepository;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import org.springframework.security.access.AccessDeniedException;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -55,9 +57,35 @@ class PapelServiceTest {
 
         when(papelRepository.findById(id)).thenReturn(Optional.of(pastor));
 
-        assertThatThrownBy(() -> papelService.atualizar(id, new PapelRequest("LOUVOR", "novo")))
+        assertThatThrownBy(() -> papelService.atualizar(id, new PapelRequest("LOUVOR", "novo", null)))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("sistema");
         verify(papelRepository, never()).save(pastor);
+    }
+
+    @Test
+    void deveCriarPapelCustomizadoComPermissaoDeContagem() {
+        UUID igrejaId = UUID.randomUUID();
+        when(autorizacaoService.igrejaAtualId()).thenReturn(igrejaId);
+        when(papelRepository.save(org.mockito.ArgumentMatchers.any(Papel.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PapelResponse response = papelService.criar(new PapelRequest(" contador ", "Conta o culto", true));
+
+        assertThat(response.nome()).isEqualTo("CONTADOR");
+        assertThat(response.podeLancarContagem()).isTrue();
+        assertThat(response.igrejaId()).isEqualTo(igrejaId);
+    }
+
+    @Test
+    void permissaoDeContagemAusenteViraFalse() {
+        UUID igrejaId = UUID.randomUUID();
+        when(autorizacaoService.igrejaAtualId()).thenReturn(igrejaId);
+        when(papelRepository.save(org.mockito.ArgumentMatchers.any(Papel.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PapelResponse response = papelService.criar(new PapelRequest("RECEPCAO", null, null));
+
+        assertThat(response.podeLancarContagem()).isFalse();
     }
 }

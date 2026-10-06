@@ -35,6 +35,9 @@ public class Pessoa extends AuditableEntity {
     @Column(length = 30)
     private String telefone;
 
+    @Column(length = 30)
+    private String whatsapp;
+
     @Column(name = "data_nascimento")
     private LocalDate dataNascimento;
 

@@ -9,6 +9,7 @@ public record PapelResponse(
         String descricao,
         UUID igrejaId,
         boolean sistema,
+        boolean podeLancarContagem,
         Instant createdAt,
         Instant updatedAt
 ) {

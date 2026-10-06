@@ -53,6 +53,7 @@ public class PapelService {
         Papel papel = new Papel();
         papel.setNome(nome);
         papel.setDescricao(request.descricao());
+        papel.setPodeLancarContagem(Boolean.TRUE.equals(request.podeLancarContagem()));
         papel.setIgrejaId(igrejaId);
         return toResponse(papelRepository.save(papel));
     }
@@ -72,6 +73,7 @@ public class PapelService {
 
         papel.setNome(nome);
         papel.setDescricao(request.descricao());
+        papel.setPodeLancarContagem(Boolean.TRUE.equals(request.podeLancarContagem()));
         return toResponse(papelRepository.save(papel));
     }
 
@@ -126,6 +128,7 @@ public class PapelService {
                 papel.getDescricao(),
                 papel.getIgrejaId(),
                 papel.isSistema(),
+                papel.isPodeLancarContagem(),
                 papel.getCreatedAt(),
                 papel.getUpdatedAt()
         );

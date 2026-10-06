@@ -19,8 +19,8 @@ public interface CultoRepository extends JpaRepository<Culto, UUID> {
               AND (:categoriaId IS NULL OR c.categoriaCultoId = :categoriaId)
               AND (:competencia IS NULL OR c.competencia = :competencia)
               AND (:status IS NULL OR c.status = :status)
-              AND (:inicio IS NULL OR c.data >= :inicio)
-              AND (:fim IS NULL OR c.data <= :fim)
+              AND (cast(:inicio as LocalDate) IS NULL OR c.data >= :inicio)
+              AND (cast(:fim as LocalDate) IS NULL OR c.data <= :fim)
               AND (:ativo IS NULL OR c.ativo = :ativo)
             ORDER BY c.data ASC, c.horaInicio ASC
             """)

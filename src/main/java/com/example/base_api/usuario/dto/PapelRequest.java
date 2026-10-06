@@ -9,6 +9,9 @@ public record PapelRequest(
         String nome,
 
         @Size(max = 255, message = "Descrição deve ter no máximo 255 caracteres")
-        String descricao
+        String descricao,
+
+        /** Permite lançar a contagem do culto; ausente = false. */
+        Boolean podeLancarContagem
 ) {
 }
