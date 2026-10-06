@@ -1,5 +1,7 @@
 package com.example.base_api.security;
 
+import com.example.base_api.aniversario.config.MensagemAniversarioProperties;
+import com.example.base_api.notificacao.whatsapp.PropriedadesWhatsapp;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,7 +30,8 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@EnableConfigurationProperties({JwtProperties.class, CorsProperties.class})
+@EnableConfigurationProperties({JwtProperties.class, CorsProperties.class,
+        MensagemAniversarioProperties.class, PropriedadesWhatsapp.class})
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;

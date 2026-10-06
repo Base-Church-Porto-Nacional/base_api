@@ -11,6 +11,7 @@ public record PessoaResponse(
         String nomeSocial,
         String email,
         String telefone,
+        String whatsapp,
         LocalDate dataNascimento,
         LocalDate dataCadastro,
         Boolean ativo,

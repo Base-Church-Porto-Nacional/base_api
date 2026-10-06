@@ -22,6 +22,9 @@ public record PessoaUpdateRequest(
         @Size(max = 30, message = "Telefone deve ter no máximo 30 caracteres")
         String telefone,
 
+        @Size(max = 30, message = "WhatsApp deve ter no máximo 30 caracteres")
+        String whatsapp,
+
         LocalDate dataNascimento,
 
         @NotNull(message = "Campo ativo é obrigatório")

@@ -213,7 +213,7 @@ public class ExportService {
 
     private ExportSheet sheetPessoas(Escopo escopo) {
         ExportSheet sheet = new ExportSheet("Pessoas", List.of(
-                "ID", "Nome", "Nome Social", "Email", "Telefone",
+                "ID", "Nome", "Nome Social", "Email", "Telefone", "WhatsApp",
                 "Data Nascimento", "Data Cadastro", "Igreja ID", "Ativo", "Observações"
         ));
         for (Pessoa p : escopo.pessoas) {
@@ -223,6 +223,7 @@ public class ExportService {
                     str(p.getNomeSocial()),
                     str(p.getEmail()),
                     str(p.getTelefone()),
+                    str(p.getWhatsapp()),
                     str(p.getDataNascimento()),
                     str(p.getDataCadastro()),
                     str(p.getIgrejaId()),

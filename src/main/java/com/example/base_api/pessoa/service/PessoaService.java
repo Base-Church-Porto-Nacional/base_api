@@ -79,6 +79,7 @@ public class PessoaService {
         pessoa.setNomeSocial(blankToNull(request.nomeSocial()));
         pessoa.setEmail(blankToNull(request.email()));
         pessoa.setTelefone(blankToNull(request.telefone()));
+        pessoa.setWhatsapp(blankToNull(request.whatsapp()));
         pessoa.setDataNascimento(request.dataNascimento());
         pessoa.setDataCadastro(LocalDate.now());
         pessoa.setIgrejaId(igrejaId);
@@ -104,6 +105,7 @@ public class PessoaService {
         pessoa.setNomeSocial(blankToNull(request.nomeSocial()));
         pessoa.setEmail(blankToNull(request.email()));
         pessoa.setTelefone(blankToNull(request.telefone()));
+        pessoa.setWhatsapp(blankToNull(request.whatsapp()));
         pessoa.setDataNascimento(request.dataNascimento());
         pessoa.setAtivo(request.ativo());
         pessoa.setObservacoes(request.observacoes());
@@ -135,6 +137,7 @@ public class PessoaService {
                 pessoa.getNomeSocial(),
                 pessoa.getEmail(),
                 pessoa.getTelefone(),
+                pessoa.getWhatsapp(),
                 pessoa.getDataNascimento(),
                 pessoa.getDataCadastro(),
                 pessoa.getAtivo(),
