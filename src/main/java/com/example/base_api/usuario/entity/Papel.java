@@ -32,6 +32,10 @@ public class Papel extends AuditableEntity {
     @Column(name = "igreja_id")
     private UUID igrejaId;
 
+    /** Permite lançar a contagem do culto. Só tem efeito em papéis customizados. */
+    @Column(name = "pode_lancar_contagem", nullable = false)
+    private boolean podeLancarContagem = false;
+
     public boolean isSistema() {
         return igrejaId == null;
     }

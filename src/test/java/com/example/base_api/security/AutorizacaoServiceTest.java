@@ -9,7 +9,9 @@ import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.repository.MinisterioRepository;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.servico.repository.ServicoRepository;
+import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.entity.Usuario;
+import com.example.base_api.usuario.entity.UsuarioPapel;
 import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
@@ -175,5 +178,59 @@ class AutorizacaoServiceTest {
         assertThatThrownBy(() -> autorizacaoService.assertPessoaDaIgreja(pessoa, igrejaId))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("não pertence a esta igreja");
+    }
+
+    @Test
+    void papelCustomizadoComPermissaoLancaContagem() {
+        membro.getPapeisIgreja().add(vinculo(papelCustomizado("CONTADOR", true), igrejaId));
+        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+
+        assertThat(autorizacaoService.podeLancarContagem(igrejaId)).isTrue();
+    }
+
+    @Test
+    void papelCustomizadoSemPermissaoNaoLancaContagem() {
+        membro.getPapeisIgreja().add(vinculo(papelCustomizado("RECEPCAO", false), igrejaId));
+        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeLancarContagem(igrejaId))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("contagem");
+    }
+
+    @Test
+    void permissaoDeContagemDeOutraIgrejaNaoVale() {
+        membro.getPapeisIgreja().add(vinculo(papelCustomizado("CONTADOR", true), UUID.randomUUID()));
+        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+
+        assertThat(autorizacaoService.podeLancarContagem(igrejaId)).isFalse();
+    }
+
+    @Test
+    void pastorOuAdminLancaContagemSemPapelEspecial() {
+        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(true);
+
+        assertThat(autorizacaoService.podeLancarContagem(igrejaId)).isTrue();
+    }
+
+    private Papel papelCustomizado(String nome, boolean podeLancarContagem) {
+        Papel papel = new Papel();
+        papel.setId(UUID.randomUUID());
+        papel.setNome(nome);
+        papel.setIgrejaId(igrejaId);
+        papel.setPodeLancarContagem(podeLancarContagem);
+        return papel;
+    }
+
+    private UsuarioPapel vinculo(Papel papel, UUID igrejaDoVinculo) {
+        UsuarioPapel vinculo = new UsuarioPapel();
+        vinculo.setUsuarioId(membro.getId());
+        vinculo.setPapelId(papel.getId());
+        vinculo.setIgrejaId(igrejaDoVinculo);
+        vinculo.setPapel(papel);
+        return vinculo;
     }
 }

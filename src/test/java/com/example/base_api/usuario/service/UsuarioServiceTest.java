@@ -129,4 +129,52 @@ class UsuarioServiceTest {
                 null, "joao", "joao@email.com", "senha123", Set.of("MEMBRO"), igrejaId
         ))).isInstanceOf(AccessDeniedException.class);
     }
+
+    @Test
+    void deveCriarUsuarioComPapelCustomizadoDaIgreja() {
+        UUID igrejaId = UUID.randomUUID();
+        Papel membro = new Papel();
+        membro.setId(UUID.randomUUID());
+        membro.setNome("MEMBRO");
+        Papel contador = new Papel();
+        contador.setId(UUID.randomUUID());
+        contador.setNome("CONTADOR");
+        contador.setIgrejaId(igrejaId);
+        contador.setPodeLancarContagem(true);
+
+        when(papelRepository.existsByNomeAndIgrejaId("CONTADOR", igrejaId)).thenReturn(true);
+        when(papelRepository.existsByNomeAndIgrejaId("MEMBRO", igrejaId)).thenReturn(false);
+        when(autorizacaoService.validarPapeisAtalho(Set.of("MEMBRO"))).thenReturn(Set.of("MEMBRO"));
+        when(usuarioRepository.existsByUsername("ana")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("ana@email.com")).thenReturn(false);
+        when(papelRepository.findByNomeAndIgrejaIdIsNull("MEMBRO")).thenReturn(Optional.of(membro));
+        when(papelRepository.findByNomeAndIgrejaIdIsNull("CONTADOR")).thenReturn(Optional.empty());
+        when(papelRepository.findByNomeAndIgrejaId("CONTADOR", igrejaId)).thenReturn(Optional.of(contador));
+        when(passwordEncoder.encode(anyString())).thenReturn("hash");
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> {
+            Usuario u = invocation.getArgument(0);
+            u.setId(UUID.randomUUID());
+            return u;
+        });
+        when(usuarioPapelRepository.save(any(UsuarioPapel.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
+
+        UsuarioResponse response = usuarioService.criar(new UsuarioCreateRequest(
+                null, "ana", "ana@email.com", "senha123", Set.of("membro", "contador"), igrejaId
+        ));
+
+        assertThat(response.papeis()).containsExactlyInAnyOrder("MEMBRO", "CONTADOR");
+    }
+
+    @Test
+    void papelCustomizadoDeOutraIgrejaNaoEhAceito() {
+        UUID igrejaId = UUID.randomUUID();
+        when(papelRepository.existsByNomeAndIgrejaId("CONTADOR", igrejaId)).thenReturn(false);
+        when(autorizacaoService.validarPapeisAtalho(Set.of("CONTADOR")))
+                .thenThrow(new AccessDeniedException("Papel não permitido neste atalho: CONTADOR"));
+
+        assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
+                null, "ana", "ana@email.com", "senha123", Set.of("CONTADOR"), igrejaId
+        ))).isInstanceOf(AccessDeniedException.class);
+    }
 }

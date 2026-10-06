@@ -231,7 +231,7 @@ public class CultoService {
     @Transactional
     public CultoRelatorioResponse salvarRelatorio(UUID id, CultoRelatorioRequest request) {
         Culto culto = buscarEntidade(id);
-        autorizacaoService.assertPastorOuAdmin(culto.getIgrejaId());
+        autorizacaoService.assertPodeLancarContagem(culto.getIgrejaId());
         if (culto.getStatus() == CANCELADO) {
             throw new BusinessException("Não é possível lançar relatório de um culto cancelado");
         }

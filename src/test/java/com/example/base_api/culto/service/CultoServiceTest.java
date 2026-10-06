@@ -704,4 +704,18 @@ class CultoServiceTest {
         relatorio.setCarros(carros);
         return relatorio;
     }
+
+    @Test
+    void naoDeveLancarContagemSemPermissao() {
+        UUID igrejaId = UUID.randomUUID();
+        Culto culto = culto(igrejaId, StatusCulto.ABERTO);
+        when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
+        doThrow(new AccessDeniedException("Somente pastor, admin ou papel com permissão de contagem desta igreja"))
+                .when(autorizacaoService).assertPodeLancarContagem(igrejaId);
+
+        assertThatThrownBy(() -> cultoService.salvarRelatorio(culto.getId(),
+                new CultoRelatorioRequest(10, 2, 0, 0, 0, 0, 0, 0, null)))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(relatorioRepository, never()).save(any());
+    }
 }
