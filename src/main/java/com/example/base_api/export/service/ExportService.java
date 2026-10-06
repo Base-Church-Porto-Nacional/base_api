@@ -6,6 +6,12 @@ import com.example.base_api.export.dto.ExportFile;
 import com.example.base_api.export.dto.ExportSheet;
 import com.example.base_api.export.dto.FormatoExportacao;
 import com.example.base_api.common.exception.BusinessException;
+import com.example.base_api.culto.entity.CategoriaCulto;
+import com.example.base_api.culto.entity.Culto;
+import com.example.base_api.culto.entity.CultoRelatorio;
+import com.example.base_api.culto.repository.CategoriaCultoRepository;
+import com.example.base_api.culto.repository.CultoRelatorioRepository;
+import com.example.base_api.culto.repository.CultoRepository;
 import com.example.base_api.disponibilidade.entity.DisponibilidadeSemanal;
 import com.example.base_api.disponibilidade.entity.Indisponibilidade;
 import com.example.base_api.disponibilidade.repository.DisponibilidadeSemanalRepository;
@@ -58,6 +64,9 @@ public class ExportService {
     private final DisponibilidadeSemanalRepository disponibilidadeSemanalRepository;
     private final IndisponibilidadeRepository indisponibilidadeRepository;
     private final UsuarioRepository usuarioRepository;
+    private final CultoRepository cultoRepository;
+    private final CultoRelatorioRepository cultoRelatorioRepository;
+    private final CategoriaCultoRepository categoriaCultoRepository;
     private final AutorizacaoService autorizacaoService;
     private final AuditService auditService;
 
@@ -75,6 +84,9 @@ public class ExportService {
             DisponibilidadeSemanalRepository disponibilidadeSemanalRepository,
             IndisponibilidadeRepository indisponibilidadeRepository,
             UsuarioRepository usuarioRepository,
+            CultoRepository cultoRepository,
+            CultoRelatorioRepository cultoRelatorioRepository,
+            CategoriaCultoRepository categoriaCultoRepository,
             AutorizacaoService autorizacaoService,
             AuditService auditService
     ) {
@@ -91,6 +103,9 @@ public class ExportService {
         this.disponibilidadeSemanalRepository = disponibilidadeSemanalRepository;
         this.indisponibilidadeRepository = indisponibilidadeRepository;
         this.usuarioRepository = usuarioRepository;
+        this.cultoRepository = cultoRepository;
+        this.cultoRelatorioRepository = cultoRelatorioRepository;
+        this.categoriaCultoRepository = categoriaCultoRepository;
         this.autorizacaoService = autorizacaoService;
         this.auditService = auditService;
     }
@@ -109,9 +124,10 @@ public class ExportService {
             case "escalas" -> documentEscalas(escopo);
             case "disponibilidades" -> documentDisponibilidades(escopo);
             case "usuarios" -> documentUsuarios(escopo);
+            case "cultos" -> documentCultos(escopo);
             case "completo", "tudo" -> documentCompleto(escopo);
             default -> throw new BusinessException(
-                    "Recurso inválido. Use: pessoas, historicos, jornadas, ministerios, servicos, voluntarios, escalas, disponibilidades, usuarios ou completo"
+                    "Recurso inválido. Use: pessoas, historicos, jornadas, ministerios, servicos, voluntarios, escalas, disponibilidades, usuarios, cultos ou completo"
             );
         };
         ExportFile arquivo = exportRenderer.renderizar(document, formato);
@@ -134,7 +150,7 @@ public class ExportService {
         List<Escala> escalas = escalaRepository.findByIgrejaIdInOrderByCompetenciaDescTituloAsc(igrejaIds);
         List<UUID> escalaIds = escalas.stream().map(Escala::getId).toList();
         List<Usuario> usuarios = usuarioRepository.findByIgrejaIdIn(igrejaIds);
-        return new Escopo(pessoas, pessoaIds, ministerios, servicos, escalas, escalaIds, usuarios);
+        return new Escopo(igrejaIds, pessoas, pessoaIds, ministerios, servicos, escalas, escalaIds, usuarios);
     }
 
     private ExportDocument documentPessoas(Escopo escopo) {
@@ -194,6 +210,12 @@ public class ExportService {
         return doc;
     }
 
+    private ExportDocument documentCultos(Escopo escopo) {
+        ExportDocument doc = new ExportDocument("cultos");
+        doc.adicionarSheet(sheetCultos(escopo));
+        return doc;
+    }
+
     private ExportDocument documentCompleto(Escopo escopo) {
         ExportDocument doc = new ExportDocument("exportacao_completa");
         doc.adicionarSheet(sheetPessoas(escopo));
@@ -208,6 +230,7 @@ public class ExportService {
         doc.adicionarSheet(sheetDisponibilidadeSemanal(escopo));
         doc.adicionarSheet(sheetIndisponibilidades(escopo));
         doc.adicionarSheet(sheetUsuarios(escopo));
+        doc.adicionarSheet(sheetCultos(escopo));
         return doc;
     }
 
@@ -437,6 +460,52 @@ public class ExportService {
         return sheet;
     }
 
+    private ExportSheet sheetCultos(Escopo escopo) {
+        ExportSheet sheet = new ExportSheet("Cultos", List.of(
+                "Data", "Hora Início", "Competência", "Categoria", "Título", "Status", "Pregador", "Igreja ID",
+                "Adultos", "Crianças", "Total Presentes", "Conversões", "Reconciliações", "Alianças",
+                "Carros", "Motos", "Bicicletas", "Total Veículos", "Observações"
+        ));
+        List<Culto> cultos = escopo.igrejaIds.isEmpty()
+                ? List.of()
+                : cultoRepository.filtrar(escopo.igrejaIds, null, null, null, null, null, null);
+        if (cultos.isEmpty()) {
+            return sheet;
+        }
+        Map<UUID, CultoRelatorio> relatorios = cultoRelatorioRepository
+                .findByCultoIdIn(cultos.stream().map(Culto::getId).toList()).stream()
+                .collect(Collectors.toMap(CultoRelatorio::getCultoId, Function.identity()));
+        Map<UUID, CategoriaCulto> categorias = categoriaCultoRepository
+                .findAllById(cultos.stream().map(Culto::getCategoriaCultoId).distinct().toList()).stream()
+                .collect(Collectors.toMap(CategoriaCulto::getId, Function.identity()));
+        for (Culto c : cultos) {
+            CategoriaCulto categoria = categorias.get(c.getCategoriaCultoId());
+            CultoRelatorio r = relatorios.get(c.getId());
+            sheet.adicionarLinha(List.of(
+                    str(c.getData()),
+                    str(c.getHoraInicio()),
+                    str(c.getCompetencia()),
+                    categoria == null ? "" : str(categoria.getTitulo()),
+                    str(c.getTitulo()),
+                    str(c.getStatus()),
+                    nomePessoa(escopo.pessoasPorId, c.getPregadorId()),
+                    str(c.getIgrejaId()),
+                    r == null ? "" : str(r.getAdultos()),
+                    r == null ? "" : str(r.getCriancas()),
+                    r == null ? "" : str(r.getAdultos() + r.getCriancas()),
+                    r == null ? "" : str(r.getConversoes()),
+                    r == null ? "" : str(r.getReconciliacoes()),
+                    r == null ? "" : str(r.getAliancas()),
+                    r == null ? "" : str(r.getCarros()),
+                    r == null ? "" : str(r.getMotos()),
+                    r == null ? "" : str(r.getBicicletas()),
+                    r == null ? "" : str(r.getCarros() + r.getMotos() + r.getBicicletas()),
+                    r == null ? "" : str(r.getObservacoes())
+            ));
+        }
+        return sheet;
+    }
+
     private List<PessoaHistorico> listarHistoricos(Escopo escopo) {
         if (escopo.pessoaIds.isEmpty()) {
             return List.of();
@@ -519,6 +588,7 @@ public class ExportService {
     }
 
     private static final class Escopo {
+        private final List<UUID> igrejaIds;
         private final List<Pessoa> pessoas;
         private final List<UUID> pessoaIds;
         private final List<Ministerio> ministerios;
@@ -532,6 +602,7 @@ public class ExportService {
         private final List<Usuario> usuarios;
 
         private Escopo(
+                List<UUID> igrejaIds,
                 List<Pessoa> pessoas,
                 List<UUID> pessoaIds,
                 List<Ministerio> ministerios,
@@ -540,6 +611,7 @@ public class ExportService {
                 List<UUID> escalaIds,
                 List<Usuario> usuarios
         ) {
+            this.igrejaIds = igrejaIds;
             this.pessoas = pessoas;
             this.pessoaIds = pessoaIds;
             this.ministerios = ministerios;
@@ -554,7 +626,7 @@ public class ExportService {
         }
 
         private static Escopo vazio() {
-            return new Escopo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+            return new Escopo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
         }
     }
 }

@@ -6,6 +6,8 @@ import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.culto.dto.CultoConteudoResponse;
 import com.example.base_api.culto.dto.CultoConteudoUpdateRequest;
 import com.example.base_api.culto.dto.CultoCreateRequest;
+import com.example.base_api.culto.dto.CultoRelatorioConsolidadoResponse;
+import com.example.base_api.culto.dto.CultoRelatorioItemResponse;
 import com.example.base_api.culto.dto.CultoRelatorioRequest;
 import com.example.base_api.culto.dto.CultoRelatorioResponse;
 import com.example.base_api.culto.dto.CultoResponse;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -254,6 +257,89 @@ public class CultoService {
         return toRelatorioResponse(relatorioRepository.save(relatorio));
     }
 
+    /**
+     * Soma a contagem dos cultos do período (competência ou intervalo de datas)
+     * nas igrejas visíveis. Cultos cancelados e inativos ficam de fora.
+     */
+    @Transactional(readOnly = true)
+    public CultoRelatorioConsolidadoResponse relatorioConsolidado(
+            UUID igrejaId,
+            UUID categoriaId,
+            String competencia,
+            LocalDate inicio,
+            LocalDate fim
+    ) {
+        validarCompetencia(competencia);
+        validarPeriodo(inicio, fim);
+        List<UUID> ids = autorizacaoService.idsParaListagem(igrejaId);
+        List<Culto> cultos = ids.isEmpty()
+                ? List.of()
+                : cultoRepository.filtrar(ids, categoriaId, competencia, null, inicio, fim, true).stream()
+                        .filter(c -> c.getStatus() != CANCELADO)
+                        .toList();
+
+        Map<UUID, CultoRelatorio> relatorios = cultos.isEmpty()
+                ? Map.of()
+                : relatorioRepository.findByCultoIdIn(cultos.stream().map(Culto::getId).toList()).stream()
+                        .collect(Collectors.toMap(CultoRelatorio::getCultoId, Function.identity()));
+        Map<UUID, CategoriaCulto> categorias = cultos.isEmpty() ? Map.of() : categoriasDos(cultos);
+
+        int adultos = 0, criancas = 0, conversoes = 0, reconciliacoes = 0, aliancas = 0;
+        int carros = 0, motos = 0, bicicletas = 0;
+        for (CultoRelatorio r : relatorios.values()) {
+            adultos += r.getAdultos();
+            criancas += r.getCriancas();
+            conversoes += r.getConversoes();
+            reconciliacoes += r.getReconciliacoes();
+            aliancas += r.getAliancas();
+            carros += r.getCarros();
+            motos += r.getMotos();
+            bicicletas += r.getBicicletas();
+        }
+        int comRelatorio = relatorios.size();
+        int totalPresentes = adultos + criancas;
+        int totalVeiculos = carros + motos + bicicletas;
+
+        List<CultoRelatorioItemResponse> itens = cultos.stream().map(c -> {
+            CategoriaCulto categoria = categorias.get(c.getCategoriaCultoId());
+            CultoRelatorio relatorio = relatorios.get(c.getId());
+            return new CultoRelatorioItemResponse(
+                    c.getId(),
+                    c.getIgrejaId(),
+                    c.getCategoriaCultoId(),
+                    categoria == null ? null : categoria.getTitulo(),
+                    c.getTitulo(),
+                    c.getData(),
+                    c.getHoraInicio(),
+                    c.getStatus(),
+                    relatorio != null,
+                    relatorio == null ? null : toRelatorioResponse(relatorio)
+            );
+        }).toList();
+
+        return new CultoRelatorioConsolidadoResponse(
+                competencia,
+                inicio,
+                fim,
+                cultos.size(),
+                comRelatorio,
+                cultos.size() - comRelatorio,
+                adultos,
+                criancas,
+                totalPresentes,
+                conversoes,
+                reconciliacoes,
+                aliancas,
+                carros,
+                motos,
+                bicicletas,
+                totalVeiculos,
+                media(totalPresentes, comRelatorio),
+                media(totalVeiculos, comRelatorio),
+                itens
+        );
+    }
+
     @Transactional(readOnly = true)
     public Culto buscarEntidade(UUID id) {
         return cultoRepository.findById(id)
@@ -282,6 +368,24 @@ public class CultoService {
         if (inicio != null && fim != null && fim.isBefore(inicio)) {
             throw new BusinessException("Data fim deve ser igual ou posterior à data início");
         }
+    }
+
+    private void validarCompetencia(String competencia) {
+        if (competencia == null) {
+            return;
+        }
+        try {
+            YearMonth.parse(competencia);
+        } catch (DateTimeParseException e) {
+            throw new BusinessException("Competência inválida. Use o formato YYYY-MM");
+        }
+    }
+
+    private Double media(int total, int quantidade) {
+        if (quantidade == 0) {
+            return 0.0;
+        }
+        return Math.round(total * 10.0 / quantidade) / 10.0;
     }
 
     private void validarHorario(LocalTime inicio, LocalTime fim) {

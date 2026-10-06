@@ -3,6 +3,7 @@ package com.example.base_api.culto.controller;
 import com.example.base_api.culto.dto.CultoConteudoResponse;
 import com.example.base_api.culto.dto.CultoConteudoUpdateRequest;
 import com.example.base_api.culto.dto.CultoCreateRequest;
+import com.example.base_api.culto.dto.CultoRelatorioConsolidadoResponse;
 import com.example.base_api.culto.dto.CultoRelatorioRequest;
 import com.example.base_api.culto.dto.CultoRelatorioResponse;
 import com.example.base_api.culto.dto.CultoResponse;
@@ -55,6 +56,18 @@ public class CultoController {
             @RequestParam(required = false) Boolean ativo
     ) {
         return cultoService.listar(igrejaId, categoriaId, competencia, status, inicio, fim, ativo);
+    }
+
+    @GetMapping("/relatorio-consolidado")
+    @Operation(summary = "Contagem consolidada dos cultos do período (competência YYYY-MM ou início/fim): totais, médias e cultos sem relatório")
+    public CultoRelatorioConsolidadoResponse relatorioConsolidado(
+            @RequestParam(required = false) UUID igrejaId,
+            @RequestParam(required = false) UUID categoriaId,
+            @RequestParam(required = false) String competencia,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim
+    ) {
+        return cultoService.relatorioConsolidado(igrejaId, categoriaId, competencia, inicio, fim);
     }
 
     @GetMapping("/{id}")
