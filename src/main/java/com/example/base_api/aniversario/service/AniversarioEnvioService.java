@@ -1,6 +1,5 @@
 package com.example.base_api.aniversario.service;
 
-import com.example.base_api.aniversario.config.MensagemAniversarioProperties;
 import com.example.base_api.aniversario.entity.AniversarioEnvio;
 import com.example.base_api.aniversario.entity.StatusEnvioAniversario;
 import com.example.base_api.aniversario.repository.AniversarioEnvioRepository;
@@ -37,26 +36,26 @@ public class AniversarioEnvioService {
     private final IgrejaRepository igrejaRepository;
     private final DespachadorMensagem despachador;
     private final MensagemAniversarioTemplate template;
-    private final MensagemAniversarioProperties properties;
+    private final MensagemAniversarioService mensagemService;
 
     public AniversarioEnvioService(
             AniversarioEnvioRepository envioRepository,
             IgrejaRepository igrejaRepository,
             DespachadorMensagem despachador,
             MensagemAniversarioTemplate template,
-            MensagemAniversarioProperties properties
+            MensagemAniversarioService mensagemService
     ) {
         this.envioRepository = envioRepository;
         this.igrejaRepository = igrejaRepository;
         this.despachador = despachador;
         this.template = template;
-        this.properties = properties;
+        this.mensagemService = mensagemService;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Resultado enviarPara(Pessoa pessoa, LocalDate dataAniversario) {
         String mensagem = template.renderizar(
-                pessoa, properties.getTemplate(), nomeIgreja(pessoa.getIgrejaId()), dataAniversario);
+                pessoa, mensagemService.textoParaIgreja(pessoa.getIgrejaId()), nomeIgreja(pessoa.getIgrejaId()), dataAniversario);
 
         AniversarioEnvio envio = new AniversarioEnvio();
         envio.setPessoaId(pessoa.getId());

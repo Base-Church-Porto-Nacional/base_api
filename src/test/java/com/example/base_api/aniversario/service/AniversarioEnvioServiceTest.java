@@ -2,8 +2,10 @@ package com.example.base_api.aniversario.service;
 
 import com.example.base_api.aniversario.config.MensagemAniversarioProperties;
 import com.example.base_api.aniversario.entity.AniversarioEnvio;
+import com.example.base_api.aniversario.entity.MensagemAniversario;
 import com.example.base_api.aniversario.entity.StatusEnvioAniversario;
 import com.example.base_api.aniversario.repository.AniversarioEnvioRepository;
+import com.example.base_api.aniversario.repository.MensagemAniversarioRepository;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.repository.IgrejaRepository;
 import com.example.base_api.notificacao.CanalMensagem;
@@ -43,8 +45,12 @@ class AniversarioEnvioServiceTest {
     private IgrejaRepository igrejaRepository;
     @Mock
     private CanalMensagem canalMensagem;
+    @Mock
+    private MensagemAniversarioRepository mensagemRepository;
 
     private MensagemAniversarioProperties properties;
+
+    private MensagemAniversarioService mensagemService;
 
     private AniversarioEnvioService envioService;
 
@@ -55,9 +61,12 @@ class AniversarioEnvioServiceTest {
     void setUp() {
         properties = new MensagemAniversarioProperties();
         properties.setTemplate("Feliz aniversário, {primeiroNome}! {idade} anos. Com carinho, {igreja}.");
+        // Sem mensagem própria cadastrada: vale o template de configuração.
+        mensagemService = new MensagemAniversarioService(
+                mensagemRepository, igrejaRepository, properties, null, null);
         envioService = new AniversarioEnvioService(
                 envioRepository, igrejaRepository, new DespachadorSincrono(canalMensagem),
-                new MensagemAniversarioTemplate(), properties
+                new MensagemAniversarioTemplate(), mensagemService
         );
         pessoa = new Pessoa();
         pessoa.setId(UUID.randomUUID());
@@ -147,6 +156,25 @@ class AniversarioEnvioServiceTest {
     }
 
     @Test
+    void deveUsarMensagemDaIgrejaComMarcadoresDoFront() {
+        mockIgreja();
+        MensagemAniversario daIgreja = new MensagemAniversario();
+        daIgreja.setIgrejaId(pessoa.getIgrejaId());
+        daIgreja.setMensagem("Feliz aniversário, [Nome]! [Nome Completo], a [Igreja] te ama.");
+        when(mensagemRepository.findByIgrejaId(pessoa.getIgrejaId())).thenReturn(Optional.of(daIgreja));
+        when(envioRepository.save(any(AniversarioEnvio.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        envioService.enviarPara(pessoa, dataAniversario);
+
+        ArgumentCaptor<CanalMensagem.EnvioMensagem> mensagemCaptor =
+                ArgumentCaptor.forClass(CanalMensagem.EnvioMensagem.class);
+        verify(canalMensagem).enviar(mensagemCaptor.capture());
+        assertThat(mensagemCaptor.getValue().mensagem())
+                .isEqualTo("Feliz aniversário, Maria! Maria das Graças, a Igreja Central te ama.");
+    }
+
+    @Test
     void deveUsarOMensagemPadraoQuandoNenhumaMensagemForConfigurada() {
         mockIgreja();
         properties.setTemplate(null);
@@ -189,7 +217,7 @@ class AniversarioEnvioServiceTest {
         AniversarioEnvioService servicoComCanalReal = new AniversarioEnvioService(
                 envioRepository, igrejaRepository,
                 new DespachadorSincrono(new CanalMensagemWhatsapp(cliente, propriedadesWhatsapp)),
-                new MensagemAniversarioTemplate(), properties
+                new MensagemAniversarioTemplate(), mensagemService
         );
         when(envioRepository.save(any(AniversarioEnvio.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

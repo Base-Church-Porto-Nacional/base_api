@@ -5,6 +5,7 @@ import com.example.base_api.aniversario.dto.AniversarioPessoaResponse;
 import com.example.base_api.aniversario.entity.AniversarioEnvio;
 import com.example.base_api.aniversario.entity.StatusEnvioAniversario;
 import com.example.base_api.aniversario.service.AniversarioService;
+import com.example.base_api.aniversario.service.MensagemAniversarioService;
 import com.example.base_api.aniversario.service.MensagemAniversarioTemplate;
 import com.example.base_api.igreja.repository.IgrejaRepository;
 import com.example.base_api.pessoa.entity.Pessoa;
@@ -35,6 +36,7 @@ public class AniversarioController {
     private final PessoaRepository pessoaRepository;
     private final IgrejaRepository igrejaRepository;
     private final MensagemAniversarioTemplate template;
+    private final MensagemAniversarioService mensagemService;
     private final AutorizacaoService autorizacaoService;
 
     public AniversarioController(
@@ -42,12 +44,14 @@ public class AniversarioController {
             PessoaRepository pessoaRepository,
             IgrejaRepository igrejaRepository,
             MensagemAniversarioTemplate template,
+            MensagemAniversarioService mensagemService,
             AutorizacaoService autorizacaoService
     ) {
         this.aniversarioService = aniversarioService;
         this.pessoaRepository = pessoaRepository;
         this.igrejaRepository = igrejaRepository;
         this.template = template;
+        this.mensagemService = mensagemService;
         this.autorizacaoService = autorizacaoService;
     }
 
@@ -72,7 +76,7 @@ public class AniversarioController {
         return pessoas.stream()
                 .filter(p -> p.getIgrejaId() != null && ids.contains(p.getIgrejaId()))
                 .map(p -> {
-                    String mensagem = template.renderizar(p, null, nomeIgreja(p.getIgrejaId()), referencia);
+                    String mensagem = template.renderizar(p, mensagemService.textoParaIgreja(p.getIgrejaId()), nomeIgreja(p.getIgrejaId()), referencia);
                     boolean enviado = envios.stream().anyMatch(e ->
                             p.getId().equals(e.getPessoaId())
                                     && e.getStatus() == StatusEnvioAniversario.ENVIADO);

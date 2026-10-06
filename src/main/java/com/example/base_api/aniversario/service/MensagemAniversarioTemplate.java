@@ -10,8 +10,10 @@ import java.util.Optional;
 
 /**
  * Renderiza o template configurável da mensagem de aniversário substituindo os
- * marcadores {nome}, {primeiroNome}, {idade} e {igreja}. Marcadores não
- * reconhecidos são mantidos como texto.
+ * marcadores {nome}, {primeiroNome}, {idade} e {igreja}. Também aceita os
+ * marcadores inseridos pela tela de configuração do front: [Nome] (primeiro
+ * nome), [Nome Completo], [Idade] e [Igreja]. Marcadores não reconhecidos são
+ * mantidos como texto.
  */
 @Component
 public class MensagemAniversarioTemplate {
@@ -22,11 +24,19 @@ public class MensagemAniversarioTemplate {
                 .filter(t -> !t.isBlank())
                 .orElse(padrao);
 
+        String primeiroNome = primeiroNome(pessoa);
+        String nome = Optional.ofNullable(pessoa.getNome()).orElse("");
+        String idade = String.valueOf(idade(pessoa, dataAniversario));
+        String igreja = Optional.ofNullable(nomeIgreja).orElse("");
         return base
-                .replace("{primeiroNome}", primeiroNome(pessoa))
-                .replace("{nome}", Optional.ofNullable(pessoa.getNome()).orElse(""))
-                .replace("{idade}", String.valueOf(idade(pessoa, dataAniversario)))
-                .replace("{igreja}", Optional.ofNullable(nomeIgreja).orElse(""));
+                .replace("{primeiroNome}", primeiroNome)
+                .replace("{nome}", nome)
+                .replace("{idade}", idade)
+                .replace("{igreja}", igreja)
+                .replace("[Nome Completo]", nome)
+                .replace("[Nome]", primeiroNome)
+                .replace("[Idade]", idade)
+                .replace("[Igreja]", igreja);
     }
 
     private String primeiroNome(Pessoa pessoa) {
