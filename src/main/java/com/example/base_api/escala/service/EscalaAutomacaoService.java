@@ -44,34 +44,31 @@ public class EscalaAutomacaoService {
 
     private final GeracaoEscalaService geracaoEscalaService;
     private final EscalaRepository escalaRepository;
-    private final EscalaServicoRepository escalaServicoRepository;
     private final IgrejaRepository igrejaRepository;
     private final MinisterioRepository ministerioRepository;
     private final ServicoRepository servicoRepository;
     private final CronogramaEventoRepository cronogramaEventoRepository;
-    private final PessoaServicoRepository pessoaServicoRepository;
     private final AutorizacaoService autorizacaoService;
+    private final NecessidadeEscalaService necessidadeEscalaService;
 
     public EscalaAutomacaoService(
             GeracaoEscalaService geracaoEscalaService,
             EscalaRepository escalaRepository,
-            EscalaServicoRepository escalaServicoRepository,
             IgrejaRepository igrejaRepository,
             MinisterioRepository ministerioRepository,
             ServicoRepository servicoRepository,
             CronogramaEventoRepository cronogramaEventoRepository,
-            PessoaServicoRepository pessoaServicoRepository,
-            AutorizacaoService autorizacaoService
+            AutorizacaoService autorizacaoService,
+            NecessidadeEscalaService necessidadeEscalaService
     ) {
         this.geracaoEscalaService = geracaoEscalaService;
         this.escalaRepository = escalaRepository;
-        this.escalaServicoRepository = escalaServicoRepository;
         this.igrejaRepository = igrejaRepository;
         this.ministerioRepository = ministerioRepository;
         this.servicoRepository = servicoRepository;
         this.cronogramaEventoRepository = cronogramaEventoRepository;
-        this.pessoaServicoRepository = pessoaServicoRepository;
         this.autorizacaoService = autorizacaoService;
+        this.necessidadeEscalaService = necessidadeEscalaService;
     }
 
     @Scheduled(cron = "0 30 8 20 * *", zone = "${app.timezone:America/Sao_Paulo}")
@@ -121,18 +118,13 @@ public class EscalaAutomacaoService {
                 .stream()
                 .map(Ministerio::getId)
                 .toList();
-        List<Servico> servicos = servicoRepository.findByMinisterioIdInAndAtivoTrueOrderByNomeAsc(ministerioIds)
-                .stream()
-                .filter(s -> !Boolean.TRUE.equals(s.getFiccao()))
-                .filter(this::temVoluntario)
-                .toList();
-        if (servicos.isEmpty()) {
+        List<UUID> servicoIds = necessidadeEscalaService.servicosElegiveis(
+                servicoRepository.findByMinisterioIdInAndAtivoTrueOrderByNomeAsc(ministerioIds));
+        if (servicoIds.isEmpty()) {
             return Resultado.NADA;
         }
         Escala escala = novaEscala(igreja, competencia, "Escala de culto", TipoEscala.CULTO, null);
-        for (Servico servico : servicos) {
-            salvarNecessidade(escala, servico.getId());
-        }
+        necessidadeEscalaService.criarNecessidades(escala, servicoIds);
         geracaoEscalaService.gerar(escala);
         return Resultado.CRIADA;
     }
@@ -143,20 +135,13 @@ public class EscalaAutomacaoService {
         if (existente.isPresent()) {
             return regenerarSeRascunho(existente.get());
         }
-        List<UUID> servicoIds = servicoRepository.findByMinisterioIdOrderByNomeAsc(ministerio.getId())
-                .stream()
-                .filter(s -> Boolean.TRUE.equals(s.getAtivo()))
-                .filter(s -> !Boolean.TRUE.equals(s.getFiccao()))
-                .filter(this::temVoluntario)
-                .map(Servico::getId)
-                .toList();
+        List<UUID> servicoIds = necessidadeEscalaService.servicosElegiveis(
+                servicoRepository.findByMinisterioIdOrderByNomeAsc(ministerio.getId()));
         if (servicoIds.isEmpty()) {
             return Resultado.NADA;
         }
         Escala escala = novaEscala(igreja, competencia, ministerio.getNome(), TipoEscala.MINISTERIO, ministerio.getId());
-        for (UUID servicoId : servicoIds) {
-            salvarNecessidade(escala, servicoId);
-        }
+        necessidadeEscalaService.criarNecessidades(escala, servicoIds);
         geracaoEscalaService.gerar(escala);
         return Resultado.CRIADA;
     }
@@ -191,14 +176,6 @@ public class EscalaAutomacaoService {
         return escalaRepository.save(escala);
     }
 
-    private void salvarNecessidade(Escala escala, UUID servicoId) {
-        EscalaServico necessidade = new EscalaServico();
-        necessidade.setEscalaId(escala.getId());
-        necessidade.setServicoId(servicoId);
-        necessidade.setQuantidadeNecessaria(1);
-        escalaServicoRepository.save(necessidade);
-    }
-
     private boolean temEventosNoMes(UUID igrejaId, String competencia) {
         YearMonth mes = YearMonth.parse(competencia);
         return cronogramaEventoRepository
@@ -206,10 +183,6 @@ public class EscalaAutomacaoService {
                         List.of(igrejaId), mes.atDay(1), mes.atEndOfMonth())
                 .stream()
                 .anyMatch(e -> Boolean.TRUE.equals(e.getAtivo()));
-    }
-
-    private boolean temVoluntario(Servico servico) {
-        return !pessoaServicoRepository.findByServicoIdAndAtivoTrue(servico.getId()).isEmpty();
     }
 
     private String nomeMes(String competencia) {

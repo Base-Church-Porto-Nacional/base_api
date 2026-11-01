@@ -13,9 +13,9 @@ import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.repository.IgrejaRepository;
 import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.repository.MinisterioRepository;
+import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.servico.entity.Servico;
 import com.example.base_api.servico.repository.ServicoRepository;
-import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.voluntario.entity.PessoaServico;
 import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,7 +30,9 @@ import org.springframework.security.access.AccessDeniedException;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,6 +42,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -67,8 +70,10 @@ class EscalaAutomacaoServiceTest {
     @Mock
     private AutorizacaoService autorizacaoService;
 
-    @InjectMocks
     private EscalaAutomacaoService escalaAutomacaoService;
+
+    /** Voluntários ativos por serviço, devolvidos pela consulta em lote de pessoaServicoRepository. */
+    private final Map<UUID, List<PessoaServico>> voluntariosPorServico = new HashMap<>();
 
     private UUID igrejaId;
     private UUID servicoId;
@@ -76,6 +81,12 @@ class EscalaAutomacaoServiceTest {
 
     @BeforeEach
     void setUp() {
+        voluntariosPorServico.clear();
+        lenient().when(pessoaServicoRepository.findByServicoIdInAndAtivoTrue(anyList())).thenAnswer(invocation -> {
+            List<UUID> ids = invocation.getArgument(0);
+            return ids.stream().flatMap(id -> voluntariosPorServico.getOrDefault(id, List.of()).stream()).toList();
+        });
+        escalaAutomacaoService = new EscalaAutomacaoService(geracaoEscalaService, escalaRepository, igrejaRepository, ministerioRepository, servicoRepository, cronogramaEventoRepository, autorizacaoService, new NecessidadeEscalaService(pessoaServicoRepository, escalaServicoRepository));
         igrejaId = UUID.randomUUID();
         servicoId = UUID.randomUUID();
         escalaId = UUID.randomUUID();
@@ -92,7 +103,7 @@ class EscalaAutomacaoServiceTest {
         Servico servico = servico();
         when(servicoRepository.findByMinisterioIdInAndAtivoTrueOrderByNomeAsc(anyList()))
                 .thenReturn(List.of(servico));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoId)).thenReturn(List.of(pessoaServico()));
+        voluntariosAtivos(servicoId, List.of(pessoaServico()));
         when(escalaRepository.save(any(Escala.class))).thenAnswer(inv -> {
             Escala e = inv.getArgument(0);
             e.setId(escalaId);
@@ -174,7 +185,7 @@ class EscalaAutomacaoServiceTest {
         Servico servico = servico();
         when(servicoRepository.findByMinisterioIdInAndAtivoTrueOrderByNomeAsc(anyList()))
                 .thenReturn(List.of(servico));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoId)).thenReturn(List.of());
+        voluntariosAtivos(servicoId, List.of());
 
         String resumo = escalaAutomacaoService.gerarProximoMes();
 
@@ -204,10 +215,8 @@ class EscalaAutomacaoServiceTest {
                 .thenReturn(List.of(servicoPrimeiro));
         when(servicoRepository.findByMinisterioIdOrderByNomeAsc(segundo.getId()))
                 .thenReturn(List.of(servicoSegundo));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoPrimeiro.getId()))
-                .thenReturn(List.of(pessoaServico(servicoPrimeiro.getId())));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoSegundo.getId()))
-                .thenReturn(List.of(pessoaServico(servicoSegundo.getId())));
+        voluntariosAtivos(servicoPrimeiro.getId(), List.of(pessoaServico(servicoPrimeiro.getId())));
+        voluntariosAtivos(servicoSegundo.getId(), List.of(pessoaServico(servicoSegundo.getId())));
         when(escalaRepository.save(any(Escala.class))).thenAnswer(inv -> {
             Escala e = inv.getArgument(0);
             e.setId(UUID.randomUUID());
@@ -253,8 +262,7 @@ class EscalaAutomacaoServiceTest {
                 any(), any(), any(), eq(segundo.getId()))).thenReturn(Optional.empty());
         when(servicoRepository.findByMinisterioIdOrderByNomeAsc(segundo.getId()))
                 .thenReturn(List.of(servicoSegundo));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoSegundo.getId()))
-                .thenReturn(List.of(pessoaServico(servicoSegundo.getId())));
+        voluntariosAtivos(servicoSegundo.getId(), List.of(pessoaServico(servicoSegundo.getId())));
         when(escalaRepository.save(any(Escala.class))).thenAnswer(inv -> {
             Escala e = inv.getArgument(0);
             e.setId(UUID.randomUUID());
@@ -314,12 +322,9 @@ class EscalaAutomacaoServiceTest {
                 any(), any(), any(), eq(ministerio.getId()))).thenReturn(Optional.empty());
         when(servicoRepository.findByMinisterioIdOrderByNomeAsc(ministerio.getId()))
                 .thenReturn(List.of(inativo, ficticio, valido));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(inativo.getId()))
-                .thenReturn(List.of(pessoaServico(inativo.getId())));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(ficticio.getId()))
-                .thenReturn(List.of(pessoaServico(ficticio.getId())));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(valido.getId()))
-                .thenReturn(List.of(pessoaServico(valido.getId())));
+        voluntariosAtivos(inativo.getId(), List.of(pessoaServico(inativo.getId())));
+        voluntariosAtivos(ficticio.getId(), List.of(pessoaServico(ficticio.getId())));
+        voluntariosAtivos(valido.getId(), List.of(pessoaServico(valido.getId())));
         when(escalaRepository.save(any(Escala.class))).thenAnswer(inv -> {
             Escala e = inv.getArgument(0);
             e.setId(escalaId);
@@ -347,10 +352,8 @@ class EscalaAutomacaoServiceTest {
                 .thenReturn(Optional.empty());
         when(servicoRepository.findByMinisterioIdInAndAtivoTrueOrderByNomeAsc(anyList()))
                 .thenReturn(List.of(ficticio, semVoluntario));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(ficticio.getId()))
-                .thenReturn(List.of(pessoaServico(ficticio.getId())));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(semVoluntario.getId()))
-                .thenReturn(List.of());
+        voluntariosAtivos(ficticio.getId(), List.of(pessoaServico(ficticio.getId())));
+        voluntariosAtivos(semVoluntario.getId(), List.of());
 
         String resumo = escalaAutomacaoService.gerarProximoMes();
 
@@ -371,8 +374,7 @@ class EscalaAutomacaoServiceTest {
                 .thenReturn(Optional.empty());
         when(servicoRepository.findByMinisterioIdInAndAtivoTrueOrderByNomeAsc(anyList()))
                 .thenReturn(List.of(servicoCulto));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoCulto.getId()))
-                .thenReturn(List.of(pessoaServico(servicoCulto.getId())));
+        voluntariosAtivos(servicoCulto.getId(), List.of(pessoaServico(servicoCulto.getId())));
         when(escalaRepository.save(any(Escala.class))).thenAnswer(inv -> {
             Escala e = inv.getArgument(0);
             e.setId(escalaId);
@@ -408,8 +410,7 @@ class EscalaAutomacaoServiceTest {
                 .thenReturn(Optional.empty());
         when(servicoRepository.findByMinisterioIdInAndAtivoTrueOrderByNomeAsc(anyList()))
                 .thenReturn(List.of(servicoCulto));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoCulto.getId()))
-                .thenReturn(List.of(pessoaServico(servicoCulto.getId())));
+        voluntariosAtivos(servicoCulto.getId(), List.of(pessoaServico(servicoCulto.getId())));
         when(escalaRepository.save(any(Escala.class))).thenAnswer(inv -> {
             Escala e = inv.getArgument(0);
             e.setId(escalaId);
@@ -510,5 +511,10 @@ class EscalaAutomacaoServiceTest {
         escala.setIgrejaId(igrejaId);
         escala.setAtivo(true);
         return escala;
+    }
+
+    private void voluntariosAtivos(UUID servicoId, List<PessoaServico> vinculos) {
+        vinculos.forEach(v -> v.setServicoId(servicoId));
+        voluntariosPorServico.put(servicoId, vinculos);
     }
 }

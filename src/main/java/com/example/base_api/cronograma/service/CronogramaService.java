@@ -25,6 +25,7 @@ import com.example.base_api.escala.repository.EscalaServicoRepository;
 import com.example.base_api.escala.repository.EscalaVoluntarioRepository;
 import com.example.base_api.escala.repository.TotalPorEscala;
 import com.example.base_api.escala.service.GeracaoEscalaService;
+import com.example.base_api.escala.service.NecessidadeEscalaService;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.service.IgrejaContextoService;
 import com.example.base_api.ministerio.entity.Ministerio;
@@ -60,11 +61,11 @@ public class CronogramaService {
     private final PessoaRepository pessoaRepository;
     private final MinisterioRepository ministerioRepository;
     private final ServicoRepository servicoRepository;
-    private final PessoaServicoRepository pessoaServicoRepository;
     private final EscalaRepository escalaRepository;
     private final EscalaServicoRepository escalaServicoRepository;
     private final EscalaVoluntarioRepository escalaVoluntarioRepository;
     private final GeracaoEscalaService geracaoEscalaService;
+    private final NecessidadeEscalaService necessidadeEscalaService;
 
     public CronogramaService(
             CronogramaEventoRepository repository,
@@ -75,11 +76,11 @@ public class CronogramaService {
             PessoaRepository pessoaRepository,
             MinisterioRepository ministerioRepository,
             ServicoRepository servicoRepository,
-            PessoaServicoRepository pessoaServicoRepository,
             EscalaRepository escalaRepository,
             EscalaServicoRepository escalaServicoRepository,
             EscalaVoluntarioRepository escalaVoluntarioRepository,
-            GeracaoEscalaService geracaoEscalaService
+            GeracaoEscalaService geracaoEscalaService,
+            NecessidadeEscalaService necessidadeEscalaService
     ) {
         this.repository = repository;
         this.conteudoRepository = conteudoRepository;
@@ -89,11 +90,11 @@ public class CronogramaService {
         this.pessoaRepository = pessoaRepository;
         this.ministerioRepository = ministerioRepository;
         this.servicoRepository = servicoRepository;
-        this.pessoaServicoRepository = pessoaServicoRepository;
         this.escalaRepository = escalaRepository;
         this.escalaServicoRepository = escalaServicoRepository;
         this.escalaVoluntarioRepository = escalaVoluntarioRepository;
         this.geracaoEscalaService = geracaoEscalaService;
+        this.necessidadeEscalaService = necessidadeEscalaService;
     }
 
     @Transactional(readOnly = true)
@@ -312,13 +313,9 @@ public class CronogramaService {
         if (escalaRepository.findByEventoIdAndMinisterioId(evento.getId(), ministerio.getId()).isPresent()) {
             return;
         }
-        List<Servico> servicos = servicoRepository.findByMinisterioIdOrderByNomeAsc(ministerio.getId())
-                .stream()
-                .filter(s -> Boolean.TRUE.equals(s.getAtivo()))
-                .filter(s -> !Boolean.TRUE.equals(s.getFiccao()))
-                .filter(this::temVoluntario)
-                .toList();
-        if (servicos.isEmpty()) {
+        List<UUID> servicoIds = necessidadeEscalaService.servicosElegiveis(
+                servicoRepository.findByMinisterioIdOrderByNomeAsc(ministerio.getId()));
+        if (servicoIds.isEmpty()) {
             return;
         }
 
@@ -340,23 +337,13 @@ public class CronogramaService {
         escala.setStatus(StatusEscala.SUGERIDA);
 
         Escala salva = escalaRepository.save(escala);
-        for (Servico servico : servicos) {
-            EscalaServico necessidade = new EscalaServico();
-            necessidade.setEscalaId(salva.getId());
-            necessidade.setServicoId(servico.getId());
-            necessidade.setQuantidadeNecessaria(1);
-            escalaServicoRepository.save(necessidade);
-        }
+        necessidadeEscalaService.criarNecessidades(salva, servicoIds);
         geracaoEscalaService.gerarParaEvento(salva, evento);
     }
 
     private String tituloEscalaDoEvento(Ministerio ministerio, CronogramaEvento evento) {
         String titulo = ministerio.getNome() + " — " + evento.getTitulo();
         return titulo.length() <= 200 ? titulo : titulo.substring(0, 200);
-    }
-
-    private boolean temVoluntario(Servico servico) {
-        return !pessoaServicoRepository.findByServicoIdAndAtivoTrue(servico.getId()).isEmpty();
     }
 
     private Ministerio garantirMinisterioDaIgreja(UUID ministerioId, UUID igrejaId) {

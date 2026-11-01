@@ -24,6 +24,7 @@ import com.example.base_api.escala.repository.EscalaServicoRepository;
 import com.example.base_api.escala.repository.EscalaVoluntarioRepository;
 import com.example.base_api.escala.repository.TotalPorEscala;
 import com.example.base_api.escala.service.GeracaoEscalaService;
+import com.example.base_api.escala.service.NecessidadeEscalaService;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.service.IgrejaContextoService;
 import com.example.base_api.ministerio.entity.Ministerio;
@@ -36,6 +37,7 @@ import com.example.base_api.servico.repository.ServicoRepository;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.voluntario.entity.PessoaServico;
 import com.example.base_api.voluntario.repository.PessoaServicoRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -48,6 +50,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,8 +59,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -93,8 +98,20 @@ class CronogramaServiceTest {
     @Mock
     private GeracaoEscalaService geracaoEscalaService;
 
-    @InjectMocks
     private CronogramaService cronogramaService;
+
+    /** Voluntários ativos por serviço, devolvidos pela consulta em lote de pessoaServicoRepository. */
+    private final Map<UUID, List<PessoaServico>> voluntariosPorServico = new HashMap<>();
+
+    @BeforeEach
+    void montarServico() {
+        voluntariosPorServico.clear();
+        lenient().when(pessoaServicoRepository.findByServicoIdInAndAtivoTrue(anyList())).thenAnswer(invocation -> {
+            List<UUID> ids = invocation.getArgument(0);
+            return ids.stream().flatMap(id -> voluntariosPorServico.getOrDefault(id, List.of()).stream()).toList();
+        });
+        cronogramaService = new CronogramaService(repository, conteudoRepository, eventoMinisterioRepository, igrejaContextoService, autorizacaoService, pessoaRepository, ministerioRepository, servicoRepository, escalaRepository, escalaServicoRepository, escalaVoluntarioRepository, geracaoEscalaService, new NecessidadeEscalaService(pessoaServicoRepository, escalaServicoRepository));
+    }
 
     @Test
     void deveCriarEventoNoCronograma() {
@@ -176,7 +193,7 @@ class CronogramaServiceTest {
         when(eventoMinisterioRepository.findByEventoIdAndMinisterioId(any(), eq(ministerioId)))
                 .thenReturn(Optional.empty());
         when(servicoRepository.findByMinisterioIdOrderByNomeAsc(ministerioId)).thenReturn(List.of(servico));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoId)).thenReturn(List.of(vinculo));
+        voluntariosAtivos(servicoId, List.of(vinculo));
         when(escalaRepository.findByEventoIdAndMinisterioId(any(), eq(ministerioId))).thenReturn(Optional.empty());
         when(escalaRepository.save(any(Escala.class))).thenAnswer(invocation -> {
             Escala e = invocation.getArgument(0);
@@ -623,7 +640,7 @@ class CronogramaServiceTest {
                 .thenReturn(Optional.empty());
         when(escalaRepository.findByEventoIdAndMinisterioId(any(), eq(ministerioId))).thenReturn(Optional.empty());
         when(servicoRepository.findByMinisterioIdOrderByNomeAsc(ministerioId)).thenReturn(List.of(servico));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoId)).thenReturn(List.of());
+        voluntariosAtivos(servicoId, List.of());
 
         cronogramaService.criar(new CronogramaEventoCreateRequest(
                 "Show de Natal", null, TipoEvento.EVENTO, null,
@@ -1015,5 +1032,10 @@ class CronogramaServiceTest {
 
     private static UUID primeiroId(Collection<UUID> ids) {
         return ids.iterator().next();
+    }
+
+    private void voluntariosAtivos(UUID servicoId, List<PessoaServico> vinculos) {
+        vinculos.forEach(v -> v.setServicoId(servicoId));
+        voluntariosPorServico.put(servicoId, vinculos);
     }
 }
