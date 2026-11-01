@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,9 +36,9 @@ public class PapelController {
     }
 
     @GetMapping
-    @Operation(summary = "Listar papéis")
-    public List<PapelResponse> listar() {
-        return papelService.listar();
+    @Operation(summary = "Listar papéis de sistema + customizados da igreja (padrão: igreja atual)")
+    public List<PapelResponse> listar(@RequestParam(required = false) UUID igrejaId) {
+        return papelService.listar(igrejaId);
     }
 
     @GetMapping("/{id}")

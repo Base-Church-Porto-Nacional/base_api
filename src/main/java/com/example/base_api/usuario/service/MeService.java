@@ -63,6 +63,10 @@ public class MeService {
 
         usuario.setEmail(request.email().trim().toLowerCase());
         if (request.novaSenha() != null && !request.novaSenha().isBlank()) {
+            if (request.senhaAtual() == null || request.senhaAtual().isBlank()
+                    || !passwordEncoder.matches(request.senhaAtual(), usuario.getSenhaHash())) {
+                throw new BusinessException("Senha atual incorreta");
+            }
             usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
             usuario.invalidarTokens();
         }

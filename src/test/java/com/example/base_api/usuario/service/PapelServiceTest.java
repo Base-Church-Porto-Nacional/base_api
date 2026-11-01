@@ -57,7 +57,7 @@ class PapelServiceTest {
 
         when(papelRepository.findById(id)).thenReturn(Optional.of(pastor));
 
-        assertThatThrownBy(() -> papelService.atualizar(id, new PapelRequest("LOUVOR", "novo", null)))
+        assertThatThrownBy(() -> papelService.atualizar(id, new PapelRequest("LOUVOR", "novo", null, null)))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("sistema");
         verify(papelRepository, never()).save(pastor);
@@ -70,7 +70,7 @@ class PapelServiceTest {
         when(papelRepository.save(org.mockito.ArgumentMatchers.any(Papel.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PapelResponse response = papelService.criar(new PapelRequest(" contador ", "Conta o culto", true));
+        PapelResponse response = papelService.criar(new PapelRequest(" contador ", "Conta o culto", true, null));
 
         assertThat(response.nome()).isEqualTo("CONTADOR");
         assertThat(response.podeLancarContagem()).isTrue();
@@ -84,8 +84,42 @@ class PapelServiceTest {
         when(papelRepository.save(org.mockito.ArgumentMatchers.any(Papel.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PapelResponse response = papelService.criar(new PapelRequest("RECEPCAO", null, null));
+        PapelResponse response = papelService.criar(new PapelRequest("RECEPCAO", null, null, null));
 
         assertThat(response.podeLancarContagem()).isFalse();
+    }
+
+    @Test
+    void matrizCriaPapelNaIgrejaInformada() {
+        UUID filialId = UUID.randomUUID();
+        when(papelRepository.save(org.mockito.ArgumentMatchers.any(Papel.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PapelResponse response = papelService.criar(new PapelRequest("CONTADOR", null, true, filialId));
+
+        assertThat(response.igrejaId()).isEqualTo(filialId);
+        verify(autorizacaoService).assertPastorOuAdmin(filialId);
+        verify(autorizacaoService, never()).igrejaAtualId();
+    }
+
+    @Test
+    void naoCriaPapelDuplicadoNaMesmaIgreja() {
+        UUID igrejaId = UUID.randomUUID();
+        when(papelRepository.existsByNomeAndIgrejaId("CONTADOR", igrejaId)).thenReturn(true);
+
+        assertThatThrownBy(() -> papelService.criar(new PapelRequest("contador", null, true, igrejaId)))
+                .isInstanceOf(com.example.base_api.common.exception.ConflictException.class);
+        verify(papelRepository, never()).save(org.mockito.ArgumentMatchers.any(Papel.class));
+    }
+
+    @Test
+    void listarDeOutraIgrejaVerificaAcesso() {
+        UUID filialId = UUID.randomUUID();
+        when(papelRepository.findByIgrejaIdIsNullOrIgrejaId(filialId)).thenReturn(java.util.List.of());
+
+        papelService.listar(filialId);
+
+        verify(autorizacaoService).assertAcesso(filialId);
+        verify(papelRepository).findByIgrejaIdIsNullOrIgrejaId(filialId);
     }
 }

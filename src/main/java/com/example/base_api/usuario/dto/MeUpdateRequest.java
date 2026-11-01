@@ -26,6 +26,9 @@ public record MeUpdateRequest(
         String observacoes,
 
         @Size(min = 6, max = 100, message = "Senha deve ter entre 6 e 100 caracteres")
-        String novaSenha
+        String novaSenha,
+
+        /** Obrigatória quando novaSenha é informada. */
+        String senhaAtual
 ) {
 }
