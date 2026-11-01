@@ -15,7 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class ServicoService {
@@ -92,6 +95,17 @@ public class ServicoService {
         Servico servico = buscarEntidade(id);
         autorizacaoService.assertPodeGerenciarMinisterio(ministerioService.buscarEntidade(servico.getMinisterioId()));
         servicoRepository.delete(servico);
+    }
+
+    /** Serviços por id, numa única consulta (ids nulos são ignorados). */
+    @Transactional(readOnly = true)
+    public Map<UUID, Servico> buscarPorIds(Collection<UUID> ids) {
+        List<UUID> validos = ids.stream().filter(Objects::nonNull).distinct().toList();
+        if (validos.isEmpty()) {
+            return Map.of();
+        }
+        return servicoRepository.findAllById(validos).stream()
+                .collect(Collectors.toMap(Servico::getId, Function.identity()));
     }
 
     /** Nomes dos serviços por id, numa única consulta (ids nulos são ignorados). */

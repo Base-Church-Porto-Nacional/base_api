@@ -20,6 +20,7 @@ import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -134,6 +135,17 @@ public class MinisterioService {
             servicoRepository.deleteByMinisterioId(id);
         }
         ministerioRepository.delete(ministerio);
+    }
+
+    /** Nomes dos ministérios por id, numa única consulta (ids nulos são ignorados). */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> nomesPorId(Collection<UUID> ids) {
+        List<UUID> validos = ids.stream().filter(Objects::nonNull).distinct().toList();
+        if (validos.isEmpty()) {
+            return Map.of();
+        }
+        return ministerioRepository.findAllById(validos).stream()
+                .collect(Collectors.toMap(Ministerio::getId, Ministerio::getNome));
     }
 
     @Transactional(readOnly = true)

@@ -2,6 +2,7 @@ package com.example.base_api.usuario.service;
 
 import com.example.base_api.audit.service.AuditService;
 import com.example.base_api.common.exception.BusinessException;
+import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.repository.IgrejaRepository;
 import com.example.base_api.pessoa.service.PessoaService;
 import com.example.base_api.security.AutorizacaoService;
@@ -24,6 +25,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -33,6 +36,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -176,5 +181,36 @@ class UsuarioServiceTest {
         assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
                 null, "ana", "ana@email.com", "senha123", Set.of("CONTADOR"), igrejaId
         ))).isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void listarBuscaNomesDePessoasEIgrejasEmLote() {
+        UUID igrejaId = UUID.randomUUID();
+        Igreja igreja = new Igreja();
+        igreja.setId(igrejaId);
+        igreja.setNome("Sede");
+        UUID pessoaA = UUID.randomUUID();
+        Usuario comPessoa = new Usuario();
+        comPessoa.setId(UUID.randomUUID());
+        comPessoa.setUsername("ana");
+        comPessoa.setPessoaId(pessoaA);
+        comPessoa.setIgrejaId(igrejaId);
+        Usuario semPessoa = new Usuario();
+        semPessoa.setId(UUID.randomUUID());
+        semPessoa.setUsername("sistema");
+        semPessoa.setIgrejaId(igrejaId);
+
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
+        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(true);
+        when(usuarioRepository.findByIgrejaIdIn(List.of(igrejaId))).thenReturn(List.of(comPessoa, semPessoa));
+        when(pessoaService.nomesPorId(any())).thenReturn(Map.of(pessoaA, "Ana"));
+        when(igrejaRepository.findAllById(any())).thenReturn(List.of(igreja));
+
+        List<UsuarioResponse> lista = usuarioService.listar(igrejaId);
+
+        assertThat(lista).extracting(UsuarioResponse::pessoaNome).containsExactly("Ana", null);
+        assertThat(lista).extracting(UsuarioResponse::igrejaNome).containsExactly("Sede", "Sede");
+        verify(pessoaService, never()).buscarEntidade(any());
+        verify(igrejaRepository, never()).findById(any());
     }
 }
