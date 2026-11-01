@@ -18,7 +18,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Collection;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class JornadaService {
@@ -41,6 +44,15 @@ public class JornadaService {
         this.pessoaJornadaEtapaRepository = pessoaJornadaEtapaRepository;
         this.pessoaRepository = pessoaRepository;
         this.autorizacaoService = autorizacaoService;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<UUID, JornadaMembro> buscarPorPessoas(Collection<UUID> pessoaIds) {
+        if (pessoaIds.isEmpty()) {
+            return Map.of();
+        }
+        return jornadaMembroRepository.findByPessoaIdIn(List.copyOf(pessoaIds)).stream()
+                .collect(Collectors.toMap(JornadaMembro::getPessoaId, j -> j, (a, b) -> a));
     }
 
     @Transactional
@@ -79,8 +91,18 @@ public class JornadaService {
     @Transactional(readOnly = true)
     public List<PessoaEtapaResponse> listarEtapasDaPessoa(UUID pessoaId) {
         exigirLeitura(pessoaId);
-        return pessoaJornadaEtapaRepository.findByPessoaId(pessoaId).stream()
-                .map(this::toEtapaResponse)
+        List<PessoaJornadaEtapa> registros = pessoaJornadaEtapaRepository.findByPessoaId(pessoaId);
+        Map<UUID, JornadaEtapaCatalogo> etapas = etapaCatalogoRepository
+                .findAllById(registros.stream().map(PessoaJornadaEtapa::getEtapaId).distinct().toList()).stream()
+                .collect(Collectors.toMap(JornadaEtapaCatalogo::getId, e -> e));
+        return registros.stream()
+                .map(registro -> {
+                    JornadaEtapaCatalogo etapa = etapas.get(registro.getEtapaId());
+                    if (etapa == null) {
+                        throw new ResourceNotFoundException("Etapa da jornada não encontrada");
+                    }
+                    return toEtapaResponse(registro, etapa);
+                })
                 .toList();
     }
 
@@ -103,7 +125,7 @@ public class JornadaService {
         registro.setDataConclusao(request.dataConclusao());
         registro.setObservacoes(request.observacoes());
 
-        return toEtapaResponse(pessoaJornadaEtapaRepository.save(registro));
+        return toEtapaResponse(pessoaJornadaEtapaRepository.save(registro), etapa);
     }
 
     @Transactional
@@ -155,9 +177,7 @@ public class JornadaService {
         );
     }
 
-    private PessoaEtapaResponse toEtapaResponse(PessoaJornadaEtapa registro) {
-        JornadaEtapaCatalogo etapa = etapaCatalogoRepository.findById(registro.getEtapaId())
-                .orElseThrow(() -> new ResourceNotFoundException("Etapa da jornada não encontrada"));
+    private PessoaEtapaResponse toEtapaResponse(PessoaJornadaEtapa registro, JornadaEtapaCatalogo etapa) {
         return new PessoaEtapaResponse(
                 registro.getId(),
                 registro.getPessoaId(),

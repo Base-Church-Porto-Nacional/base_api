@@ -4,6 +4,7 @@ import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.common.exception.UnauthorizedException;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.repository.IgrejaRepository;
+import com.example.base_api.security.UsuarioAutenticado;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.repository.UsuarioRepository;
 import org.springframework.security.access.AccessDeniedException;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -36,16 +38,15 @@ public class IgrejaContextoService {
                 || "anonymousUser".equals(authentication.getName())) {
             throw new UnauthorizedException("Usuário não autenticado");
         }
-        return usuarioRepository.findByUsername(authentication.getName())
-                .orElseThrow(() -> new UnauthorizedException("Usuário autenticado não encontrado"));
+        // Por id, a consulta é servida pelo cache da sessão JPA dentro da mesma transação.
+        Optional<Usuario> usuario = authentication.getPrincipal() instanceof UsuarioAutenticado principal
+                ? usuarioRepository.findById(principal.getUsuarioId())
+                : usuarioRepository.findByUsername(authentication.getName());
+        return usuario.orElseThrow(() -> new UnauthorizedException("Usuário autenticado não encontrado"));
     }
 
     public Igreja igrejaAtual() {
-        Usuario usuario = requireUsuario();
-        if (usuario.getIgrejaId() == null) {
-            throw new AccessDeniedException("Igreja obrigatória no contexto");
-        }
-        return buscarIgreja(usuario.getIgrejaId());
+        return igrejaAtual(requireUsuario());
     }
 
     public UUID igrejaAtualId() {
@@ -53,38 +54,21 @@ public class IgrejaContextoService {
     }
 
     public List<Igreja> igrejasVisiveis() {
-        Igreja igreja = igrejaAtual();
-        if (igreja.isMatriz()) {
-            List<Igreja> rede = new ArrayList<>();
-            rede.add(igreja);
-            rede.addAll(igrejaRepository.findByIgrejaMatrizIdOrderByNomeAsc(igreja.getId()));
-            return rede;
-        }
-        return List.of(igreja);
+        return igrejasVisiveis(igrejaAtual());
     }
 
     public List<UUID> igrejasVisiveisIds() {
-        return igrejasVisiveis().stream().map(Igreja::getId).toList();
+        return ids(igrejasVisiveis());
     }
 
     public void assertAcesso(UUID igrejaId) {
-        requireUsuario();
-        if (igrejaId == null) {
-            throw new AccessDeniedException("Igreja obrigatória no contexto");
-        }
-        if (!igrejasVisiveisIds().contains(igrejaId)) {
-            throw new AccessDeniedException("Sem acesso a esta igreja");
-        }
+        assertAcesso(requireUsuario(), igrejaId);
     }
 
     public List<UUID> idsParaListagem(UUID igrejaIdSolicitado) {
         if (igrejaIdSolicitado != null) {
             assertAcesso(igrejaIdSolicitado);
             return List.of(igrejaIdSolicitado);
-        }
-        Igreja atual = igrejaAtual();
-        if (!atual.isMatriz()) {
-            return List.of(atual.getId());
         }
         return igrejasVisiveisIds();
     }
@@ -108,38 +92,62 @@ public class IgrejaContextoService {
     }
 
     public boolean isPastorOuAdmin(UUID igrejaId) {
-        Set<String> papeis = papeisNaIgreja(igrejaId);
-        return papeis.contains("ADMIN") || papeis.contains("PASTOR");
-    }
-
-    public boolean isPastorOuAdmin() {
-        return isPastorOuAdmin(igrejaAtualId());
+        return isPastorOuAdmin(requireUsuario(), igrejaId);
     }
 
     public boolean isMatriz() {
         return igrejaAtual().isMatriz();
     }
 
-    public boolean temPapel(String papel) {
-        return temPapel(igrejaAtualId(), papel);
-    }
-
-    public boolean temPapel(UUID igrejaId, String papel) {
-        return papeisNaIgreja(igrejaId).contains(papel);
-    }
-
     public void assertPastorOuAdmin(UUID igrejaId) {
-        assertAcesso(igrejaId);
-        if (!isPastorOuAdmin(igrejaId)) {
+        Usuario usuario = requireUsuario();
+        assertAcesso(usuario, igrejaId);
+        if (!isPastorOuAdmin(usuario, igrejaId)) {
             throw new AccessDeniedException("Somente pastor ou admin desta igreja");
         }
     }
 
     public void assertMatrizPastorOuAdmin() {
-        Igreja atual = igrejaAtual();
-        if (!atual.isMatriz() || !isPastorOuAdmin(atual.getId())) {
+        Usuario usuario = requireUsuario();
+        Igreja atual = igrejaAtual(usuario);
+        if (!atual.isMatriz() || !isPastorOuAdmin(usuario, atual.getId())) {
             throw new AccessDeniedException("Somente pastor ou admin da matriz");
         }
+    }
+
+    private Igreja igrejaAtual(Usuario usuario) {
+        if (usuario.getIgrejaId() == null) {
+            throw new AccessDeniedException("Igreja obrigatória no contexto");
+        }
+        return buscarIgreja(usuario.getIgrejaId());
+    }
+
+    private List<Igreja> igrejasVisiveis(Igreja atual) {
+        if (!atual.isMatriz()) {
+            return List.of(atual);
+        }
+        List<Igreja> rede = new ArrayList<>();
+        rede.add(atual);
+        rede.addAll(igrejaRepository.findByIgrejaMatrizIdOrderByNomeAsc(atual.getId()));
+        return rede;
+    }
+
+    private void assertAcesso(Usuario usuario, UUID igrejaId) {
+        if (igrejaId == null) {
+            throw new AccessDeniedException("Igreja obrigatória no contexto");
+        }
+        if (!ids(igrejasVisiveis(igrejaAtual(usuario))).contains(igrejaId)) {
+            throw new AccessDeniedException("Sem acesso a esta igreja");
+        }
+    }
+
+    private boolean isPastorOuAdmin(Usuario usuario, UUID igrejaId) {
+        Set<String> papeis = papeisNaIgreja(usuario, igrejaId);
+        return papeis.contains("ADMIN") || papeis.contains("PASTOR");
+    }
+
+    private static List<UUID> ids(List<Igreja> igrejas) {
+        return igrejas.stream().map(Igreja::getId).toList();
     }
 
     public Igreja buscarIgreja(UUID id) {

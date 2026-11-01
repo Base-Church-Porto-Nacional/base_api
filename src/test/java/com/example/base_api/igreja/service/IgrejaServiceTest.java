@@ -22,12 +22,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -82,8 +86,8 @@ class IgrejaServiceTest {
         admin.setUsername("admin");
         admin.setPessoaId(pastorId);
 
-        when(pessoaRepository.findById(pastorId)).thenReturn(Optional.of(pastor));
-        when(usuarioRepository.findById(adminId)).thenReturn(Optional.of(admin));
+        when(usuarioRepository.findAllById(List.of(adminId))).thenReturn(List.of(admin));
+        when(pessoaRepository.nomesPorId(any())).thenReturn(Map.of(pastorId, pastor.getNome()));
 
         IgrejaResponse response = igrejaService.toResponse(igreja);
 
@@ -119,6 +123,49 @@ class IgrejaServiceTest {
         igreja.setAtivo(true);
         igreja.setCreatedAt(Instant.now());
         igreja.setUpdatedAt(Instant.now());
+        return igreja;
+    }
+
+    @Test
+    void listarVisiveisBuscaPastoresEAdminsEmLote() {
+        Pessoa pastora = new Pessoa();
+        pastora.setId(UUID.randomUUID());
+        pastora.setNome("Pra. Ana");
+        Pessoa adminPessoa = new Pessoa();
+        adminPessoa.setId(UUID.randomUUID());
+        adminPessoa.setNome("Bruno");
+        Usuario admin = new Usuario();
+        admin.setId(UUID.randomUUID());
+        admin.setUsername("bruno");
+        admin.setPessoaId(adminPessoa.getId());
+        Usuario adminSemPessoa = new Usuario();
+        adminSemPessoa.setId(UUID.randomUUID());
+        adminSemPessoa.setUsername("sistema");
+        Igreja sede = igrejaDeTeste("Sede");
+        sede.setPastorPessoaId(pastora.getId());
+        sede.setAdminUsuarioId(admin.getId());
+        Igreja filial = igrejaDeTeste("Filial");
+        filial.setAdminUsuarioId(adminSemPessoa.getId());
+
+        when(igrejaContextoService.igrejasVisiveis()).thenReturn(List.of(sede, filial));
+        when(usuarioRepository.findAllById(any())).thenReturn(List.of(admin, adminSemPessoa));
+        when(pessoaRepository.nomesPorId(any()))
+                .thenReturn(Map.of(pastora.getId(), "Pra. Ana", adminPessoa.getId(), "Bruno"));
+
+        List<IgrejaResponse> igrejas = igrejaService.listarVisiveis();
+
+        assertThat(igrejas).extracting(IgrejaResponse::pastorNome).containsExactly("Pra. Ana", null);
+        assertThat(igrejas).extracting(IgrejaResponse::adminNome).containsExactly("Bruno", "sistema");
+        verify(pessoaRepository, never()).findById(any());
+        verify(usuarioRepository, never()).findById(any());
+    }
+
+    private Igreja igrejaDeTeste(String nome) {
+        Igreja igreja = new Igreja();
+        igreja.setId(UUID.randomUUID());
+        igreja.setNome(nome);
+        igreja.setTipo(IgrejaTipo.FILIAL);
+        igreja.setAtivo(true);
         return igreja;
     }
 }

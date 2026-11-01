@@ -1,6 +1,9 @@
 package com.example.base_api.jornada.service;
 
 import com.example.base_api.jornada.dto.JornadaUpdateRequest;
+import com.example.base_api.jornada.dto.PessoaEtapaResponse;
+import com.example.base_api.jornada.entity.JornadaEtapaCatalogo;
+import com.example.base_api.jornada.entity.PessoaJornadaEtapa;
 import com.example.base_api.jornada.repository.JornadaEtapaCatalogoRepository;
 import com.example.base_api.jornada.repository.JornadaMembroRepository;
 import com.example.base_api.jornada.repository.PessoaJornadaEtapaRepository;
@@ -14,10 +17,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -59,5 +65,40 @@ class JornadaServiceTest {
         assertThatThrownBy(() -> jornadaService.atualizar(pessoaId, request))
                 .isInstanceOf(AccessDeniedException.class);
         verify(jornadaMembroRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void listarEtapasCarregaOCatalogoNumaUnicaConsulta() {
+        UUID pessoaId = UUID.randomUUID();
+        Pessoa pessoa = new Pessoa();
+        pessoa.setId(pessoaId);
+        pessoa.setIgrejaId(UUID.randomUUID());
+        JornadaEtapaCatalogo batismo = etapa("BATISMO", "Batismo");
+        JornadaEtapaCatalogo trilha = etapa("TRILHA", "Trilha base");
+        when(pessoaRepository.findById(pessoaId)).thenReturn(Optional.of(pessoa));
+        when(pessoaJornadaEtapaRepository.findByPessoaId(pessoaId))
+                .thenReturn(List.of(registro(pessoaId, batismo), registro(pessoaId, trilha)));
+        when(etapaCatalogoRepository.findAllById(any())).thenReturn(List.of(batismo, trilha));
+
+        List<PessoaEtapaResponse> etapas = jornadaService.listarEtapasDaPessoa(pessoaId);
+
+        assertThat(etapas).extracting(PessoaEtapaResponse::etapaNome).containsExactly("Batismo", "Trilha base");
+        verify(etapaCatalogoRepository, never()).findById(any());
+    }
+
+    private JornadaEtapaCatalogo etapa(String codigo, String nome) {
+        JornadaEtapaCatalogo etapa = new JornadaEtapaCatalogo();
+        etapa.setId(UUID.randomUUID());
+        etapa.setCodigo(codigo);
+        etapa.setNome(nome);
+        return etapa;
+    }
+
+    private PessoaJornadaEtapa registro(UUID pessoaId, JornadaEtapaCatalogo etapa) {
+        PessoaJornadaEtapa registro = new PessoaJornadaEtapa();
+        registro.setId(UUID.randomUUID());
+        registro.setPessoaId(pessoaId);
+        registro.setEtapaId(etapa.getId());
+        return registro;
     }
 }

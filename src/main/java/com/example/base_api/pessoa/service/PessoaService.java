@@ -2,6 +2,7 @@ package com.example.base_api.pessoa.service;
 
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
+import com.example.base_api.jornada.entity.JornadaMembro;
 import com.example.base_api.jornada.service.JornadaService;
 import com.example.base_api.pessoa.dto.PessoaCreateRequest;
 import com.example.base_api.pessoa.dto.PessoaResponse;
@@ -15,9 +16,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
+
+import static com.example.base_api.common.util.Textos.blankToNull;
 
 @Service
 public class PessoaService {
@@ -45,9 +51,18 @@ public class PessoaService {
         if (ids.isEmpty()) {
             return List.of();
         }
-        return pessoaRepository.findByIgrejaIdInOrderByNomeAsc(ids).stream()
-                .filter(autorizacaoService::podeIncluirPessoaNaListagem)
-                .map(this::toResponse)
+        List<Pessoa> pessoas = autorizacaoService.filtrarVisiveisNaListagem(
+                pessoaRepository.findByIgrejaIdInOrderByNomeAsc(ids));
+        if (pessoas.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, Usuario> usuarios = usuarioRepository
+                .findByPessoaIdIn(pessoas.stream().map(Pessoa::getId).toList()).stream()
+                .collect(Collectors.toMap(Usuario::getPessoaId, u -> u, (a, b) -> a));
+        Map<UUID, JornadaMembro> jornadas = jornadaService.buscarPorPessoas(
+                pessoas.stream().map(Pessoa::getId).toList());
+        return pessoas.stream()
+                .map(p -> toResponse(p, usuarios.get(p.getId()), jornadas.get(p.getId())))
                 .toList();
     }
 
@@ -126,8 +141,21 @@ public class PessoaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Pessoa não encontrada"));
     }
 
+    /** Nomes das pessoas por id, numa única consulta (ids nulos são ignorados). */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> nomesPorId(Collection<UUID> ids) {
+        return pessoaRepository.nomesPorId(ids);
+    }
+
     public PessoaResponse toResponse(Pessoa pessoa) {
-        Usuario usuario = usuarioRepository.findByPessoaId(pessoa.getId()).orElse(null);
+        return toResponse(
+                pessoa,
+                usuarioRepository.findByPessoaId(pessoa.getId()).orElse(null),
+                jornadaService.buscarPorPessoas(List.of(pessoa.getId())).get(pessoa.getId())
+        );
+    }
+
+    private PessoaResponse toResponse(Pessoa pessoa, Usuario usuario, JornadaMembro jornada) {
         Set<String> papeis = usuario == null
                 ? Set.of()
                 : usuario.nomesPapeis(pessoa.getIgrejaId());
@@ -146,14 +174,10 @@ public class PessoaService {
                 usuario != null ? usuario.getId() : null,
                 papeis,
                 pessoa.getCreatedAt(),
-                pessoa.getUpdatedAt()
+                pessoa.getUpdatedAt(),
+                jornada != null ? jornada.getAceitouJesus() : null,
+                jornada != null ? jornada.getBatizado() : null,
+                jornada != null ? jornada.getConcluiuTrilhaBase() : null
         );
-    }
-
-    private String blankToNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
     }
 }

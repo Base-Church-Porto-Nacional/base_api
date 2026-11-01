@@ -1,6 +1,7 @@
 package com.example.base_api.smallgroup.entity;
 
 import com.example.base_api.common.entity.AuditableEntity;
+import com.example.base_api.common.entity.DiaSemana;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

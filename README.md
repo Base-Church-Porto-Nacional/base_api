@@ -2,7 +2,7 @@
 
 API REST para gestão de pessoas, jornada de membros, ministérios, voluntários, disponibilidade e escalas.
 
-O frontend (React + TypeScript) será desenvolvido em repositório separado.
+O frontend é um app Flutter (iOS, Android e Web) em repositório separado (`base_interface`).
 
 ## Tecnologias
 
@@ -125,7 +125,7 @@ Swagger: http://localhost:8080/swagger-ui.html
 
 ### Usuários iniciais
 
-Na primeira execução são criados (senha `admin123`):
+Com o perfil `dev`, na primeira execução são criados (senha `admin123`):
 
 | Username | Perfil |
 |----------|--------|
@@ -137,7 +137,13 @@ Na primeira execução são criados (senha `admin123`):
 | `membro` | Voluntária |
 | `pedro` | Pastor da filial |
 
-Altere as senhas em produção.
+### Produção: primeiro administrador
+
+Fora do perfil `dev` não há seed. Na primeira subida com banco vazio, defina `ADMIN_USERNAME`, `ADMIN_EMAIL` e `ADMIN_SENHA` (mín. 8 caracteres; `ADMIN_NOME` é opcional): a API cria esse usuário com os papéis `ADMIN` + `PASTOR` na igreja matriz. Se já existir qualquer usuário, as variáveis são ignoradas — remova `ADMIN_SENHA` do ambiente após o primeiro login.
+
+Health check para o orquestrador: `GET /actuator/health` (também `/actuator/health/liveness` e `/readiness`). Atrás de proxy reverso mantenha `FORWARD_HEADERS_STRATEGY=NATIVE`; sem proxy, use `NONE`.
+
+`PUT /api/me` exige `senhaAtual` quando `novaSenha` é informada.
 
 ### Login
 
@@ -238,4 +244,4 @@ docker compose up --build
 ## Observações
 
 - Não implemente/espere ainda o algoritmo completo de geração automática de escalas.
-- Frontend React não faz parte deste repositório.
+- O frontend Flutter (`base_interface`) não faz parte deste repositório.

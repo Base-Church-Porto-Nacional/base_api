@@ -1,0 +1,92 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-igreja_db}
+      POSTGRES_USER: ${DB_USER:-igreja}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD}
+      TZ: America/Sao_Paulo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: any
+
+  api:
+    image: ${API_IMAGE:-ghcr.io/base-church-porto-nacional/base_api:latest}
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-igreja_db}
+      DB_USER: ${DB_USER:-igreja}
+      DB_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-14400000}
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: prod
+      FORWARD_HEADERS_STRATEGY: NATIVE
+      CORS_ALLOWED_ORIGIN_PATTERNS: ${CORS_ALLOWED_ORIGIN_PATTERNS:-https://base.veigagustavo.com.br}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_SENHA: ${ADMIN_SENHA:-}
+      ADMIN_NOME: ${ADMIN_NOME:-}
+      TZ: ${APP_TIMEZONE:-America/Sao_Paulo}
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Sao_Paulo}
+      MESSAGE_ANIVERSARIO_ATIVO: ${MESSAGE_ANIVERSARIO_ATIVO:-true}
+      MESSAGE_ANIVERSARIO_CRON: ${MESSAGE_ANIVERSARIO_CRON:-0 0 12 * * *}
+      WHATSAPP_HABILITADO: ${WHATSAPP_HABILITADO:-false}
+      WHATSAPP_URL_BASE: ${WHATSAPP_URL_BASE:-}
+      WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
+      WHATSAPP_INSTANCIA: ${WHATSAPP_INSTANCIA:-}
+      WHATSAPP_DELAY_MS: ${WHATSAPP_DELAY_MS:-1200}
+      RABBIT_HABILITADO: "false"
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
+    networks:
+      - internal
+      - proxy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    deploy:
+      replicas: 1
+      update_config:
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: any
+        delay: 10s
+      resources:
+        limits:
+          memory: 768M
+      labels:
+        traefik.enable: "true"
+        traefik.docker.network: ${TRAEFIK_NETWORK:-traefik-public}
+        traefik.swarm.network: ${TRAEFIK_NETWORK:-traefik-public}
+        traefik.http.routers.base-api.rule: Host(`${API_HOST:-api.veigagustavo.com.br}`)
+        traefik.http.routers.base-api.entrypoints: ${TRAEFIK_ENTRYPOINT:-websecure}
+        traefik.http.routers.base-api.tls.certresolver: ${TRAEFIK_CERTRESOLVER:-letsencrypt}
+        traefik.http.services.base-api.loadbalancer.server.port: "8080"
+
+volumes:
+  postgres_data:
+
+networks:
+  internal:
+    driver: overlay
+  proxy:
+    external: true
+    name: ${TRAEFIK_NETWORK:-traefik-public}

@@ -1,6 +1,7 @@
 package com.example.base_api.security;
 
 import com.example.base_api.common.exception.TooManyRequestsException;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -50,6 +51,12 @@ public class LoginRateLimiter {
         String user = username == null ? "" : username.trim().toLowerCase();
         String origem = ip == null || ip.isBlank() ? "unknown" : ip;
         return user + "|" + origem;
+    }
+
+    /** Remove periodicamente as chaves sem tentativas recentes, para o mapa não crescer indefinidamente. */
+    @Scheduled(cron = "0 */15 * * * *", zone = "${app.timezone:America/Sao_Paulo}")
+    public void limparExpirados() {
+        limparExpiradosParaTeste(System.currentTimeMillis());
     }
 
     void limparExpiradosParaTeste(long agora) {

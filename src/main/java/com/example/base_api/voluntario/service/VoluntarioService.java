@@ -19,8 +19,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+
+import static com.example.base_api.common.util.Textos.blankToNull;
 
 @Service
 public class VoluntarioService {
@@ -54,9 +59,7 @@ public class VoluntarioService {
         if (pessoaIds.isEmpty()) {
             return List.of();
         }
-        return pessoaServicoRepository.findByPessoaIdIn(pessoaIds).stream()
-                .map(this::toResponse)
-                .toList();
+        return toResponses(pessoaServicoRepository.findByPessoaIdIn(pessoaIds));
     }
 
     @Transactional(readOnly = true)
@@ -70,9 +73,7 @@ public class VoluntarioService {
     public List<PessoaServicoResponse> listarPorPessoa(UUID pessoaId) {
         Pessoa pessoa = pessoaService.buscarEntidade(pessoaId);
         autorizacaoService.assertPodeVerPessoa(pessoa);
-        return pessoaServicoRepository.findByPessoaId(pessoaId).stream()
-                .map(this::toResponse)
-                .toList();
+        return toResponses(pessoaServicoRepository.findByPessoaId(pessoaId));
     }
 
     @Transactional(readOnly = true)
@@ -80,14 +81,13 @@ public class VoluntarioService {
         Servico servico = servicoService.buscarEntidade(servicoId);
         Ministerio ministerio = ministerioService.buscarEntidade(servico.getMinisterioId());
         autorizacaoService.assertAcesso(ministerio.getIgrejaId());
-        List<UUID> pessoaIds = idsPessoasVisiveis();
+        Set<UUID> pessoaIds = new HashSet<>(idsPessoasVisiveis());
         if (pessoaIds.isEmpty()) {
             return List.of();
         }
-        return pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoId).stream()
+        return toResponses(pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoId).stream()
                 .filter(v -> pessoaIds.contains(v.getPessoaId()))
-                .map(this::toResponse)
-                .toList();
+                .toList());
     }
 
     @Transactional
@@ -186,39 +186,47 @@ public class VoluntarioService {
         if (igrejaIds.isEmpty()) {
             return List.of();
         }
-        return pessoaRepository.findByIgrejaIdInOrderByNomeAsc(igrejaIds).stream()
-                .filter(autorizacaoService::podeIncluirPessoaNaListagem)
+        return autorizacaoService.filtrarVisiveisNaListagem(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(igrejaIds))
+                .stream()
                 .map(Pessoa::getId)
                 .toList();
     }
 
     private PessoaServicoResponse toResponse(PessoaServico vinculo) {
-        Pessoa pessoa = pessoaService.buscarEntidade(vinculo.getPessoaId());
-        Servico servico = servicoService.buscarEntidade(vinculo.getServicoId());
-        Ministerio ministerio = ministerioService.buscarEntidade(servico.getMinisterioId());
-
-        return new PessoaServicoResponse(
-                vinculo.getId(),
-                vinculo.getPessoaId(),
-                pessoa.getNome(),
-                vinculo.getServicoId(),
-                servico.getNome(),
-                ministerio.getId(),
-                ministerio.getNome(),
-                vinculo.getCargo(),
-                vinculo.getDataEntrada(),
-                vinculo.getAtivo(),
-                vinculo.getObservacoes(),
-                vinculo.getLiderResponsavelId(),
-                vinculo.getCreatedAt(),
-                vinculo.getUpdatedAt()
-        );
+        return toResponses(List.of(vinculo)).get(0);
     }
 
-    private String blankToNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
+    /** Monta as respostas carregando nomes de pessoas, serviços e ministérios em lote. */
+    private List<PessoaServicoResponse> toResponses(List<PessoaServico> vinculos) {
+        if (vinculos.isEmpty()) {
+            return List.of();
         }
-        return value.trim();
+        Map<UUID, String> pessoas = pessoaService.nomesPorId(
+                vinculos.stream().map(PessoaServico::getPessoaId).toList());
+        Map<UUID, Servico> servicos = servicoService.buscarPorIds(
+                vinculos.stream().map(PessoaServico::getServicoId).toList());
+        Map<UUID, String> ministerios = ministerioService.nomesPorId(
+                servicos.values().stream().map(Servico::getMinisterioId).toList());
+
+        return vinculos.stream().map(vinculo -> {
+            Servico servico = servicos.get(vinculo.getServicoId());
+            UUID ministerioId = servico == null ? null : servico.getMinisterioId();
+            return new PessoaServicoResponse(
+                    vinculo.getId(),
+                    vinculo.getPessoaId(),
+                    pessoas.get(vinculo.getPessoaId()),
+                    vinculo.getServicoId(),
+                    servico == null ? null : servico.getNome(),
+                    ministerioId,
+                    ministerioId == null ? null : ministerios.get(ministerioId),
+                    vinculo.getCargo(),
+                    vinculo.getDataEntrada(),
+                    vinculo.getAtivo(),
+                    vinculo.getObservacoes(),
+                    vinculo.getLiderResponsavelId(),
+                    vinculo.getCreatedAt(),
+                    vinculo.getUpdatedAt()
+            );
+        }).toList();
     }
 }

@@ -22,7 +22,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class IgrejaService {
@@ -58,7 +63,7 @@ public class IgrejaService {
 
     @Transactional(readOnly = true)
     public List<IgrejaResponse> listarVisiveis() {
-        return igrejaContextoService.igrejasVisiveis().stream().map(this::toResponse).toList();
+        return toResponses(igrejaContextoService.igrejasVisiveis());
     }
 
     @Transactional(readOnly = true)
@@ -139,34 +144,41 @@ public class IgrejaService {
     }
 
     public IgrejaResponse toResponse(Igreja igreja) {
-        String pastorNome = igreja.getPastorPessoaId() == null
-                ? null
-                : pessoaRepository.findById(igreja.getPastorPessoaId()).map(Pessoa::getNome).orElse(null);
-        String adminNome = null;
-        if (igreja.getAdminUsuarioId() != null) {
-            adminNome = usuarioRepository.findById(igreja.getAdminUsuarioId())
-                    .map(usuario -> {
-                        if (usuario.getPessoaId() != null) {
-                            return pessoaRepository.findById(usuario.getPessoaId())
-                                    .map(Pessoa::getNome)
-                                    .orElse(usuario.getUsername());
-                        }
-                        return usuario.getUsername();
-                    })
-                    .orElse(null);
-        }
-        return new IgrejaResponse(
-                igreja.getId(),
-                igreja.getNome(),
-                igreja.getTipo(),
-                igreja.getIgrejaMatrizId(),
-                igreja.getPastorPessoaId(),
-                pastorNome,
-                igreja.getAdminUsuarioId(),
-                adminNome,
-                igreja.getAtivo(),
-                igreja.getCreatedAt(),
-                igreja.getUpdatedAt()
-        );
+        return toResponses(List.of(igreja)).get(0);
+    }
+
+    /** Monta as respostas carregando pastores e administradores em lote. */
+    public List<IgrejaResponse> toResponses(List<Igreja> igrejas) {
+        List<UUID> adminIds = igrejas.stream()
+                .map(Igreja::getAdminUsuarioId).filter(Objects::nonNull).distinct().toList();
+        Map<UUID, Usuario> admins = adminIds.isEmpty()
+                ? Map.of()
+                : usuarioRepository.findAllById(adminIds).stream()
+                .collect(Collectors.toMap(Usuario::getId, Function.identity()));
+        Map<UUID, String> nomes = pessoaRepository.nomesPorId(Stream.concat(
+                igrejas.stream().map(Igreja::getPastorPessoaId),
+                admins.values().stream().map(Usuario::getPessoaId)).toList());
+
+        return igrejas.stream().map(igreja -> {
+            Usuario admin = igreja.getAdminUsuarioId() == null ? null : admins.get(igreja.getAdminUsuarioId());
+            String adminNome = admin == null
+                    ? null
+                    : Objects.requireNonNullElse(
+                            admin.getPessoaId() == null ? null : nomes.get(admin.getPessoaId()),
+                            admin.getUsername());
+            return new IgrejaResponse(
+                    igreja.getId(),
+                    igreja.getNome(),
+                    igreja.getTipo(),
+                    igreja.getIgrejaMatrizId(),
+                    igreja.getPastorPessoaId(),
+                    igreja.getPastorPessoaId() == null ? null : nomes.get(igreja.getPastorPessoaId()),
+                    igreja.getAdminUsuarioId(),
+                    adminNome,
+                    igreja.getAtivo(),
+                    igreja.getCreatedAt(),
+                    igreja.getUpdatedAt()
+            );
+        }).toList();
     }
 }

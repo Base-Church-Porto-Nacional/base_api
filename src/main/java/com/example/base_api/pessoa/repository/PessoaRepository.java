@@ -5,11 +5,24 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public interface PessoaRepository extends JpaRepository<Pessoa, UUID> {
+
+    /** Nomes das pessoas por id, numa única consulta. Ids nulos são ignorados. */
+    default Map<UUID, String> nomesPorId(Collection<UUID> ids) {
+        List<UUID> validos = ids.stream().filter(Objects::nonNull).distinct().toList();
+        if (validos.isEmpty()) {
+            return Map.of();
+        }
+        return findAllById(validos).stream().collect(Collectors.toMap(Pessoa::getId, Pessoa::getNome));
+    }
 
     /**
      * Aniversariantes de um dia (considera apenas dia e mês da data de nascimento).

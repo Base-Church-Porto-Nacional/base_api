@@ -14,6 +14,4 @@ public interface EscalaServicoRepository extends JpaRepository<EscalaServico, UU
     List<EscalaServico> findByEscalaIdIn(List<UUID> escalaIds);
 
     Optional<EscalaServico> findByEscalaIdAndServicoId(UUID escalaId, UUID servicoId);
-
-    void deleteByEscalaId(UUID escalaId);
 }

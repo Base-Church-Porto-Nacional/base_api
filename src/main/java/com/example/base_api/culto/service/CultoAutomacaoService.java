@@ -4,7 +4,7 @@ import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.culto.entity.CategoriaCulto;
 import com.example.base_api.culto.entity.Culto;
-import com.example.base_api.culto.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 import com.example.base_api.culto.entity.StatusCulto;
 import com.example.base_api.culto.repository.CategoriaCultoRepository;
 import com.example.base_api.culto.repository.CultoRepository;
@@ -21,6 +21,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 
@@ -149,30 +150,20 @@ public class CultoAutomacaoService {
     }
 
     private List<LocalDate> datasDoMes(DiaSemana diaSemana, YearMonth mes) {
-        DayOfWeek dia = toDayOfWeek(diaSemana);
+        DayOfWeek dia = diaSemana.toDayOfWeek();
         return mes.atDay(1).datesUntil(mes.atEndOfMonth().plusDays(1))
                 .filter(data -> data.getDayOfWeek() == dia)
                 .toList();
     }
 
-    private DayOfWeek toDayOfWeek(DiaSemana diaSemana) {
-        return switch (diaSemana) {
-            case DOMINGO -> DayOfWeek.SUNDAY;
-            case SEGUNDA -> DayOfWeek.MONDAY;
-            case TERCA -> DayOfWeek.TUESDAY;
-            case QUARTA -> DayOfWeek.WEDNESDAY;
-            case QUINTA -> DayOfWeek.THURSDAY;
-            case SEXTA -> DayOfWeek.FRIDAY;
-            case SABADO -> DayOfWeek.SATURDAY;
-        };
-    }
-
     private YearMonth parseCompetencia(String competencia) {
-        if (competencia == null || !competencia.matches("\\d{4}-\\d{2}")) {
-            throw new BusinessException(
-                    "Competência inválida. Use o formato YYYY-MM (ex.: 2026-09)"
-            );
+        if (competencia != null) {
+            try {
+                return YearMonth.parse(competencia);
+            } catch (DateTimeParseException ignored) {
+                // cai na mensagem de erro abaixo
+            }
         }
-        return YearMonth.parse(competencia);
+        throw new BusinessException("Competência inválida. Use o formato YYYY-MM (ex.: 2026-09)");
     }
 }

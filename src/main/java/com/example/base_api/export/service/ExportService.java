@@ -40,12 +40,12 @@ import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Service
@@ -115,17 +115,32 @@ public class ExportService {
         autorizacaoService.assertPastorOuAdmin(autorizacaoService.igrejaAtualId());
         Escopo escopo = carregarEscopo();
         ExportDocument document = switch (recurso.toLowerCase()) {
-            case "pessoas" -> documentPessoas(escopo);
-            case "historicos", "historico" -> documentHistoricos(escopo);
-            case "jornadas" -> documentJornadas(escopo);
-            case "ministerios" -> documentMinisterios(escopo);
-            case "servicos" -> documentServicos(escopo);
-            case "voluntarios" -> documentVoluntarios(escopo);
-            case "escalas" -> documentEscalas(escopo);
-            case "disponibilidades" -> documentDisponibilidades(escopo);
-            case "usuarios" -> documentUsuarios(escopo);
-            case "cultos" -> documentCultos(escopo);
-            case "completo", "tudo" -> documentCompleto(escopo);
+            case "pessoas" -> documento("pessoas", sheetPessoas(escopo));
+            case "historicos", "historico" -> documento("historicos", sheetHistoricos(escopo));
+            case "jornadas" -> documento("jornadas", sheetJornadas(escopo));
+            case "ministerios" -> documento("ministerios", sheetMinisterios(escopo));
+            case "servicos" -> documento("servicos", sheetServicos(escopo));
+            case "voluntarios" -> documento("voluntarios", sheetVoluntarios(escopo));
+            case "escalas" -> documento("escalas",
+                    sheetEscalas(escopo), sheetEscalaServicos(escopo), sheetEscalaVoluntarios(escopo));
+            case "disponibilidades" -> documento("disponibilidades",
+                    sheetDisponibilidadeSemanal(escopo), sheetIndisponibilidades(escopo));
+            case "usuarios" -> documento("usuarios", sheetUsuarios(escopo));
+            case "cultos" -> documento("cultos", sheetCultos(escopo));
+            case "completo", "tudo" -> documento("exportacao_completa",
+                    sheetPessoas(escopo),
+                    sheetHistoricos(escopo),
+                    sheetJornadas(escopo),
+                    sheetMinisterios(escopo),
+                    sheetServicos(escopo),
+                    sheetVoluntarios(escopo),
+                    sheetEscalas(escopo),
+                    sheetEscalaServicos(escopo),
+                    sheetEscalaVoluntarios(escopo),
+                    sheetDisponibilidadeSemanal(escopo),
+                    sheetIndisponibilidades(escopo),
+                    sheetUsuarios(escopo),
+                    sheetCultos(escopo));
             default -> throw new BusinessException(
                     "Recurso inválido. Use: pessoas, historicos, jornadas, ministerios, servicos, voluntarios, escalas, disponibilidades, usuarios, cultos ou completo"
             );
@@ -136,101 +151,14 @@ public class ExportService {
     }
 
     private Escopo carregarEscopo() {
-        List<UUID> igrejaIds = autorizacaoService.idsParaListagem(null);
-        if (igrejaIds.isEmpty()) {
-            return Escopo.vazio();
+        return new Escopo(autorizacaoService.idsParaListagem(null));
+    }
+
+    private static ExportDocument documento(String nome, ExportSheet... sheets) {
+        ExportDocument doc = new ExportDocument(nome);
+        for (ExportSheet sheet : sheets) {
+            doc.adicionarSheet(sheet);
         }
-        List<Pessoa> pessoas = pessoaRepository.findByIgrejaIdInOrderByNomeAsc(igrejaIds);
-        List<UUID> pessoaIds = pessoas.stream().map(Pessoa::getId).toList();
-        List<Ministerio> ministerios = ministerioRepository.findByIgrejaIdInOrderByNomeAsc(igrejaIds);
-        List<UUID> ministerioIds = ministerios.stream().map(Ministerio::getId).toList();
-        List<Servico> servicos = ministerioIds.isEmpty()
-                ? List.of()
-                : servicoRepository.findByMinisterioIdIn(ministerioIds);
-        List<Escala> escalas = escalaRepository.findByIgrejaIdInOrderByCompetenciaDescTituloAsc(igrejaIds);
-        List<UUID> escalaIds = escalas.stream().map(Escala::getId).toList();
-        List<Usuario> usuarios = usuarioRepository.findByIgrejaIdIn(igrejaIds);
-        return new Escopo(igrejaIds, pessoas, pessoaIds, ministerios, servicos, escalas, escalaIds, usuarios);
-    }
-
-    private ExportDocument documentPessoas(Escopo escopo) {
-        ExportDocument doc = new ExportDocument("pessoas");
-        doc.adicionarSheet(sheetPessoas(escopo));
-        return doc;
-    }
-
-    private ExportDocument documentHistoricos(Escopo escopo) {
-        ExportDocument doc = new ExportDocument("historicos");
-        doc.adicionarSheet(sheetHistoricos(escopo));
-        return doc;
-    }
-
-    private ExportDocument documentJornadas(Escopo escopo) {
-        ExportDocument doc = new ExportDocument("jornadas");
-        doc.adicionarSheet(sheetJornadas(escopo));
-        return doc;
-    }
-
-    private ExportDocument documentMinisterios(Escopo escopo) {
-        ExportDocument doc = new ExportDocument("ministerios");
-        doc.adicionarSheet(sheetMinisterios(escopo));
-        return doc;
-    }
-
-    private ExportDocument documentServicos(Escopo escopo) {
-        ExportDocument doc = new ExportDocument("servicos");
-        doc.adicionarSheet(sheetServicos(escopo));
-        return doc;
-    }
-
-    private ExportDocument documentVoluntarios(Escopo escopo) {
-        ExportDocument doc = new ExportDocument("voluntarios");
-        doc.adicionarSheet(sheetVoluntarios(escopo));
-        return doc;
-    }
-
-    private ExportDocument documentEscalas(Escopo escopo) {
-        ExportDocument doc = new ExportDocument("escalas");
-        doc.adicionarSheet(sheetEscalas(escopo));
-        doc.adicionarSheet(sheetEscalaServicos(escopo));
-        doc.adicionarSheet(sheetEscalaVoluntarios(escopo));
-        return doc;
-    }
-
-    private ExportDocument documentDisponibilidades(Escopo escopo) {
-        ExportDocument doc = new ExportDocument("disponibilidades");
-        doc.adicionarSheet(sheetDisponibilidadeSemanal(escopo));
-        doc.adicionarSheet(sheetIndisponibilidades(escopo));
-        return doc;
-    }
-
-    private ExportDocument documentUsuarios(Escopo escopo) {
-        ExportDocument doc = new ExportDocument("usuarios");
-        doc.adicionarSheet(sheetUsuarios(escopo));
-        return doc;
-    }
-
-    private ExportDocument documentCultos(Escopo escopo) {
-        ExportDocument doc = new ExportDocument("cultos");
-        doc.adicionarSheet(sheetCultos(escopo));
-        return doc;
-    }
-
-    private ExportDocument documentCompleto(Escopo escopo) {
-        ExportDocument doc = new ExportDocument("exportacao_completa");
-        doc.adicionarSheet(sheetPessoas(escopo));
-        doc.adicionarSheet(sheetHistoricos(escopo));
-        doc.adicionarSheet(sheetJornadas(escopo));
-        doc.adicionarSheet(sheetMinisterios(escopo));
-        doc.adicionarSheet(sheetServicos(escopo));
-        doc.adicionarSheet(sheetVoluntarios(escopo));
-        doc.adicionarSheet(sheetEscalas(escopo));
-        doc.adicionarSheet(sheetEscalaServicos(escopo));
-        doc.adicionarSheet(sheetEscalaVoluntarios(escopo));
-        doc.adicionarSheet(sheetDisponibilidadeSemanal(escopo));
-        doc.adicionarSheet(sheetIndisponibilidades(escopo));
-        doc.adicionarSheet(sheetUsuarios(escopo));
-        doc.adicionarSheet(sheetCultos(escopo));
         return doc;
     }
 
@@ -239,7 +167,7 @@ public class ExportService {
                 "ID", "Nome", "Nome Social", "Email", "Telefone", "WhatsApp",
                 "Data Nascimento", "Data Cadastro", "Igreja ID", "Ativo", "Observações"
         ));
-        for (Pessoa p : escopo.pessoas) {
+        for (Pessoa p : escopo.pessoas()) {
             sheet.adicionarLinha(List.of(
                     str(p.getId()),
                     str(p.getNome()),
@@ -263,7 +191,7 @@ public class ExportService {
         ));
         for (PessoaHistorico h : listarHistoricos(escopo)) {
             sheet.adicionarLinha(List.of(
-                    nomePessoa(escopo.pessoasPorId, h.getPessoaId()),
+                    nomePessoa(escopo.pessoasPorId(), h.getPessoaId()),
                     str(h.getDescricao()),
                     str(h.getAutorNome()),
                     str(h.getAutorCargo()),
@@ -280,7 +208,7 @@ public class ExportService {
         ));
         for (JornadaMembro j : listarJornadas(escopo)) {
             sheet.adicionarLinha(List.of(
-                    nomePessoa(escopo.pessoasPorId, j.getPessoaId()),
+                    nomePessoa(escopo.pessoasPorId(), j.getPessoaId()),
                     str(j.getAceitouJesus()),
                     str(j.getDataAceitouJesus()),
                     str(j.getBatizado()),
@@ -296,7 +224,7 @@ public class ExportService {
 
     private ExportSheet sheetMinisterios(Escopo escopo) {
         ExportSheet sheet = new ExportSheet("Ministerios", List.of("ID", "Nome", "Igreja ID", "Tipo", "Descrição", "Ativo"));
-        for (Ministerio m : escopo.ministerios) {
+        for (Ministerio m : escopo.ministerios()) {
             sheet.adicionarLinha(List.of(
                     str(m.getId()),
                     str(m.getNome()),
@@ -313,10 +241,10 @@ public class ExportService {
         ExportSheet sheet = new ExportSheet("Servicos", List.of(
                 "ID", "Ministério", "Nome", "Descrição", "Ativo"
         ));
-        for (Servico s : escopo.servicos) {
+        for (Servico s : escopo.servicos()) {
             sheet.adicionarLinha(List.of(
                     str(s.getId()),
-                    nomeMinisterio(escopo.ministeriosPorId, s.getMinisterioId()),
+                    nomeMinisterio(escopo.ministeriosPorId(), s.getMinisterioId()),
                     str(s.getNome()),
                     str(s.getDescricao()),
                     str(s.getAtivo())
@@ -330,18 +258,18 @@ public class ExportService {
                 "Pessoa", "Ministério", "Serviço", "Cargo", "Data Entrada", "Ativo", "Líder Responsável", "Observações"
         ));
         for (PessoaServico v : listarVoluntarios(escopo)) {
-            Servico servico = escopo.servicosPorId.get(v.getServicoId());
+            Servico servico = escopo.servicosPorId().get(v.getServicoId());
             String ministerioNome = servico == null
                     ? ""
-                    : nomeMinisterio(escopo.ministeriosPorId, servico.getMinisterioId());
+                    : nomeMinisterio(escopo.ministeriosPorId(), servico.getMinisterioId());
             sheet.adicionarLinha(List.of(
-                    nomePessoa(escopo.pessoasPorId, v.getPessoaId()),
+                    nomePessoa(escopo.pessoasPorId(), v.getPessoaId()),
                     ministerioNome,
                     servico == null ? "" : str(servico.getNome()),
                     str(v.getCargo()),
                     str(v.getDataEntrada()),
                     str(v.getAtivo()),
-                    nomePessoa(escopo.pessoasPorId, v.getLiderResponsavelId()),
+                    nomePessoa(escopo.pessoasPorId(), v.getLiderResponsavelId()),
                     str(v.getObservacoes())
             ));
         }
@@ -352,7 +280,7 @@ public class ExportService {
         ExportSheet sheet = new ExportSheet("Escalas", List.of(
                 "ID", "Título", "Competência", "Tipo", "Igreja ID", "Data", "Hora Início", "Hora Fim", "Local", "Ativo", "Descrição"
         ));
-        for (Escala e : escopo.escalas) {
+        for (Escala e : escopo.escalas()) {
             sheet.adicionarLinha(List.of(
                     str(e.getId()),
                     str(e.getTitulo()),
@@ -375,8 +303,8 @@ public class ExportService {
                 "Escala", "Serviço", "Quantidade Necessária"
         ));
         for (EscalaServico item : listarEscalaServicos(escopo)) {
-            Escala escala = escopo.escalasPorId.get(item.getEscalaId());
-            Servico servico = escopo.servicosPorId.get(item.getServicoId());
+            Escala escala = escopo.escalasPorId().get(item.getEscalaId());
+            Servico servico = escopo.servicosPorId().get(item.getServicoId());
             sheet.adicionarLinha(List.of(
                     escala == null ? str(item.getEscalaId()) : str(escala.getTitulo()),
                     servico == null ? str(item.getServicoId()) : str(servico.getNome()),
@@ -391,11 +319,11 @@ public class ExportService {
                 "Escala", "Pessoa", "Serviço", "Status", "Observações"
         ));
         for (EscalaVoluntario item : listarEscalaVoluntarios(escopo)) {
-            Escala escala = escopo.escalasPorId.get(item.getEscalaId());
-            Servico servico = escopo.servicosPorId.get(item.getServicoId());
+            Escala escala = escopo.escalasPorId().get(item.getEscalaId());
+            Servico servico = escopo.servicosPorId().get(item.getServicoId());
             sheet.adicionarLinha(List.of(
                     escala == null ? str(item.getEscalaId()) : str(escala.getTitulo()),
-                    nomePessoa(escopo.pessoasPorId, item.getPessoaId()),
+                    nomePessoa(escopo.pessoasPorId(), item.getPessoaId()),
                     servico == null ? str(item.getServicoId()) : str(servico.getNome()),
                     str(item.getStatus()),
                     str(item.getObservacoes())
@@ -410,7 +338,7 @@ public class ExportService {
         ));
         for (DisponibilidadeSemanal d : listarDisponibilidades(escopo)) {
             sheet.adicionarLinha(List.of(
-                    nomePessoa(escopo.pessoasPorId, d.getPessoaId()),
+                    nomePessoa(escopo.pessoasPorId(), d.getPessoaId()),
                     str(d.getDiaSemana()),
                     str(d.getHoraInicio()),
                     str(d.getHoraFim()),
@@ -427,7 +355,7 @@ public class ExportService {
         ));
         for (Indisponibilidade i : listarIndisponibilidades(escopo)) {
             sheet.adicionarLinha(List.of(
-                    nomePessoa(escopo.pessoasPorId, i.getPessoaId()),
+                    nomePessoa(escopo.pessoasPorId(), i.getPessoaId()),
                     str(i.getDataInicio()),
                     str(i.getDataFim()),
                     str(i.getHoraInicio()),
@@ -443,7 +371,7 @@ public class ExportService {
         ExportSheet sheet = new ExportSheet("Usuarios", List.of(
                 "ID", "Username", "Email", "Pessoa ID", "Igreja ID", "Ativo", "Papéis"
         ));
-        for (Usuario u : escopo.usuarios) {
+        for (Usuario u : escopo.usuarios()) {
             String papeis = u.nomesPapeisDaIgrejaAtual().stream()
                     .sorted()
                     .collect(Collectors.joining(", "));
@@ -466,9 +394,9 @@ public class ExportService {
                 "Adultos", "Crianças", "Total Presentes", "Conversões", "Reconciliações", "Alianças",
                 "Carros", "Motos", "Bicicletas", "Total Veículos", "Observações"
         ));
-        List<Culto> cultos = escopo.igrejaIds.isEmpty()
+        List<Culto> cultos = escopo.igrejaIds().isEmpty()
                 ? List.of()
-                : cultoRepository.filtrar(escopo.igrejaIds, null, null, null, null, null, null);
+                : cultoRepository.filtrar(escopo.igrejaIds(), null, null, null, null, null, null);
         if (cultos.isEmpty()) {
             return sheet;
         }
@@ -488,7 +416,7 @@ public class ExportService {
                     categoria == null ? "" : str(categoria.getTitulo()),
                     str(c.getTitulo()),
                     str(c.getStatus()),
-                    nomePessoa(escopo.pessoasPorId, c.getPregadorId()),
+                    nomePessoa(escopo.pessoasPorId(), c.getPregadorId()),
                     str(c.getIgrejaId()),
                     r == null ? "" : str(r.getAdultos()),
                     r == null ? "" : str(r.getCriancas()),
@@ -507,126 +435,156 @@ public class ExportService {
     }
 
     private List<PessoaHistorico> listarHistoricos(Escopo escopo) {
-        if (escopo.pessoaIds.isEmpty()) {
-            return List.of();
-        }
-        return pessoaHistoricoRepository.findByPessoaIdIn(escopo.pessoaIds);
+        return seHouver(escopo.pessoaIds(), pessoaHistoricoRepository::findByPessoaIdIn);
     }
 
     private List<JornadaMembro> listarJornadas(Escopo escopo) {
-        if (escopo.pessoaIds.isEmpty()) {
-            return List.of();
-        }
-        return jornadaMembroRepository.findByPessoaIdIn(escopo.pessoaIds);
+        return seHouver(escopo.pessoaIds(), jornadaMembroRepository::findByPessoaIdIn);
     }
 
     private List<PessoaServico> listarVoluntarios(Escopo escopo) {
-        if (escopo.pessoaIds.isEmpty()) {
-            return List.of();
-        }
-        return pessoaServicoRepository.findByPessoaIdIn(escopo.pessoaIds);
+        return seHouver(escopo.pessoaIds(), pessoaServicoRepository::findByPessoaIdIn);
     }
 
     private List<EscalaServico> listarEscalaServicos(Escopo escopo) {
-        if (escopo.escalaIds.isEmpty()) {
-            return List.of();
-        }
-        return escalaServicoRepository.findByEscalaIdIn(escopo.escalaIds);
+        return seHouver(escopo.escalaIds(), escalaServicoRepository::findByEscalaIdIn);
     }
 
     private List<EscalaVoluntario> listarEscalaVoluntarios(Escopo escopo) {
-        if (escopo.escalaIds.isEmpty()) {
-            return List.of();
-        }
-        return escalaVoluntarioRepository.findByEscalaIdIn(escopo.escalaIds);
+        return seHouver(escopo.escalaIds(), escalaVoluntarioRepository::findByEscalaIdIn);
     }
 
     private List<DisponibilidadeSemanal> listarDisponibilidades(Escopo escopo) {
-        if (escopo.pessoaIds.isEmpty()) {
-            return List.of();
-        }
-        return disponibilidadeSemanalRepository.findByPessoaIdIn(escopo.pessoaIds);
+        return seHouver(escopo.pessoaIds(), disponibilidadeSemanalRepository::findByPessoaIdIn);
     }
 
     private List<Indisponibilidade> listarIndisponibilidades(Escopo escopo) {
-        if (escopo.pessoaIds.isEmpty()) {
-            return List.of();
-        }
-        return indisponibilidadeRepository.findByPessoaIdIn(escopo.pessoaIds);
+        return seHouver(escopo.pessoaIds(), indisponibilidadeRepository::findByPessoaIdIn);
+    }
+
+    /** Executa a consulta só quando há ids; com lista vazia devolve vazio sem ir ao banco. */
+    private static <T> List<T> seHouver(List<UUID> ids, Function<List<UUID>, List<T>> consulta) {
+        return ids.isEmpty() ? List.of() : consulta.apply(ids);
     }
 
     private String nomePessoa(Map<UUID, Pessoa> pessoas, UUID id) {
-        if (id == null) {
-            return "";
-        }
-        Pessoa pessoa = pessoas.get(id);
-        return pessoa == null ? id.toString() : pessoa.getNome();
+        return nomeOuId(pessoas, id, Pessoa::getNome);
     }
 
     private String nomeMinisterio(Map<UUID, Ministerio> ministerios, UUID id) {
+        return nomeOuId(ministerios, id, Ministerio::getNome);
+    }
+
+    /** Nome da entidade com o id; vazio se o id é nulo e o próprio id se a entidade não está no mapa. */
+    private static <T> String nomeOuId(Map<UUID, T> entidades, UUID id, Function<T, String> nome) {
         if (id == null) {
             return "";
         }
-        Ministerio ministerio = ministerios.get(id);
-        return ministerio == null ? id.toString() : ministerio.getNome();
+        T entidade = entidades.get(id);
+        return entidade == null ? id.toString() : nome.apply(entidade);
     }
 
     private String str(Object value) {
-        if (value == null) {
-            return "";
-        }
-        if (value instanceof LocalDate date) {
-            return date.toString();
-        }
-        if (value instanceof LocalTime time) {
-            return time.toString();
-        }
-        if (value instanceof Enum<?> e) {
-            return e.name();
-        }
-        return String.valueOf(value);
+        return Objects.toString(value, "");
     }
 
-    private static final class Escopo {
+    /**
+     * Dados da rede visível carregados sob demanda: cada parte é consultada uma única vez e só se
+     * alguma planilha do recurso exportado precisar dela.
+     */
+    private final class Escopo {
         private final List<UUID> igrejaIds;
-        private final List<Pessoa> pessoas;
-        private final List<UUID> pessoaIds;
-        private final List<Ministerio> ministerios;
-        private final Map<UUID, Pessoa> pessoasPorId;
-        private final Map<UUID, Ministerio> ministeriosPorId;
-        private final List<Servico> servicos;
-        private final Map<UUID, Servico> servicosPorId;
-        private final List<Escala> escalas;
-        private final List<UUID> escalaIds;
-        private final Map<UUID, Escala> escalasPorId;
-        private final List<Usuario> usuarios;
+        private final Supplier<List<Pessoa>> pessoas = lazy(() -> igrejaIds().isEmpty()
+                ? List.of()
+                : pessoaRepository.findByIgrejaIdInOrderByNomeAsc(igrejaIds()));
+        private final Supplier<Map<UUID, Pessoa>> pessoasPorId = lazy(() -> porId(pessoas(), Pessoa::getId));
+        private final Supplier<List<Ministerio>> ministerios = lazy(() -> igrejaIds().isEmpty()
+                ? List.of()
+                : ministerioRepository.findByIgrejaIdInOrderByNomeAsc(igrejaIds()));
+        private final Supplier<Map<UUID, Ministerio>> ministeriosPorId =
+                lazy(() -> porId(ministerios(), Ministerio::getId));
+        private final Supplier<List<Servico>> servicos = lazy(() -> seHouver(
+                ministerios().stream().map(Ministerio::getId).toList(), servicoRepository::findByMinisterioIdIn));
+        private final Supplier<Map<UUID, Servico>> servicosPorId = lazy(() -> porId(servicos(), Servico::getId));
+        private final Supplier<List<Escala>> escalas = lazy(() -> igrejaIds().isEmpty()
+                ? List.of()
+                : escalaRepository.findByIgrejaIdInOrderByCompetenciaDescTituloAsc(igrejaIds()));
+        private final Supplier<Map<UUID, Escala>> escalasPorId = lazy(() -> porId(escalas(), Escala::getId));
+        private final Supplier<List<Usuario>> usuarios = lazy(() -> igrejaIds().isEmpty()
+                ? List.of()
+                : usuarioRepository.findByIgrejaIdIn(igrejaIds()));
 
-        private Escopo(
-                List<UUID> igrejaIds,
-                List<Pessoa> pessoas,
-                List<UUID> pessoaIds,
-                List<Ministerio> ministerios,
-                List<Servico> servicos,
-                List<Escala> escalas,
-                List<UUID> escalaIds,
-                List<Usuario> usuarios
-        ) {
+        private Escopo(List<UUID> igrejaIds) {
             this.igrejaIds = igrejaIds;
-            this.pessoas = pessoas;
-            this.pessoaIds = pessoaIds;
-            this.ministerios = ministerios;
-            this.pessoasPorId = pessoas.stream().collect(Collectors.toMap(Pessoa::getId, Function.identity()));
-            this.ministeriosPorId = ministerios.stream().collect(Collectors.toMap(Ministerio::getId, Function.identity()));
-            this.servicos = servicos;
-            this.servicosPorId = servicos.stream().collect(Collectors.toMap(Servico::getId, Function.identity()));
-            this.escalas = escalas;
-            this.escalaIds = escalaIds;
-            this.escalasPorId = escalas.stream().collect(Collectors.toMap(Escala::getId, Function.identity()));
-            this.usuarios = usuarios;
         }
 
-        private static Escopo vazio() {
-            return new Escopo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+        List<UUID> igrejaIds() {
+            return igrejaIds;
         }
+
+        List<Pessoa> pessoas() {
+            return pessoas.get();
+        }
+
+        List<UUID> pessoaIds() {
+            return pessoas().stream().map(Pessoa::getId).toList();
+        }
+
+        Map<UUID, Pessoa> pessoasPorId() {
+            return pessoasPorId.get();
+        }
+
+        List<Ministerio> ministerios() {
+            return ministerios.get();
+        }
+
+        Map<UUID, Ministerio> ministeriosPorId() {
+            return ministeriosPorId.get();
+        }
+
+        List<Servico> servicos() {
+            return servicos.get();
+        }
+
+        Map<UUID, Servico> servicosPorId() {
+            return servicosPorId.get();
+        }
+
+        List<Escala> escalas() {
+            return escalas.get();
+        }
+
+        List<UUID> escalaIds() {
+            return escalas().stream().map(Escala::getId).toList();
+        }
+
+        Map<UUID, Escala> escalasPorId() {
+            return escalasPorId.get();
+        }
+
+        List<Usuario> usuarios() {
+            return usuarios.get();
+        }
+    }
+
+    private static <T> Map<UUID, T> porId(List<T> itens, Function<T, UUID> id) {
+        return itens.stream().collect(Collectors.toMap(id, Function.identity()));
+    }
+
+    /** Supplier que calcula o valor na primeira chamada e o reaproveita nas seguintes. */
+    private static <T> Supplier<T> lazy(Supplier<T> fonte) {
+        return new Supplier<>() {
+            private T valor;
+            private boolean carregado;
+
+            @Override
+            public T get() {
+                if (!carregado) {
+                    valor = fonte.get();
+                    carregado = true;
+                }
+                return valor;
+            }
+        };
     }
 }

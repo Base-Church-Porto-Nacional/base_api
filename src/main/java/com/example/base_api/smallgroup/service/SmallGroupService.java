@@ -4,7 +4,6 @@ import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.repository.MinisterioRepository;
-import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.smallgroup.dto.SmallGroupCreateRequest;
@@ -23,10 +22,13 @@ import com.example.base_api.smallgroup.repository.SmallGroupRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class SmallGroupService {
@@ -74,7 +76,7 @@ public class SmallGroupService {
     @Transactional
     public SmallGroupResponse criar(SmallGroupCreateRequest request) {
         autorizacaoService.assertPodeCriarSmallGroup(request.igrejaId());
-        smallGroupRepository.findByIgrejaIdAndNomeIgnoreCase(request.igrejaId(), request.nome())
+        smallGroupRepository.findByIgrejaIdAndNomeIgnoreCase(request.igrejaId(), request.nome().trim())
                 .ifPresent(g -> {
                     throw new BusinessException("Já existe um pequeno grupo com este nome nesta igreja");
                 });
@@ -98,7 +100,7 @@ public class SmallGroupService {
         autorizacaoService.assertPodeGerenciarSmallGroup(grupo);
 
         if (smallGroupRepository.existsByIgrejaIdAndNomeIgnoreCaseAndIdNot(
-                grupo.getIgrejaId(), request.nome(), id)) {
+                grupo.getIgrejaId(), request.nome().trim(), id)) {
             throw new BusinessException("Já existe um pequeno grupo com este nome nesta igreja");
         }
 
@@ -169,13 +171,15 @@ public class SmallGroupService {
         if (compareceram == null || compareceram.isEmpty()) {
             return;
         }
-        for (SmallGroupParticipanteRequest p : compareceram) {
+        Map<UUID, String> nomes = pessoaRepository.nomesPorId(
+                compareceram.stream().map(SmallGroupParticipanteRequest::pessoaId).toList());
+        participanteRepository.saveAll(compareceram.stream().map(p -> {
             SmallGroupParticipante participante = new SmallGroupParticipante();
             participante.setEncontroId(encontroId);
             participante.setPessoaId(p.pessoaId());
-            participante.setPessoaNome(nomePessoa(p.pessoaId(), p.pessoaNome()));
-            participanteRepository.save(participante);
-        }
+            participante.setPessoaNome(Objects.requireNonNullElse(porId(nomes, p.pessoaId()), p.pessoaNome()));
+            return participante;
+        }).toList());
     }
 
     @Transactional(readOnly = true)
@@ -198,25 +202,30 @@ public class SmallGroupService {
                 .collect(Collectors.groupingBy(SmallGroupParticipante::getEncontroId));
 
         Map<UUID, Ministerio> ministerios = ministerioRepository
-                .findAllById(grupos.stream().map(SmallGroup::getMinisterioId).filter(java.util.Objects::nonNull).toList())
+                .findAllById(grupos.stream().map(SmallGroup::getMinisterioId).filter(Objects::nonNull).toList())
                 .stream()
                 .collect(Collectors.toMap(Ministerio::getId, m -> m));
 
-        return grupos.stream().map(g -> toResponse(g, encontrosPorGrupo, participantes, ministerios)).toList();
+        Map<UUID, String> nomes = pessoaRepository.nomesPorId(Stream.concat(
+                grupos.stream().map(SmallGroup::getLiderPessoaId),
+                encontros.stream().map(SmallGroupEncontro::getAnfitriaoPessoaId)).toList());
+
+        return grupos.stream().map(g -> toResponse(g, encontrosPorGrupo, participantes, ministerios, nomes)).toList();
     }
 
     private SmallGroupResponse toResponse(
             SmallGroup grupo,
             Map<UUID, List<SmallGroupEncontro>> encontrosPorGrupo,
             Map<UUID, List<SmallGroupParticipante>> participantesPorEncontro,
-            Map<UUID, Ministerio> ministerios
+            Map<UUID, Ministerio> ministerios,
+            Map<UUID, String> nomes
     ) {
         List<SmallGroupEncontroResponse> encontros = encontrosPorGrupo
                 .getOrDefault(grupo.getId(), List.of()).stream()
                 .map(e -> toEncontroResponse(e,
                         participantesPorEncontro.getOrDefault(e.getId(), List.<SmallGroupParticipante>of()).stream()
                                 .map(this::toParticipanteResponse)
-                                .toList()))
+                                .toList(), nomes))
                 .toList();
 
         Ministerio ministerio = grupo.getMinisterioId() == null ? null : ministerios.get(grupo.getMinisterioId());
@@ -227,7 +236,7 @@ public class SmallGroupService {
                 grupo.getDiaSemana(),
                 grupo.getHorario(),
                 grupo.getLiderPessoaId(),
-                nomePessoa(grupo.getLiderPessoaId(), null),
+                porId(nomes, grupo.getLiderPessoaId()),
                 grupo.getMinisterioId(),
                 ministerio == null ? null : ministerio.getNome(),
                 grupo.getAtivo(),
@@ -243,19 +252,21 @@ public class SmallGroupService {
                 .findByEncontroIdOrderByPessoaNomeAsc(encontro.getId()).stream()
                 .map(this::toParticipanteResponse)
                 .toList();
-        return toEncontroResponse(encontro, compareceram);
+        return toEncontroResponse(encontro, compareceram,
+                pessoaRepository.nomesPorId(Collections.singletonList(encontro.getAnfitriaoPessoaId())));
     }
 
     private SmallGroupEncontroResponse toEncontroResponse(
             SmallGroupEncontro encontro,
-            List<SmallGroupParticipanteResponse> compareceram
+            List<SmallGroupParticipanteResponse> compareceram,
+            Map<UUID, String> nomes
     ) {
         return new SmallGroupEncontroResponse(
                 encontro.getId(),
                 encontro.getSmallGroupId(),
                 encontro.getData(),
                 encontro.getAnfitriaoPessoaId(),
-                nomePessoa(encontro.getAnfitriaoPessoaId(), null),
+                porId(nomes, encontro.getAnfitriaoPessoaId()),
                 compareceram,
                 encontro.getAnotacoes(),
                 encontro.getCreatedAt(),
@@ -282,10 +293,7 @@ public class SmallGroupService {
         return ministerio.getId();
     }
 
-    private String nomePessoa(UUID pessoaId, String fallback) {
-        if (pessoaId == null) {
-            return fallback;
-        }
-        return pessoaRepository.findById(pessoaId).map(Pessoa::getNome).orElse(fallback);
+    private static String porId(Map<UUID, String> nomes, UUID id) {
+        return id == null ? null : nomes.get(id);
     }
 }

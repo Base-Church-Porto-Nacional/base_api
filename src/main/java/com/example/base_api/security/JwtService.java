@@ -54,36 +54,20 @@ public class JwtService {
         return builder.signWith(secretKey).compact();
     }
 
-    public String extrairUsername(String token) {
-        return extrairClaims(token).getSubject();
+    public record TokenValidado(String username, int tokenVersion) {
     }
 
-    public int extrairTokenVersion(String token) {
-        Object valor = extrairClaims(token).get("tv");
-        if (valor instanceof Number number) {
-            return number.intValue();
-        }
-        return 0;
-    }
-
-    public boolean isTokenValido(String token, String username) {
-        try {
-            String subject = extrairUsername(token);
-            return subject.equals(username) && !isTokenExpirado(token);
-        } catch (JwtException | IllegalArgumentException ex) {
-            return false;
-        }
-    }
-
-    private boolean isTokenExpirado(String token) {
-        return extrairClaims(token).getExpiration().before(new Date());
-    }
-
-    private Claims extrairClaims(String token) {
-        return Jwts.parser()
+    /**
+     * Lê o token uma única vez. O parser do JJWT já rejeita assinatura inválida, token
+     * malformado e token expirado lançando {@link JwtException}.
+     */
+    public TokenValidado validar(String token) {
+        Claims claims = Jwts.parser()
                 .verifyWith(secretKey)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+        int versao = claims.get("tv") instanceof Number number ? number.intValue() : 0;
+        return new TokenValidado(claims.getSubject(), versao);
     }
 }

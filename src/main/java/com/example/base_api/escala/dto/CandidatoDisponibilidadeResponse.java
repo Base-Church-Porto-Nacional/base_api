@@ -1,6 +1,6 @@
 package com.example.base_api.escala.dto;
 
-import com.example.base_api.disponibilidade.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 
 import java.time.LocalDate;
 import java.time.LocalTime;

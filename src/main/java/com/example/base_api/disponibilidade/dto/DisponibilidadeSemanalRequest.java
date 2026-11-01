@@ -1,6 +1,6 @@
 package com.example.base_api.disponibilidade.dto;
 
-import com.example.base_api.disponibilidade.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalTime;

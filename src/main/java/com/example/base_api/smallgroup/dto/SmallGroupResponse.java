@@ -1,6 +1,6 @@
 package com.example.base_api.smallgroup.dto;
 
-import com.example.base_api.smallgroup.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 
 import java.time.Instant;
 import java.util.List;

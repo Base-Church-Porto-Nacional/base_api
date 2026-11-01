@@ -2,6 +2,7 @@ package com.example.base_api.pessoa.service;
 
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
+import com.example.base_api.jornada.entity.JornadaMembro;
 import com.example.base_api.jornada.service.JornadaService;
 import com.example.base_api.pessoa.dto.PessoaCreateRequest;
 import com.example.base_api.pessoa.dto.PessoaResponse;
@@ -24,13 +25,16 @@ import org.springframework.security.access.AccessDeniedException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -153,8 +157,7 @@ PessoaUpdateRequest request = new PessoaUpdateRequest(
     void deveListarPessoasDaIgrejaVisivel() {
         when(autorizacaoService.idsParaListagem(null)).thenReturn(List.of(igrejaId));
         when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(List.of(igrejaId))).thenReturn(List.of(pessoa));
-        when(autorizacaoService.podeIncluirPessoaNaListagem(pessoa)).thenReturn(true);
-        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.empty());
+        when(autorizacaoService.filtrarVisiveisNaListagem(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
 
         List<PessoaResponse> lista = pessoaService.listar(null);
 
@@ -188,6 +191,25 @@ PessoaUpdateRequest request = new PessoaUpdateRequest(
         PessoaResponse response = pessoaService.toResponse(pessoa);
 
         assertThat(response.papeis()).doesNotContain("ADMIN");
+    }
+
+    @Test
+    void listarBuscaUsuariosDasPessoasNumaUnicaConsulta() {
+        Pessoa outra = new Pessoa();
+        outra.setId(UUID.randomUUID());
+        outra.setNome("Ana");
+        outra.setIgrejaId(igrejaId);
+        Usuario usuario = usuarioComPapeis();
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
+        when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(List.of(igrejaId))).thenReturn(List.of(outra, pessoa));
+        when(autorizacaoService.filtrarVisiveisNaListagem(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(usuarioRepository.findByPessoaIdIn(List.of(outra.getId(), pessoa.getId()))).thenReturn(List.of(usuario));
+
+        List<PessoaResponse> lista = pessoaService.listar(igrejaId);
+
+        assertThat(lista).extracting(PessoaResponse::usuarioId).containsExactly(null, usuario.getId());
+        assertThat(lista.get(1).papeis()).contains("VOLUNTARIO", "LIDER");
+        verify(usuarioRepository, never()).findByPessoaId(any());
     }
 
     private Usuario usuarioComPapeis() {
@@ -235,5 +257,34 @@ PessoaUpdateRequest request = new PessoaUpdateRequest(
         usuario.getPapeisIgreja().add(lp);
         usuario.getPapeisIgreja().add(ap);
         return usuario;
+    }
+
+    @Test
+    void listarIncluiEtapasPrincipaisDaJornadaNumaUnicaConsulta() {
+        JornadaMembro jornada = new JornadaMembro();
+        jornada.setPessoaId(pessoa.getId());
+        jornada.setAceitouJesus(true);
+        jornada.setBatizado(true);
+        jornada.setConcluiuTrilhaBase(false);
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
+        when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(List.of(igrejaId))).thenReturn(List.of(pessoa));
+        when(autorizacaoService.filtrarVisiveisNaListagem(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jornadaService.buscarPorPessoas(List.of(pessoa.getId()))).thenReturn(Map.of(pessoa.getId(), jornada));
+
+        PessoaResponse response = pessoaService.listar(igrejaId).getFirst();
+
+        assertThat(response.aceitouJesus()).isTrue();
+        assertThat(response.batizado()).isTrue();
+        assertThat(response.concluiuTrilhaBase()).isFalse();
+    }
+
+    @Test
+    void respostaSemJornadaDeixaEtapasNulas() {
+        when(pessoaRepository.findById(pessoa.getId())).thenReturn(Optional.of(pessoa));
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.empty());
+
+        PessoaResponse response = pessoaService.buscarPorId(pessoa.getId());
+
+        assertThat(response.batizado()).isNull();
     }
 }

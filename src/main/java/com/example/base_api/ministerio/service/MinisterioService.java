@@ -10,7 +10,6 @@ import com.example.base_api.ministerio.dto.MinisterioUpdateRequest;
 import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.entity.MinisterioTipo;
 import com.example.base_api.ministerio.repository.MinisterioRepository;
-import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.servico.dto.ServicoResponse;
@@ -21,8 +20,13 @@ import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class MinisterioService {
@@ -56,9 +60,7 @@ public class MinisterioService {
         if (ids.isEmpty()) {
             return List.of();
         }
-        return ministerioRepository.findByIgrejaIdInOrderByNomeAsc(ids).stream()
-                .map(this::toResponse)
-                .toList();
+        return toResponse(ministerioRepository.findByIgrejaIdInOrderByNomeAsc(ids));
     }
 
     @Transactional(readOnly = true)
@@ -71,7 +73,7 @@ public class MinisterioService {
     @Transactional
     public MinisterioResponse criar(MinisterioCreateRequest request) {
         autorizacaoService.assertPodeCriarMinisterio(request.igrejaId());
-        ministerioRepository.findByIgrejaIdAndNomeIgnoreCase(request.igrejaId(), request.nome()).ifPresent(m -> {
+        ministerioRepository.findByIgrejaIdAndNomeIgnoreCase(request.igrejaId(), request.nome().trim()).ifPresent(m -> {
             throw new BusinessException("Já existe um ministério com este nome nesta igreja");
         });
 
@@ -97,7 +99,7 @@ public class MinisterioService {
         autorizacaoService.assertPodeGerenciarMinisterio(ministerio);
 
         if (ministerioRepository.existsByIgrejaIdAndNomeIgnoreCaseAndIdNot(
-                ministerio.getIgrejaId(), request.nome(), id)) {
+                ministerio.getIgrejaId(), request.nome().trim(), id)) {
             throw new BusinessException("Já existe um ministério com este nome nesta igreja");
         }
 
@@ -135,6 +137,17 @@ public class MinisterioService {
         ministerioRepository.delete(ministerio);
     }
 
+    /** Nomes dos ministérios por id, numa única consulta (ids nulos são ignorados). */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> nomesPorId(Collection<UUID> ids) {
+        List<UUID> validos = ids.stream().filter(Objects::nonNull).distinct().toList();
+        if (validos.isEmpty()) {
+            return Map.of();
+        }
+        return ministerioRepository.findAllById(validos).stream()
+                .collect(Collectors.toMap(Ministerio::getId, Ministerio::getNome));
+    }
+
     @Transactional(readOnly = true)
     public Ministerio buscarEntidade(UUID id) {
         return ministerioRepository.findById(id)
@@ -142,43 +155,70 @@ public class MinisterioService {
     }
 
     public MinisterioResponse toResponse(Ministerio ministerio) {
-        List<Servico> servicos = servicoRepository.findByMinisterioIdOrderByNomeAsc(ministerio.getId());
-        List<UUID> servicoIds = servicos.stream().map(Servico::getId).toList();
-        long voluntarios = servicoIds.isEmpty()
-                ? 0
-                : pessoaServicoRepository.findByServicoIdInAndAtivoTrue(servicoIds).stream()
-                .filter(v -> {
-                    Servico s = servicos.stream()
-                            .filter(item -> item.getId().equals(v.getServicoId()))
-                            .findFirst()
-                            .orElse(null);
-                    return s != null && !Boolean.TRUE.equals(s.getFiccao());
-                })
-                .map(PessoaServico::getPessoaId)
-                .distinct()
-                .count();
+        return toResponse(List.of(ministerio)).get(0);
+    }
 
-        return new MinisterioResponse(
-                ministerio.getId(),
-                ministerio.getNome(),
-                ministerio.getDescricao(),
-                ministerio.getAtivo(),
-                ministerio.getIgrejaId(),
-                ministerio.getTipo(),
-                ministerio.getLiderPessoaId(),
-                nomePessoa(ministerio.getLiderPessoaId()),
-                ministerio.getCoordenadorPessoaId(),
-                nomePessoa(ministerio.getCoordenadorPessoaId()),
-                ministerio.getBaseMinisterialId(),
-                nomeBase(ministerio.getBaseMinisterialId()),
-                ministerio.getAnotacoes(),
-                ministerio.getOrdem(),
-                (int) voluntarios,
-                servicos.size(),
-                servicos.stream().map(this::toServicoResponse).toList(),
-                ministerio.getCreatedAt(),
-                ministerio.getUpdatedAt()
-        );
+    /** Monta as respostas carregando serviços, voluntários, pessoas e bases em lote. */
+    private List<MinisterioResponse> toResponse(List<Ministerio> ministerios) {
+        if (ministerios.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, List<Servico>> servicosPorMinisterio = servicoRepository
+                .findByMinisterioIdInOrderByNomeAsc(ministerios.stream().map(Ministerio::getId).toList()).stream()
+                .collect(Collectors.groupingBy(Servico::getMinisterioId));
+
+        Map<UUID, UUID> ministerioDoServicoReal = servicosPorMinisterio.values().stream()
+                .flatMap(List::stream)
+                .filter(s -> !Boolean.TRUE.equals(s.getFiccao()))
+                .collect(Collectors.toMap(Servico::getId, Servico::getMinisterioId));
+        Map<UUID, Long> voluntariosPorMinisterio = ministerioDoServicoReal.isEmpty()
+                ? Map.of()
+                : pessoaServicoRepository.findByServicoIdInAndAtivoTrue(List.copyOf(ministerioDoServicoReal.keySet()))
+                .stream()
+                .filter(v -> ministerioDoServicoReal.containsKey(v.getServicoId()))
+                .collect(Collectors.groupingBy(
+                        v -> ministerioDoServicoReal.get(v.getServicoId()),
+                        Collectors.mapping(PessoaServico::getPessoaId,
+                                Collectors.collectingAndThen(Collectors.toSet(), set -> (long) set.size()))));
+
+        Map<UUID, String> nomesPessoas = pessoaRepository.nomesPorId(ministerios.stream()
+                .flatMap(m -> Stream.of(m.getLiderPessoaId(), m.getCoordenadorPessoaId()))
+                .toList());
+        List<UUID> baseIds = ministerios.stream()
+                .map(Ministerio::getBaseMinisterialId).filter(Objects::nonNull).distinct().toList();
+        Map<UUID, String> nomesBases = baseIds.isEmpty()
+                ? Map.of()
+                : baseMinisterialRepository.findAllById(baseIds).stream()
+                .collect(Collectors.toMap(BaseMinisterial::getId, BaseMinisterial::getNome));
+
+        return ministerios.stream().map(ministerio -> {
+            List<Servico> servicos = servicosPorMinisterio.getOrDefault(ministerio.getId(), List.of());
+            return new MinisterioResponse(
+                    ministerio.getId(),
+                    ministerio.getNome(),
+                    ministerio.getDescricao(),
+                    ministerio.getAtivo(),
+                    ministerio.getIgrejaId(),
+                    ministerio.getTipo(),
+                    ministerio.getLiderPessoaId(),
+                    porId(nomesPessoas, ministerio.getLiderPessoaId()),
+                    ministerio.getCoordenadorPessoaId(),
+                    porId(nomesPessoas, ministerio.getCoordenadorPessoaId()),
+                    ministerio.getBaseMinisterialId(),
+                    porId(nomesBases, ministerio.getBaseMinisterialId()),
+                    ministerio.getAnotacoes(),
+                    ministerio.getOrdem(),
+                    voluntariosPorMinisterio.getOrDefault(ministerio.getId(), 0L).intValue(),
+                    servicos.size(),
+                    servicos.stream().map(this::toServicoResponse).toList(),
+                    ministerio.getCreatedAt(),
+                    ministerio.getUpdatedAt()
+            );
+        }).toList();
+    }
+
+    private static String porId(Map<UUID, String> nomes, UUID id) {
+        return id == null ? null : nomes.get(id);
     }
 
     private void garantirServicoCoordenador(Ministerio ministerio) {
@@ -224,12 +264,6 @@ public class MinisterioService {
         });
     }
 
-    private String nomePessoa(UUID pessoaId) {
-        if (pessoaId == null) {
-            return null;
-        }
-        return pessoaRepository.findById(pessoaId).map(Pessoa::getNome).orElse(null);
-    }
 
     private UUID validarBase(UUID igrejaId, UUID baseMinisterialId) {
         if (baseMinisterialId == null) {
@@ -243,14 +277,6 @@ public class MinisterioService {
         return base.getId();
     }
 
-    private String nomeBase(UUID baseMinisterialId) {
-        if (baseMinisterialId == null) {
-            return null;
-        }
-        return baseMinisterialRepository.findById(baseMinisterialId)
-                .map(BaseMinisterial::getNome)
-                .orElse(null);
-    }
 
     private ServicoResponse toServicoResponse(Servico servico) {
         return new ServicoResponse(

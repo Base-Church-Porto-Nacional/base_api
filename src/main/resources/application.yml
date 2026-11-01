@@ -16,6 +16,8 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+        # Agrupa cargas de coleções/associações (ex.: papéis EAGER do Usuario) em vez de 1 consulta por entidade.
+        default_batch_fetch_size: 100
 
   flyway:
     enabled: true
@@ -31,8 +33,33 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  # Atrás de proxy reverso (nginx, load balancer) o IP real vem de X-Forwarded-For,
+  # tratado pelo container. Sem proxy, use NONE para o header não ser aceito do cliente.
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:NATIVE}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  health:
+    # Só verifica o broker quando a fila está habilitada; sem isso o health fica DOWN sem RabbitMQ.
+    rabbit:
+      enabled: ${RABBIT_HABILITADO:false}
 
 app:
+  # Primeiro administrador (só é criado quando não há nenhum usuário; ignorado no perfil dev).
+  bootstrap:
+    admin:
+      username: ${ADMIN_USERNAME:}
+      email: ${ADMIN_EMAIL:}
+      senha: ${ADMIN_SENHA:}
+      nome: ${ADMIN_NOME:}
   # Fuso usado pelos agendamentos (aniversário às 12h, automação de cultos/escalas no dia 20).
   timezone: ${APP_TIMEZONE:America/Sao_Paulo}
   jwt:

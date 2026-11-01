@@ -22,7 +22,9 @@ import com.example.base_api.escala.entity.TipoEscala;
 import com.example.base_api.escala.repository.EscalaRepository;
 import com.example.base_api.escala.repository.EscalaServicoRepository;
 import com.example.base_api.escala.repository.EscalaVoluntarioRepository;
+import com.example.base_api.escala.repository.TotalPorEscala;
 import com.example.base_api.escala.service.GeracaoEscalaService;
+import com.example.base_api.escala.service.NecessidadeEscalaService;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.service.IgrejaContextoService;
 import com.example.base_api.ministerio.entity.Ministerio;
@@ -35,6 +37,7 @@ import com.example.base_api.servico.repository.ServicoRepository;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.voluntario.entity.PessoaServico;
 import com.example.base_api.voluntario.repository.PessoaServicoRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -46,15 +49,20 @@ import org.springframework.security.access.AccessDeniedException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -90,8 +98,20 @@ class CronogramaServiceTest {
     @Mock
     private GeracaoEscalaService geracaoEscalaService;
 
-    @InjectMocks
     private CronogramaService cronogramaService;
+
+    /** Voluntários ativos por serviço, devolvidos pela consulta em lote de pessoaServicoRepository. */
+    private final Map<UUID, List<PessoaServico>> voluntariosPorServico = new HashMap<>();
+
+    @BeforeEach
+    void montarServico() {
+        voluntariosPorServico.clear();
+        lenient().when(pessoaServicoRepository.findByServicoIdInAndAtivoTrue(anyList())).thenAnswer(invocation -> {
+            List<UUID> ids = invocation.getArgument(0);
+            return ids.stream().flatMap(id -> voluntariosPorServico.getOrDefault(id, List.of()).stream()).toList();
+        });
+        cronogramaService = new CronogramaService(repository, conteudoRepository, eventoMinisterioRepository, igrejaContextoService, autorizacaoService, pessoaRepository, ministerioRepository, servicoRepository, escalaRepository, escalaServicoRepository, escalaVoluntarioRepository, geracaoEscalaService, new NecessidadeEscalaService(pessoaServicoRepository, escalaServicoRepository));
+    }
 
     @Test
     void deveCriarEventoNoCronograma() {
@@ -173,7 +193,7 @@ class CronogramaServiceTest {
         when(eventoMinisterioRepository.findByEventoIdAndMinisterioId(any(), eq(ministerioId)))
                 .thenReturn(Optional.empty());
         when(servicoRepository.findByMinisterioIdOrderByNomeAsc(ministerioId)).thenReturn(List.of(servico));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoId)).thenReturn(List.of(vinculo));
+        voluntariosAtivos(servicoId, List.of(vinculo));
         when(escalaRepository.findByEventoIdAndMinisterioId(any(), eq(ministerioId))).thenReturn(Optional.empty());
         when(escalaRepository.save(any(Escala.class))).thenAnswer(invocation -> {
             Escala e = invocation.getArgument(0);
@@ -189,20 +209,25 @@ class CronogramaServiceTest {
         EventoMinisterio participacao = new EventoMinisterio();
         participacao.setEventoId(UUID.randomUUID());
         participacao.setMinisterioId(ministerioId);
-        when(eventoMinisterioRepository.findByEventoId(any())).thenReturn(List.of(participacao));
+        when(eventoMinisterioRepository.findByEventoIdIn(any())).thenAnswer(invocation -> {
+            participacao.setEventoId(primeiroId(invocation.getArgument(0)));
+            return List.of(participacao);
+        });
 
         Escala escala = new Escala();
         escala.setId(UUID.randomUUID());
         escala.setMinisterioId(ministerioId);
         escala.setTitulo("Louvor — Evento");
-        when(escalaRepository.findByEventoId(any())).thenReturn(List.of(escala));
+        when(escalaRepository.findByEventoIdIn(any())).thenAnswer(invocation -> {
+            escala.setEventoId(primeiroId(invocation.getArgument(0)));
+            return List.of(escala);
+        });
 
         EscalaServico necessidade = new EscalaServico();
         necessidade.setEscalaId(escala.getId());
         necessidade.setServicoId(servicoId);
         necessidade.setQuantidadeNecessaria(1);
-        when(escalaServicoRepository.findByEscalaId(escala.getId())).thenReturn(List.of(necessidade));
-        when(escalaVoluntarioRepository.findByEscalaId(escala.getId())).thenReturn(List.of());
+        when(escalaServicoRepository.findByEscalaIdIn(List.of(escala.getId()))).thenReturn(List.of(necessidade));
 
         CronogramaEventoResponse response = cronogramaService.criar(new CronogramaEventoCreateRequest(
                 "Show de Natal",
@@ -369,8 +394,6 @@ class CronogramaServiceTest {
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
         when(repository.findByIgrejaIdInAndDataEventoBetweenOrderByDataEventoAscHoraInicioAsc(
                 List.of(igrejaId), inicio, fim)).thenReturn(List.of(evento));
-        when(eventoMinisterioRepository.findByEventoId(evento.getId())).thenReturn(List.of());
-        when(escalaRepository.findByEventoId(evento.getId())).thenReturn(List.of());
 
         List<CronogramaEventoResponse> eventos = cronogramaService.listar(igrejaId, inicio, fim);
 
@@ -387,8 +410,6 @@ class CronogramaServiceTest {
         when(autorizacaoService.idsParaListagem(null)).thenReturn(List.of(igrejaId));
         when(repository.findByIgrejaIdInOrderByDataEventoAscHoraInicioAsc(List.of(igrejaId)))
                 .thenReturn(List.of(evento));
-        when(eventoMinisterioRepository.findByEventoId(evento.getId())).thenReturn(List.of());
-        when(escalaRepository.findByEventoId(evento.getId())).thenReturn(List.of());
 
         List<CronogramaEventoResponse> eventos = cronogramaService.listar(null, null, null);
 
@@ -434,11 +455,9 @@ class CronogramaServiceTest {
         Escala escala = escalaDeMinisterio(evento.getId(), igrejaId);
 
         when(repository.findById(evento.getId())).thenReturn(Optional.of(evento));
-        when(eventoMinisterioRepository.findByEventoId(evento.getId())).thenReturn(List.of());
-        when(escalaRepository.findByEventoId(evento.getId())).thenReturn(List.of(escala));
-        when(escalaServicoRepository.findByEscalaId(escala.getId())).thenReturn(List.of(
+        when(escalaRepository.findByEventoIdIn(List.of(evento.getId()))).thenReturn(List.of(escala));
+        when(escalaServicoRepository.findByEscalaIdIn(List.of(escala.getId()))).thenReturn(List.of(
                 necessidade(escala.getId(), 2), necessidade(escala.getId(), 1)));
-        when(escalaVoluntarioRepository.findByEscalaId(escala.getId())).thenReturn(List.of());
 
         CronogramaEventoResponse response = cronogramaService.buscarPorId(evento.getId());
 
@@ -456,8 +475,6 @@ class CronogramaServiceTest {
         CronogramaEvento evento = evento(igrejaId, LocalDate.of(2026, 8, 16));
         when(repository.findById(evento.getId())).thenReturn(Optional.of(evento));
         when(repository.save(any(CronogramaEvento.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(eventoMinisterioRepository.findByEventoId(evento.getId())).thenReturn(List.of());
-        when(escalaRepository.findByEventoId(evento.getId())).thenReturn(List.of());
 
         CronogramaEventoResponse response = cronogramaService.atualizar(evento.getId(), atualizacao(
                 LocalDate.of(2026, 9, 20), StatusEvento.ABERTO, true, null));
@@ -474,8 +491,6 @@ class CronogramaServiceTest {
         CronogramaEvento evento = evento(igrejaId, LocalDate.of(2026, 8, 16));
         when(repository.findById(evento.getId())).thenReturn(Optional.of(evento));
         when(repository.save(any(CronogramaEvento.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(eventoMinisterioRepository.findByEventoId(evento.getId())).thenReturn(List.of());
-        when(escalaRepository.findByEventoId(evento.getId())).thenReturn(List.of());
 
         CronogramaEventoResponse response = cronogramaService.atualizar(evento.getId(), atualizacao(
                 evento.getDataEvento(), StatusEvento.CANCELADO, false, null));
@@ -491,8 +506,6 @@ class CronogramaServiceTest {
         evento.setStatus(StatusEvento.ABERTO);
         when(repository.findById(evento.getId())).thenReturn(Optional.of(evento));
         when(repository.save(any(CronogramaEvento.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(eventoMinisterioRepository.findByEventoId(evento.getId())).thenReturn(List.of());
-        when(escalaRepository.findByEventoId(evento.getId())).thenReturn(List.of());
 
         CronogramaEventoResponse response = cronogramaService.atualizar(evento.getId(), atualizacao(
                 evento.getDataEvento(), StatusEvento.REALIZADO, true, null));
@@ -533,8 +546,6 @@ class CronogramaServiceTest {
         CronogramaEvento evento = evento(igrejaId, LocalDate.of(2026, 8, 16));
         when(repository.findById(evento.getId())).thenReturn(Optional.of(evento));
         when(repository.save(any(CronogramaEvento.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(eventoMinisterioRepository.findByEventoId(evento.getId())).thenReturn(List.of());
-        when(escalaRepository.findByEventoId(evento.getId())).thenReturn(List.of());
 
         CronogramaEventoResponse response = cronogramaService.atualizar(evento.getId(), atualizacao(
                 evento.getDataEvento(), StatusEvento.AGENDADO, true, null));
@@ -560,7 +571,6 @@ class CronogramaServiceTest {
         when(eventoMinisterioRepository.findByEventoId(evento.getId())).thenReturn(List.of(vinculo));
         when(escalaRepository.findByEventoIdAndMinisterioId(evento.getId(), ministerioId))
                 .thenReturn(Optional.of(escala));
-        when(escalaRepository.findByEventoId(evento.getId())).thenReturn(List.of());
 
         cronogramaService.atualizar(evento.getId(), atualizacao(
                 evento.getDataEvento(), StatusEvento.AGENDADO, true, List.of()));
@@ -595,10 +605,8 @@ class CronogramaServiceTest {
         when(ministerioRepository.findById(ministerioId)).thenReturn(Optional.of(ministerio));
         when(eventoMinisterioRepository.findByEventoIdAndMinisterioId(any(), eq(ministerioId)))
                 .thenReturn(Optional.of(vinculoExistente));
-        when(eventoMinisterioRepository.findByEventoId(any())).thenReturn(List.of(vinculoExistente));
         when(escalaRepository.findByEventoIdAndMinisterioId(any(), eq(ministerioId)))
                 .thenReturn(Optional.of(escalaDeMinisterio(UUID.randomUUID(), igrejaId)));
-        when(escalaRepository.findByEventoId(any())).thenReturn(List.of());
 
         cronogramaService.criar(new CronogramaEventoCreateRequest(
                 "Show de Natal", null, TipoEvento.EVENTO, null,
@@ -630,11 +638,9 @@ class CronogramaServiceTest {
         when(ministerioRepository.findById(ministerioId)).thenReturn(Optional.of(ministerio));
         when(eventoMinisterioRepository.findByEventoIdAndMinisterioId(any(), eq(ministerioId)))
                 .thenReturn(Optional.empty());
-        when(eventoMinisterioRepository.findByEventoId(any())).thenReturn(List.of());
         when(escalaRepository.findByEventoIdAndMinisterioId(any(), eq(ministerioId))).thenReturn(Optional.empty());
         when(servicoRepository.findByMinisterioIdOrderByNomeAsc(ministerioId)).thenReturn(List.of(servico));
-        when(pessoaServicoRepository.findByServicoIdAndAtivoTrue(servicoId)).thenReturn(List.of());
-        when(escalaRepository.findByEventoId(any())).thenReturn(List.of());
+        voluntariosAtivos(servicoId, List.of());
 
         cronogramaService.criar(new CronogramaEventoCreateRequest(
                 "Show de Natal", null, TipoEvento.EVENTO, null,
@@ -663,10 +669,8 @@ class CronogramaServiceTest {
         when(ministerioRepository.findById(ministerioId)).thenReturn(Optional.of(ministerio));
         when(eventoMinisterioRepository.findByEventoIdAndMinisterioId(any(), eq(ministerioId)))
                 .thenReturn(Optional.empty());
-        when(eventoMinisterioRepository.findByEventoId(any())).thenReturn(List.of());
         when(escalaRepository.findByEventoIdAndMinisterioId(any(), eq(ministerioId)))
                 .thenReturn(Optional.of(escalaDeMinisterio(UUID.randomUUID(), igrejaId)));
-        when(escalaRepository.findByEventoId(any())).thenReturn(List.of());
 
         cronogramaService.criar(new CronogramaEventoCreateRequest(
                 "Show de Natal", null, TipoEvento.EVENTO, null,
@@ -970,5 +974,68 @@ class CronogramaServiceTest {
         pessoa.setNome(nome);
         pessoa.setAtivo(true);
         return pessoa;
+    }
+
+    @Test
+    void listarMontaEventosComMinisteriosEscalasEVagasEmLote() {
+        UUID igrejaId = UUID.randomUUID();
+        UUID supervisorId = UUID.randomUUID();
+        CronogramaEvento primeiro = evento(igrejaId, LocalDate.of(2026, 8, 16));
+        primeiro.setSupervisorPessoaId(supervisorId);
+        CronogramaEvento segundo = evento(igrejaId, LocalDate.of(2026, 8, 23));
+        segundo.setId(UUID.randomUUID());
+        Ministerio louvor = ministerio(UUID.randomUUID(), igrejaId);
+        EventoMinisterio participacao = new EventoMinisterio();
+        participacao.setEventoId(primeiro.getId());
+        participacao.setMinisterioId(louvor.getId());
+        Escala escala = new Escala();
+        escala.setId(UUID.randomUUID());
+        escala.setEventoId(primeiro.getId());
+        escala.setMinisterioId(louvor.getId());
+        escala.setTitulo("Louvor — Evento");
+        EscalaServico vocal = new EscalaServico();
+        vocal.setEscalaId(escala.getId());
+        vocal.setQuantidadeNecessaria(2);
+        EscalaServico violao = new EscalaServico();
+        violao.setEscalaId(escala.getId());
+        violao.setQuantidadeNecessaria(1);
+
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
+        when(repository.findByIgrejaIdInOrderByDataEventoAscHoraInicioAsc(List.of(igrejaId)))
+                .thenReturn(List.of(primeiro, segundo));
+        when(eventoMinisterioRepository.findByEventoIdIn(any())).thenReturn(List.of(participacao));
+        when(escalaRepository.findByEventoIdIn(any())).thenReturn(List.of(escala));
+        when(escalaServicoRepository.findByEscalaIdIn(List.of(escala.getId()))).thenReturn(List.of(vocal, violao));
+        when(escalaVoluntarioRepository.contarPorEscala(List.of(escala.getId())))
+                .thenReturn(List.of(new TotalPorEscala(escala.getId(), 2L)));
+        when(ministerioRepository.findAllById(any())).thenReturn(List.of(louvor));
+        when(pessoaRepository.nomesPorId(any())).thenReturn(Map.of(supervisorId, "Pr. Ana"));
+
+        List<CronogramaEventoResponse> eventos = cronogramaService.listar(igrejaId, null, null);
+
+        assertThat(eventos).hasSize(2);
+        CronogramaEventoResponse r = eventos.get(0);
+        assertThat(r.supervisorNome()).isEqualTo("Pr. Ana");
+        assertThat(r.ministerios()).extracting(CronogramaEventoResponse.MinisterioParticipante::nome)
+                .containsExactly(louvor.getNome());
+        assertThat(r.escalas()).singleElement().satisfies(resumo -> {
+            assertThat(resumo.ministerioNome()).isEqualTo(louvor.getNome());
+            assertThat(resumo.vagasTotais()).isEqualTo(3);
+            assertThat(resumo.vagasPreenchidas()).isEqualTo(2);
+        });
+        assertThat(eventos.get(1).ministerios()).isEmpty();
+        assertThat(eventos.get(1).escalas()).isEmpty();
+        verify(eventoMinisterioRepository, never()).findByEventoId(any());
+        verify(escalaVoluntarioRepository, never()).findByEscalaId(any());
+        verify(ministerioRepository, never()).findById(any());
+    }
+
+    private static UUID primeiroId(Collection<UUID> ids) {
+        return ids.iterator().next();
+    }
+
+    private void voluntariosAtivos(UUID servicoId, List<PessoaServico> vinculos) {
+        vinculos.forEach(v -> v.setServicoId(servicoId));
+        voluntariosPorServico.put(servicoId, vinculos);
     }
 }

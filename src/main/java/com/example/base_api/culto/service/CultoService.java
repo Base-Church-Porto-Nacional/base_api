@@ -3,6 +3,7 @@ package com.example.base_api.culto.service;
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ConflictException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
+import com.example.base_api.common.util.Horarios;
 import com.example.base_api.culto.dto.CultoConteudoResponse;
 import com.example.base_api.culto.dto.CultoConteudoUpdateRequest;
 import com.example.base_api.culto.dto.CultoCreateRequest;
@@ -83,11 +84,18 @@ public class CultoService {
         if (cultos.isEmpty()) {
             return List.of();
         }
-        Map<UUID, Boolean> relatorios = relatorioRepository.findByCultoIdIn(cultos.stream()
+        Set<UUID> comRelatorio = relatorioRepository.findByCultoIdIn(cultos.stream()
                         .map(Culto::getId).toList()).stream()
-                .collect(Collectors.toMap(CultoRelatorio::getCultoId, r -> true));
+                .map(CultoRelatorio::getCultoId)
+                .collect(Collectors.toSet());
         Map<UUID, CategoriaCulto> categorias = categoriasDos(cultos);
-        return cultos.stream().map(c -> toResponse(c, categorias.get(c.getCategoriaCultoId()), relatorios)).toList();
+        Map<UUID, String> pregadores = pessoaRepository.nomesPorId(cultos.stream().map(Culto::getPregadorId).toList());
+        return cultos.stream().map(c -> toResponse(
+                c,
+                categorias.get(c.getCategoriaCultoId()),
+                comRelatorio.contains(c.getId()),
+                c.getPregadorId() == null ? null : pregadores.get(c.getPregadorId())
+        )).toList();
     }
 
     @Transactional(readOnly = true)
@@ -115,7 +123,7 @@ public class CultoService {
         LocalTime horaFim = request.horaFim() != null
                 ? request.horaFim()
                 : horaInicio.plusMinutes(categoria.getDuracaoMinutos());
-        validarHorario(horaInicio, horaFim);
+        Horarios.validarFimAposInicio(horaInicio, horaFim);
 
         Culto culto = new Culto();
         culto.setIgrejaId(categoria.getIgrejaId());
@@ -141,7 +149,7 @@ public class CultoService {
         autorizacaoService.assertPastorOuAdmin(culto.getIgrejaId());
         validarTransicaoStatus(culto.getStatus(), request.status());
         validarPregadorDoCulto(request.pregadorId(), culto.getIgrejaId());
-        validarHorario(request.horaInicio(), request.horaFim());
+        Horarios.validarFimAposInicio(request.horaInicio(), request.horaFim());
 
         if (!request.data().equals(culto.getData())) {
             cultoRepository.findByCategoriaCultoIdAndData(culto.getCategoriaCultoId(), request.data())
@@ -388,12 +396,6 @@ public class CultoService {
         return Math.round(total * 10.0 / quantidade) / 10.0;
     }
 
-    private void validarHorario(LocalTime inicio, LocalTime fim) {
-        if (fim != null && !fim.isAfter(inicio)) {
-            throw new BusinessException("Hora fim deve ser posterior à hora início");
-        }
-    }
-
     private void validarPregadorDoCulto(UUID pregadorId, UUID igrejaId) {
         if (pregadorId == null) {
             return;
@@ -475,13 +477,15 @@ public class CultoService {
     }
 
     private CultoResponse toResponse(Culto culto, CategoriaCulto categoria, boolean temRelatorio) {
-        return toResponse(culto, categoria, temRelatorio ? Map.of(culto.getId(), true) : Map.of());
+        return toResponse(culto, categoria, temRelatorio, nomePessoa(culto.getPregadorId()));
     }
 
-    private CultoResponse toResponse(Culto culto, CategoriaCulto categoria, Map<UUID, Boolean> relatorios) {
-        if (categoria == null) {
-            categoria = categoriaRepository.findById(culto.getCategoriaCultoId()).orElse(null);
-        }
+    private CultoResponse toResponse(
+            Culto culto,
+            CategoriaCulto categoria,
+            boolean temRelatorio,
+            String pregadorNome
+    ) {
         return new CultoResponse(
                 culto.getId(),
                 culto.getIgrejaId(),
@@ -493,13 +497,13 @@ public class CultoService {
                 culto.getHoraInicio(),
                 culto.getHoraFim(),
                 culto.getPregadorId(),
-                nomePessoa(culto.getPregadorId()),
+                pregadorNome,
                 culto.getStatus(),
                 culto.getCompetencia(),
                 culto.getEscalaId(),
                 culto.getAtivo(),
                 janelaConfiguracaoAberta(culto),
-                relatorios.containsKey(culto.getId()),
+                temRelatorio,
                 culto.getCreatedAt(),
                 culto.getUpdatedAt()
         );

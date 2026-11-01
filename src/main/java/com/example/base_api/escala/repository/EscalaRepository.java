@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,8 +16,6 @@ public interface EscalaRepository extends JpaRepository<Escala, UUID> {
     List<Escala> findByIgrejaIdInOrderByCompetenciaDescTituloAsc(List<UUID> igrejaIds);
 
     List<Escala> findByIgrejaIdInAndCompetenciaOrderByTipoAscTituloAsc(List<UUID> igrejaIds, String competencia);
-
-    List<Escala> findByIgrejaIdAndCompetencia(UUID igrejaId, String competencia);
 
     Optional<Escala> findFirstByIgrejaIdAndCompetenciaAndTipo(
             UUID igrejaId,
@@ -38,6 +37,8 @@ public interface EscalaRepository extends JpaRepository<Escala, UUID> {
     );
 
     List<Escala> findByEventoId(UUID eventoId);
+
+    List<Escala> findByEventoIdIn(Collection<UUID> eventoIds);
 
     Optional<Escala> findByEventoIdAndMinisterioId(UUID eventoId, UUID ministerioId);
 

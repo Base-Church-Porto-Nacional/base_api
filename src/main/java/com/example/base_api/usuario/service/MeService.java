@@ -21,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Set;
 
+import static com.example.base_api.common.util.Textos.blankToNull;
+
 @Service
 public class MeService {
 
@@ -63,6 +65,10 @@ public class MeService {
 
         usuario.setEmail(request.email().trim().toLowerCase());
         if (request.novaSenha() != null && !request.novaSenha().isBlank()) {
+            if (request.senhaAtual() == null || request.senhaAtual().isBlank()
+                    || !passwordEncoder.matches(request.senhaAtual(), usuario.getSenhaHash())) {
+                throw new BusinessException("Senha atual incorreta");
+            }
             usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
             usuario.invalidarTokens();
         }
@@ -126,12 +132,5 @@ public class MeService {
                 igrejaNome,
                 visiveis
         );
-    }
-
-    private String blankToNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
     }
 }

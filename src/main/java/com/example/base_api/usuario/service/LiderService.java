@@ -10,8 +10,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class LiderService {
@@ -36,16 +40,18 @@ public class LiderService {
         if (ids.isEmpty()) {
             return List.of();
         }
-        return usuarioRepository.findAtivosByPapelAndIgrejaIdIn("LIDER", ids).stream()
-                .map(this::toResponse)
+        List<Usuario> lideres = usuarioRepository.findAtivosByPapelAndIgrejaIdIn("LIDER", ids);
+        List<UUID> pessoaIds = lideres.stream().map(Usuario::getPessoaId).filter(Objects::nonNull).distinct().toList();
+        Map<UUID, Pessoa> pessoas = pessoaIds.isEmpty()
+                ? Map.of()
+                : pessoaRepository.findAllById(pessoaIds).stream()
+                .collect(Collectors.toMap(Pessoa::getId, Function.identity()));
+        return lideres.stream()
+                .map(u -> toResponse(u, u.getPessoaId() == null ? null : pessoas.get(u.getPessoaId())))
                 .toList();
     }
 
-    private LiderResponse toResponse(Usuario usuario) {
-        Pessoa pessoa = usuario.getPessoaId() == null
-                ? null
-                : pessoaRepository.findById(usuario.getPessoaId()).orElse(null);
-
+    private LiderResponse toResponse(Usuario usuario, Pessoa pessoa) {
         Set<String> papeis = usuario.nomesPapeisDaIgrejaAtual();
 
         return new LiderResponse(

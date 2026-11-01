@@ -14,7 +14,7 @@ import com.example.base_api.culto.dto.CultoUpdateRequest;
 import com.example.base_api.culto.entity.CategoriaCulto;
 import com.example.base_api.culto.entity.Culto;
 import com.example.base_api.culto.entity.CultoRelatorio;
-import com.example.base_api.culto.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 import com.example.base_api.culto.entity.StatusCulto;
 import com.example.base_api.culto.repository.CategoriaCultoRepository;
 import com.example.base_api.culto.repository.CultoRelatorioRepository;
@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -42,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -717,5 +719,30 @@ class CultoServiceTest {
                 new CultoRelatorioRequest(10, 2, 0, 0, 0, 0, 0, 0, null)))
                 .isInstanceOf(AccessDeniedException.class);
         verify(relatorioRepository, never()).save(any());
+    }
+
+    @Test
+    void listarBuscaNomesDosPregadoresNumaUnicaConsulta() {
+        UUID igrejaId = UUID.randomUUID();
+        UUID pregadorA = UUID.randomUUID();
+        UUID pregadorB = UUID.randomUUID();
+        Culto primeiro = culto(igrejaId, StatusCulto.AGENDADO);
+        primeiro.setPregadorId(pregadorA);
+        Culto segundo = culto(igrejaId, StatusCulto.AGENDADO);
+        segundo.setPregadorId(pregadorB);
+        Culto semPregador = culto(igrejaId, StatusCulto.AGENDADO);
+
+        when(autorizacaoService.idsParaListagem(null)).thenReturn(List.of(igrejaId));
+        when(cultoRepository.filtrar(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(primeiro, segundo, semPregador));
+        when(relatorioRepository.findByCultoIdIn(any())).thenReturn(List.of());
+        when(categoriaRepository.findAllById(any())).thenReturn(List.of(categoria(igrejaId)));
+        when(pessoaRepository.nomesPorId(any())).thenReturn(Map.of(pregadorA, "Pr. Ana", pregadorB, "Pr. Beto"));
+
+        List<CultoResponse> cultos = cultoService.listar(null, null, null, null, null, null, null);
+
+        assertThat(cultos).extracting(CultoResponse::pregadorNome).containsExactly("Pr. Ana", "Pr. Beto", null);
+        verify(pessoaRepository, times(1)).nomesPorId(any());
+        verify(pessoaRepository, never()).findById(any());
     }
 }

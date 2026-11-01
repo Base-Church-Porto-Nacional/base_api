@@ -13,7 +13,5 @@ public interface BaseMinisterialRepository extends JpaRepository<BaseMinisterial
 
     boolean existsByIgrejaIdAndNomeIgnoreCaseAndIdNot(UUID igrejaId, String nome, UUID id);
 
-    List<BaseMinisterial> findByIgrejaIdOrderByNomeAsc(UUID igrejaId);
-
     List<BaseMinisterial> findByIgrejaIdInOrderByNomeAsc(List<UUID> igrejaIds);
 }

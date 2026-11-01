@@ -41,11 +41,12 @@ public class AuthController {
         }
     }
 
+    /**
+     * IP do cliente. Não lê X-Forwarded-For diretamente (o cliente poderia forjá-lo e burlar o rate limit):
+     * com server.forward-headers-strategy=NATIVE o Tomcat só aplica o header quando a conexão vem de um
+     * proxy interno confiável, e já entrega o IP real em getRemoteAddr().
+     */
     private String ipCliente(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
         return request.getRemoteAddr();
     }
 }

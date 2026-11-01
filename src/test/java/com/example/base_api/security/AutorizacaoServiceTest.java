@@ -8,10 +8,12 @@ import com.example.base_api.igreja.service.IgrejaContextoService;
 import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.repository.MinisterioRepository;
 import com.example.base_api.pessoa.entity.Pessoa;
+import com.example.base_api.servico.entity.Servico;
 import com.example.base_api.servico.repository.ServicoRepository;
 import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.entity.UsuarioPapel;
+import com.example.base_api.voluntario.entity.PessoaServico;
 import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,13 +23,18 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -232,5 +239,76 @@ class AutorizacaoServiceTest {
         vinculo.setIgrejaId(igrejaDoVinculo);
         vinculo.setPapel(papel);
         return vinculo;
+    }
+
+    @Test
+    void pastorVeTodasAsPessoasDaIgrejaConsultandoOPapelUmaVezPorIgreja() {
+        List<Pessoa> pessoas = List.of(pessoaDaIgreja(), pessoaDaIgreja(), pessoaDaIgreja());
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(true);
+
+        assertThat(autorizacaoService.filtrarVisiveisNaListagem(pessoas)).containsExactlyElementsOf(pessoas);
+        verify(igrejaContextoService, times(1)).isPastorOuAdmin(igrejaId);
+        verify(ministerioRepository, never()).findByIgrejaIdOrderByNomeAsc(any());
+    }
+
+    @Test
+    void liderVeASiMesmoEAsPessoasDosSeusMinisteriosComPoucasConsultas() {
+        Pessoa eu = pessoaDaIgreja();
+        eu.setId(pessoaId);
+        Pessoa coordenador = pessoaDaIgreja();
+        Pessoa voluntario = pessoaDaIgreja();
+        Pessoa voluntarioInativoOuDeOutroMinisterio = pessoaDaIgreja();
+        Pessoa liderDeOutroMinisterio = pessoaDaIgreja();
+        Ministerio meu = new Ministerio();
+        meu.setId(UUID.randomUUID());
+        meu.setIgrejaId(igrejaId);
+        meu.setLiderPessoaId(pessoaId);
+        meu.setCoordenadorPessoaId(coordenador.getId());
+        Ministerio alheio = new Ministerio();
+        alheio.setId(UUID.randomUUID());
+        alheio.setIgrejaId(igrejaId);
+        alheio.setLiderPessoaId(liderDeOutroMinisterio.getId());
+        Servico servicoMeu = new Servico();
+        servicoMeu.setId(UUID.randomUUID());
+        servicoMeu.setMinisterioId(meu.getId());
+        PessoaServico vinculo = new PessoaServico();
+        vinculo.setPessoaId(voluntario.getId());
+        vinculo.setServicoId(servicoMeu.getId());
+        vinculo.setAtivo(true);
+
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(ministerioRepository.findByIgrejaIdOrderByNomeAsc(igrejaId)).thenReturn(List.of(meu, alheio));
+        when(servicoRepository.findByMinisterioIdInOrderByNomeAsc(List.of(meu.getId()))).thenReturn(List.of(servicoMeu));
+        when(pessoaServicoRepository.findByServicoIdInAndAtivoTrue(List.of(servicoMeu.getId()))).thenReturn(List.of(vinculo));
+
+        List<Pessoa> visiveis = autorizacaoService.filtrarVisiveisNaListagem(List.of(
+                eu, coordenador, voluntario, voluntarioInativoOuDeOutroMinisterio, liderDeOutroMinisterio));
+
+        assertThat(visiveis).containsExactly(eu, coordenador, voluntario);
+        verify(ministerioRepository, times(1)).findByIgrejaIdOrderByNomeAsc(igrejaId);
+        verify(pessoaServicoRepository, times(1)).findByServicoIdInAndAtivoTrue(any());
+    }
+
+    @Test
+    void membroSemMinisterioVeSomenteASiMesmo() {
+        Pessoa eu = pessoaDaIgreja();
+        eu.setId(pessoaId);
+        Pessoa outra = pessoaDaIgreja();
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(ministerioRepository.findByIgrejaIdOrderByNomeAsc(igrejaId)).thenReturn(List.of());
+
+        assertThat(autorizacaoService.filtrarVisiveisNaListagem(List.of(outra, eu))).containsExactly(eu);
+        assertThat(autorizacaoService.podeIncluirPessoaNaListagem(outra)).isFalse();
+        assertThat(autorizacaoService.podeIncluirPessoaNaListagem(eu)).isTrue();
+    }
+
+    private Pessoa pessoaDaIgreja() {
+        Pessoa pessoa = new Pessoa();
+        pessoa.setId(UUID.randomUUID());
+        pessoa.setIgrejaId(igrejaId);
+        return pessoa;
     }
 }

@@ -59,7 +59,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> {
-                    auth.requestMatchers("/api/auth/**", "/actuator/health").permitAll()
+                    auth.requestMatchers("/api/auth/**", "/actuator/health", "/actuator/health/**").permitAll()
                             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
                     if (swaggerPublico) {
                         auth.requestMatchers(

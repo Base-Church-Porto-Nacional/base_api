@@ -9,14 +9,16 @@ import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.repository.MinisterioRepository;
-import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Service
 public class BaseMinisterialService {
@@ -44,9 +46,11 @@ public class BaseMinisterialService {
         if (ids.isEmpty()) {
             return List.of();
         }
-        return baseMinisterialRepository.findByIgrejaIdInOrderByNomeAsc(ids).stream()
-                .map(this::toResponse)
-                .toList();
+        List<BaseMinisterial> bases = baseMinisterialRepository.findByIgrejaIdInOrderByNomeAsc(ids);
+        Map<UUID, String> nomes = pessoaRepository.nomesPorId(bases.stream()
+                .flatMap(b -> Stream.of(b.getLiderPessoaId(), b.getCoordenadorPessoaId()))
+                .toList());
+        return bases.stream().map(b -> toResponse(b, nomes)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -59,7 +63,7 @@ public class BaseMinisterialService {
     @Transactional
     public BaseMinisterialResponse criar(BaseMinisterialCreateRequest request) {
         autorizacaoService.assertPodeCriarBaseMinisterial(request.igrejaId());
-        baseMinisterialRepository.findByIgrejaIdAndNomeIgnoreCase(request.igrejaId(), request.nome())
+        baseMinisterialRepository.findByIgrejaIdAndNomeIgnoreCase(request.igrejaId(), request.nome().trim())
                 .ifPresent(b -> {
                     throw new BusinessException("Já existe uma base ministerial com este nome nesta igreja");
                 });
@@ -81,7 +85,7 @@ public class BaseMinisterialService {
         autorizacaoService.assertPodeGerenciarBaseMinisterial(base);
 
         if (baseMinisterialRepository.existsByIgrejaIdAndNomeIgnoreCaseAndIdNot(
-                base.getIgrejaId(), request.nome(), id)) {
+                base.getIgrejaId(), request.nome().trim(), id)) {
             throw new BusinessException("Já existe uma base ministerial com este nome nesta igreja");
         }
 
@@ -114,6 +118,11 @@ public class BaseMinisterialService {
     }
 
     public BaseMinisterialResponse toResponse(BaseMinisterial base) {
+        return toResponse(base, pessoaRepository.nomesPorId(
+                Arrays.asList(base.getLiderPessoaId(), base.getCoordenadorPessoaId())));
+    }
+
+    private BaseMinisterialResponse toResponse(BaseMinisterial base, Map<UUID, String> nomes) {
         return new BaseMinisterialResponse(
                 base.getId(),
                 base.getNome(),
@@ -121,19 +130,16 @@ public class BaseMinisterialService {
                 base.getAtivo(),
                 base.getIgrejaId(),
                 base.getLiderPessoaId(),
-                nomePessoa(base.getLiderPessoaId()),
+                porId(nomes, base.getLiderPessoaId()),
                 base.getCoordenadorPessoaId(),
-                nomePessoa(base.getCoordenadorPessoaId()),
+                porId(nomes, base.getCoordenadorPessoaId()),
                 base.getOrdem(),
                 base.getCreatedAt(),
                 base.getUpdatedAt()
         );
     }
 
-    private String nomePessoa(UUID pessoaId) {
-        if (pessoaId == null) {
-            return null;
-        }
-        return pessoaRepository.findById(pessoaId).map(Pessoa::getNome).orElse(null);
+    private static String porId(Map<UUID, String> nomes, UUID id) {
+        return id == null ? null : nomes.get(id);
     }
 }

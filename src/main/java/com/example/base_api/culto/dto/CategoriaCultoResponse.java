@@ -1,6 +1,6 @@
 package com.example.base_api.culto.dto;
 
-import com.example.base_api.culto.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 
 import java.time.Instant;
 import java.time.LocalTime;

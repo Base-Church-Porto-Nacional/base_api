@@ -31,6 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -81,8 +83,18 @@ public class UsuarioService {
         if (ids.isEmpty()) {
             return List.of();
         }
-        return usuarioRepository.findByIgrejaIdIn(ids).stream()
-                .map(this::toResponse)
+        List<Usuario> usuarios = usuarioRepository.findByIgrejaIdIn(ids);
+        Map<UUID, String> pessoas = pessoaService.nomesPorId(usuarios.stream().map(Usuario::getPessoaId).toList());
+        List<UUID> igrejaIds = usuarios.stream().map(Usuario::getIgrejaId).filter(Objects::nonNull).distinct().toList();
+        Map<UUID, String> igrejas = igrejaIds.isEmpty()
+                ? Map.of()
+                : igrejaRepository.findAllById(igrejaIds).stream()
+                .collect(Collectors.toMap(Igreja::getId, Igreja::getNome));
+        return usuarios.stream()
+                .map(u -> toResponse(
+                        u,
+                        u.getPessoaId() == null ? null : pessoas.get(u.getPessoaId()),
+                        u.getIgrejaId() == null ? null : igrejas.get(u.getIgrejaId())))
                 .toList();
     }
 
@@ -338,15 +350,16 @@ public class UsuarioService {
     }
 
     private UsuarioResponse toResponse(Usuario usuario) {
-        Set<String> papeis = usuario.nomesPapeisDaIgrejaAtual();
-
         String pessoaNome = usuario.getPessoaId() == null
                 ? null
                 : pessoaService.buscarEntidade(usuario.getPessoaId()).getNome();
         String igrejaNome = usuario.getIgrejaId() == null
                 ? null
                 : igrejaRepository.findById(usuario.getIgrejaId()).map(Igreja::getNome).orElse(null);
+        return toResponse(usuario, pessoaNome, igrejaNome);
+    }
 
+    private UsuarioResponse toResponse(Usuario usuario, String pessoaNome, String igrejaNome) {
         return new UsuarioResponse(
                 usuario.getId(),
                 usuario.getPessoaId(),
@@ -356,7 +369,7 @@ public class UsuarioService {
                 usuario.getIgrejaId(),
                 igrejaNome,
                 usuario.getAtivo(),
-                papeis,
+                usuario.nomesPapeisDaIgrejaAtual(),
                 usuario.getCreatedAt(),
                 usuario.getUpdatedAt()
         );
