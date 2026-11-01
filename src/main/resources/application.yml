@@ -32,6 +32,21 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  health:
+    # Só verifica o broker quando a fila está habilitada; sem isso o health fica DOWN sem RabbitMQ.
+    rabbit:
+      enabled: ${RABBIT_HABILITADO:false}
+
 app:
   # Primeiro administrador (só é criado quando não há nenhum usuário; ignorado no perfil dev).
   bootstrap:

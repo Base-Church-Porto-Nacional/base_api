@@ -141,6 +141,8 @@ Com o perfil `dev`, na primeira execução são criados (senha `admin123`):
 
 Fora do perfil `dev` não há seed. Na primeira subida com banco vazio, defina `ADMIN_USERNAME`, `ADMIN_EMAIL` e `ADMIN_SENHA` (mín. 8 caracteres; `ADMIN_NOME` é opcional): a API cria esse usuário com os papéis `ADMIN` + `PASTOR` na igreja matriz. Se já existir qualquer usuário, as variáveis são ignoradas — remova `ADMIN_SENHA` do ambiente após o primeiro login.
 
+Health check para o orquestrador: `GET /actuator/health` (também `/actuator/health/liveness` e `/readiness`).
+
 ### Login
 
 ```bash
