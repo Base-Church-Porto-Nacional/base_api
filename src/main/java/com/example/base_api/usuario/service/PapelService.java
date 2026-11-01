@@ -1,6 +1,7 @@
 package com.example.base_api.usuario.service;
 
 import com.example.base_api.common.exception.BusinessException;
+import com.example.base_api.common.exception.ConflictException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.usuario.dto.PapelRequest;
@@ -30,8 +31,9 @@ public class PapelService {
     }
 
     @Transactional(readOnly = true)
-    public List<PapelResponse> listar() {
-        UUID igrejaId = autorizacaoService.igrejaAtualId();
+    public List<PapelResponse> listar(UUID igrejaIdSolicitada) {
+        UUID igrejaId = igrejaIdSolicitada != null ? igrejaIdSolicitada : autorizacaoService.igrejaAtualId();
+        autorizacaoService.assertAcesso(igrejaId);
         return papelRepository.findByIgrejaIdIsNullOrIgrejaId(igrejaId).stream()
                 .map(this::toResponse)
                 .toList();
@@ -46,9 +48,12 @@ public class PapelService {
 
     @Transactional
     public PapelResponse criar(PapelRequest request) {
-        UUID igrejaId = autorizacaoService.igrejaAtualId();
+        UUID igrejaId = request.igrejaId() != null ? request.igrejaId() : autorizacaoService.igrejaAtualId();
         autorizacaoService.assertPastorOuAdmin(igrejaId);
         String nome = normalizarNome(request.nome());
+        if (papelRepository.existsByNomeAndIgrejaId(nome, igrejaId)) {
+            throw new ConflictException("Já existe um papel com este nome nesta igreja");
+        }
 
         Papel papel = new Papel();
         papel.setNome(nome);
@@ -105,7 +110,7 @@ public class PapelService {
         }
     }
 
-    /** Um papel é visível se for de sistema (global) ou pertencer à igreja atual. */
+    /** Um papel é visível se for de sistema (global) ou pertencer a uma igreja que o usuário enxerga. */
     private void assertVisivel(Papel papel) {
         if (papel.isSistema()) {
             return;
