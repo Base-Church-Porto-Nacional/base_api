@@ -201,7 +201,7 @@ class EscalaServiceTest {
         when(pessoaServicoRepository.findByPessoaIdAndServicoId(pessoaId, servicoId))
                 .thenReturn(Optional.of(vinculo));
         when(escalaVoluntarioRepository.findByEscalaIdAndPessoaIdAndServicoId(escalaId, pessoaId, servicoId))
-                .thenReturn(Optional.empty());
+                .thenReturn(List.of());
         when(escalaVoluntarioRepository.countByEscalaIdAndServicoIdAndStatusIn(eq(escalaId), eq(servicoId), anyList()))
                 .thenReturn(0L);
         when(escalaVoluntarioRepository.save(any(EscalaVoluntario.class))).thenAnswer(invocation -> {
@@ -219,6 +219,35 @@ class EscalaServiceTest {
 
         assertThat(response.pessoaId()).isEqualTo(pessoaId);
         assertThat(response.status().name()).isEqualTo("PENDENTE");
+    }
+
+    @Test
+    void naoDeveDesignarSemDataQuandoPessoaJaTemDesignacoesEmVariasDatas() {
+        Escala escala = escala();
+        PessoaServico vinculo = new PessoaServico();
+        vinculo.setAtivo(true);
+        EscalaVoluntario dia6 = designacao();
+        dia6.setDataItem(LocalDate.of(2026, 9, 6));
+        EscalaVoluntario dia13 = designacao();
+        dia13.setId(UUID.randomUUID());
+        dia13.setDataItem(LocalDate.of(2026, 9, 13));
+
+        when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
+        when(pessoaService.buscarEntidade(pessoaId)).thenReturn(pessoa());
+        when(servicoService.buscarEntidade(servicoId)).thenReturn(servico());
+        when(escalaServicoRepository.findByEscalaIdAndServicoId(escalaId, servicoId))
+                .thenReturn(Optional.of(escalaServico()));
+        when(pessoaServicoRepository.findByPessoaIdAndServicoId(pessoaId, servicoId))
+                .thenReturn(Optional.of(vinculo));
+        when(escalaVoluntarioRepository.findByEscalaIdAndPessoaIdAndServicoId(escalaId, pessoaId, servicoId))
+                .thenReturn(List.of(dia6, dia13));
+
+        assertThatThrownBy(() -> escalaService.designarVoluntario(
+                escalaId,
+                new EscalaVoluntarioCreateRequest(pessoaId, servicoId, null, null, null, null)
+        )).isInstanceOf(BusinessException.class)
+                .hasMessageContaining("A pessoa já está designada para este serviço nesta escala");
+        verify(escalaVoluntarioRepository, never()).save(any(EscalaVoluntario.class));
     }
 
     @Test
@@ -1107,7 +1136,7 @@ class EscalaServiceTest {
         when(pessoaServicoRepository.findByPessoaIdAndServicoId(novaPessoaId, servicoId))
                 .thenReturn(Optional.of(vinculo));
         when(escalaVoluntarioRepository.findByEscalaIdAndPessoaIdAndServicoId(
-                escalaId, novaPessoaId, servicoId)).thenReturn(Optional.empty());
+                escalaId, novaPessoaId, servicoId)).thenReturn(List.of());
         when(escalaVoluntarioRepository.save(any(EscalaVoluntario.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -1135,6 +1164,11 @@ class EscalaServiceTest {
         EscalaVoluntario outra = designacao();
         outra.setId(UUID.randomUUID());
         outra.setPessoaId(novaPessoaId);
+        outra.setDataItem(LocalDate.of(2026, 9, 6));
+        EscalaVoluntario outraEmOutraData = designacao();
+        outraEmOutraData.setId(UUID.randomUUID());
+        outraEmOutraData.setPessoaId(novaPessoaId);
+        outraEmOutraData.setDataItem(LocalDate.of(2026, 9, 13));
 
         when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
         when(escalaVoluntarioRepository.findById(designacao.getId())).thenReturn(Optional.of(designacao));
@@ -1145,7 +1179,7 @@ class EscalaServiceTest {
         when(pessoaServicoRepository.findByPessoaIdAndServicoId(novaPessoaId, servicoId))
                 .thenReturn(Optional.of(vinculo));
         when(escalaVoluntarioRepository.findByEscalaIdAndPessoaIdAndServicoId(
-                escalaId, novaPessoaId, servicoId)).thenReturn(Optional.of(outra));
+                escalaId, novaPessoaId, servicoId)).thenReturn(List.of(outra, outraEmOutraData));
 
         assertThatThrownBy(() -> escalaService.atualizarDesignacao(
                 escalaId,

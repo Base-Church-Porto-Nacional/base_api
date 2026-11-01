@@ -5,6 +5,7 @@ import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.baseministerial.repository.BaseMinisterialRepository;
 import com.example.base_api.ministerio.dto.MinisterioCreateRequest;
 import com.example.base_api.ministerio.dto.MinisterioResponse;
+import com.example.base_api.ministerio.dto.MinisterioUpdateRequest;
 import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.entity.MinisterioTipo;
 import com.example.base_api.ministerio.repository.MinisterioRepository;
@@ -92,6 +93,38 @@ class MinisterioServiceTest {
         assertThatThrownBy(() -> ministerioService.criar(
                 new MinisterioCreateRequest("Louvor", null, true, igrejaId, MinisterioTipo.GERAL, null, null, null)
         )).isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void naoDeveCriarMinisterioDuplicadoQuandoNomeVemComEspacos() {
+        UUID igrejaId = UUID.randomUUID();
+        Ministerio existente = new Ministerio();
+        existente.setId(UUID.randomUUID());
+        existente.setNome("Louvor");
+        when(ministerioRepository.findByIgrejaIdAndNomeIgnoreCase(igrejaId, "Louvor")).thenReturn(Optional.of(existente));
+
+        assertThatThrownBy(() -> ministerioService.criar(
+                new MinisterioCreateRequest("  Louvor ", null, true, igrejaId, MinisterioTipo.GERAL, null, null, null)
+        )).isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Já existe um ministério com este nome");
+    }
+
+    @Test
+    void naoDeveRenomearMinisterioParaNomeExistenteComEspacos() {
+        UUID igrejaId = UUID.randomUUID();
+        Ministerio ministerio = new Ministerio();
+        ministerio.setId(UUID.randomUUID());
+        ministerio.setIgrejaId(igrejaId);
+        ministerio.setNome("Mídia");
+        when(ministerioRepository.findById(ministerio.getId())).thenReturn(Optional.of(ministerio));
+        when(ministerioRepository.existsByIgrejaIdAndNomeIgnoreCaseAndIdNot(igrejaId, "Louvor", ministerio.getId()))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> ministerioService.atualizar(
+                ministerio.getId(),
+                new MinisterioUpdateRequest(" Louvor  ", null, true, null, null, null, null, null, null)
+        )).isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Já existe um ministério com este nome");
     }
 
     @Test

@@ -71,7 +71,7 @@ public class MinisterioService {
     @Transactional
     public MinisterioResponse criar(MinisterioCreateRequest request) {
         autorizacaoService.assertPodeCriarMinisterio(request.igrejaId());
-        ministerioRepository.findByIgrejaIdAndNomeIgnoreCase(request.igrejaId(), request.nome()).ifPresent(m -> {
+        ministerioRepository.findByIgrejaIdAndNomeIgnoreCase(request.igrejaId(), request.nome().trim()).ifPresent(m -> {
             throw new BusinessException("Já existe um ministério com este nome nesta igreja");
         });
 
@@ -97,7 +97,7 @@ public class MinisterioService {
         autorizacaoService.assertPodeGerenciarMinisterio(ministerio);
 
         if (ministerioRepository.existsByIgrejaIdAndNomeIgnoreCaseAndIdNot(
-                ministerio.getIgrejaId(), request.nome(), id)) {
+                ministerio.getIgrejaId(), request.nome().trim(), id)) {
             throw new BusinessException("Já existe um ministério com este nome nesta igreja");
         }
 

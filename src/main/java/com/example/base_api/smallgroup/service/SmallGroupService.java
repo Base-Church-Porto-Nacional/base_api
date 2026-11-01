@@ -74,7 +74,7 @@ public class SmallGroupService {
     @Transactional
     public SmallGroupResponse criar(SmallGroupCreateRequest request) {
         autorizacaoService.assertPodeCriarSmallGroup(request.igrejaId());
-        smallGroupRepository.findByIgrejaIdAndNomeIgnoreCase(request.igrejaId(), request.nome())
+        smallGroupRepository.findByIgrejaIdAndNomeIgnoreCase(request.igrejaId(), request.nome().trim())
                 .ifPresent(g -> {
                     throw new BusinessException("Já existe um pequeno grupo com este nome nesta igreja");
                 });
@@ -98,7 +98,7 @@ public class SmallGroupService {
         autorizacaoService.assertPodeGerenciarSmallGroup(grupo);
 
         if (smallGroupRepository.existsByIgrejaIdAndNomeIgnoreCaseAndIdNot(
-                grupo.getIgrejaId(), request.nome(), id)) {
+                grupo.getIgrejaId(), request.nome().trim(), id)) {
             throw new BusinessException("Já existe um pequeno grupo com este nome nesta igreja");
         }
 

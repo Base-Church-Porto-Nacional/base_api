@@ -21,6 +21,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 
@@ -168,11 +169,13 @@ public class CultoAutomacaoService {
     }
 
     private YearMonth parseCompetencia(String competencia) {
-        if (competencia == null || !competencia.matches("\\d{4}-\\d{2}")) {
-            throw new BusinessException(
-                    "Competência inválida. Use o formato YYYY-MM (ex.: 2026-09)"
-            );
+        if (competencia != null) {
+            try {
+                return YearMonth.parse(competencia);
+            } catch (DateTimeParseException ignored) {
+                // cai na mensagem de erro abaixo
+            }
         }
-        return YearMonth.parse(competencia);
+        throw new BusinessException("Competência inválida. Use o formato YYYY-MM (ex.: 2026-09)");
     }
 }

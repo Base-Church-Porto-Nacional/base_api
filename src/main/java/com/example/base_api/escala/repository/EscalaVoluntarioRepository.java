@@ -25,7 +25,8 @@ public interface EscalaVoluntarioRepository extends JpaRepository<EscalaVoluntar
             LocalDate fim
     );
 
-    Optional<EscalaVoluntario> findByEscalaIdAndPessoaIdAndServicoId(
+    // Lista: com designações por data, a mesma pessoa pode ter várias linhas no mesmo serviço.
+    List<EscalaVoluntario> findByEscalaIdAndPessoaIdAndServicoId(
             UUID escalaId,
             UUID pessoaId,
             UUID servicoId

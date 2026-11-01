@@ -131,6 +131,15 @@ class CultoAutomacaoServiceTest {
     }
 
     @Test
+    void deveRejeitarCompetenciaComMesInexistenteComoErroDeNegocio() {
+        UUID igrejaId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> automacaoService.gerarMesManual("2026-13", igrejaId))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Competência inválida");
+    }
+
+    @Test
     void deveCriarCultoComDadosHerdadosDaCategoria() {
         UUID igrejaId = UUID.randomUUID();
         UUID pregadorPadraoId = UUID.randomUUID();

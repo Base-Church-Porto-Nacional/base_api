@@ -59,7 +59,7 @@ public class BaseMinisterialService {
     @Transactional
     public BaseMinisterialResponse criar(BaseMinisterialCreateRequest request) {
         autorizacaoService.assertPodeCriarBaseMinisterial(request.igrejaId());
-        baseMinisterialRepository.findByIgrejaIdAndNomeIgnoreCase(request.igrejaId(), request.nome())
+        baseMinisterialRepository.findByIgrejaIdAndNomeIgnoreCase(request.igrejaId(), request.nome().trim())
                 .ifPresent(b -> {
                     throw new BusinessException("Já existe uma base ministerial com este nome nesta igreja");
                 });
@@ -81,7 +81,7 @@ public class BaseMinisterialService {
         autorizacaoService.assertPodeGerenciarBaseMinisterial(base);
 
         if (baseMinisterialRepository.existsByIgrejaIdAndNomeIgnoreCaseAndIdNot(
-                base.getIgrejaId(), request.nome(), id)) {
+                base.getIgrejaId(), request.nome().trim(), id)) {
             throw new BusinessException("Já existe uma base ministerial com este nome nesta igreja");
         }
 

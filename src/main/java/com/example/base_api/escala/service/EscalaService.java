@@ -626,11 +626,11 @@ public class EscalaService {
                         throw new BusinessException("A pessoa já está designada para este serviço nesta data e escala");
                     });
         } else {
-            escalaVoluntarioRepository
+            if (!escalaVoluntarioRepository
                     .findByEscalaIdAndPessoaIdAndServicoId(escala.getId(), pessoa.getId(), servico.getId())
-                    .ifPresent(v -> {
-                        throw new BusinessException("A pessoa já está designada para este serviço nesta escala");
-                    });
+                    .isEmpty()) {
+                throw new BusinessException("A pessoa já está designada para este serviço nesta escala");
+            }
         }
 
         long ocupados;
@@ -762,12 +762,13 @@ public class EscalaService {
         }
 
         if (!designacao.getPessoaId().equals(pessoa.getId()) || !designacao.getServicoId().equals(servico.getId())) {
-            escalaVoluntarioRepository
+            boolean jaDesignada = escalaVoluntarioRepository
                     .findByEscalaIdAndPessoaIdAndServicoId(escalaId, pessoa.getId(), servico.getId())
-                    .filter(outro -> !outro.getId().equals(designacaoId))
-                    .ifPresent(outro -> {
-                        throw new BusinessException("A pessoa já está designada para este serviço nesta escala");
-                    });
+                    .stream()
+                    .anyMatch(outro -> !outro.getId().equals(designacaoId));
+            if (jaDesignada) {
+                throw new BusinessException("A pessoa já está designada para este serviço nesta escala");
+            }
         }
 
         designacao.setPessoaId(pessoa.getId());
