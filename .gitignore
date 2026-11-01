@@ -38,3 +38,5 @@ build/
 /AGENTS.md
 /docs/api-gestao-de-cultos.md
 /docs/consumo-frontend-escala.md
+
+deploy/.env
