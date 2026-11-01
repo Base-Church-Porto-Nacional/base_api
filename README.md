@@ -2,7 +2,7 @@
 
 API REST para gestão de pessoas, jornada de membros, ministérios, voluntários, disponibilidade e escalas.
 
-O frontend (React + TypeScript) será desenvolvido em repositório separado.
+O frontend é um app Flutter (iOS, Android e Web) em repositório separado (`base_interface`).
 
 ## Tecnologias
 
@@ -244,4 +244,4 @@ docker compose up --build
 ## Observações
 
 - Não implemente/espere ainda o algoritmo completo de geração automática de escalas.
-- Frontend React não faz parte deste repositório.
+- O frontend Flutter (`base_interface`) não faz parte deste repositório.
