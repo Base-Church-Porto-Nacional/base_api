@@ -100,10 +100,6 @@ class ExportServiceTest {
         when(autorizacaoService.idsParaListagem(null)).thenReturn(List.of(filialId));
         when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(List.of(filialId)))
                 .thenReturn(List.of(pessoaFilial));
-        when(ministerioRepository.findByIgrejaIdInOrderByNomeAsc(List.of(filialId))).thenReturn(List.of());
-        when(escalaRepository.findByIgrejaIdInOrderByCompetenciaDescTituloAsc(List.of(filialId)))
-                .thenReturn(List.of());
-        when(usuarioRepository.findByIgrejaIdIn(List.of(filialId))).thenReturn(List.of());
         when(exportRenderer.renderizar(any(), any()))
                 .thenReturn(new ExportFile("pessoas.txt", "text/plain", new byte[0]));
 
@@ -114,6 +110,10 @@ class ExportServiceTest {
         verify(ministerioRepository, never()).findAll();
         verify(escalaRepository, never()).findAll();
         verify(usuarioRepository, never()).findAll();
+        // Exportar pessoas carrega só o que a planilha de pessoas usa.
+        verify(ministerioRepository, never()).findByIgrejaIdInOrderByNomeAsc(any());
+        verify(escalaRepository, never()).findByIgrejaIdInOrderByCompetenciaDescTituloAsc(any());
+        verify(usuarioRepository, never()).findByIgrejaIdIn(any());
     }
 
     @Test
@@ -153,6 +153,10 @@ class ExportServiceTest {
         assertThat(linhaRealizado.get(17)).isEqualTo("35");
         assertThat(sheet.getLinhas().get(1).get(10)).isEmpty();
         verify(auditService).registrar("EXPORTAR", "cultos", "formato=XLSX");
+        // Cultos usam pessoas (nome do pregador), mas não escalas, usuários nem ministérios.
+        verify(escalaRepository, never()).findByIgrejaIdInOrderByCompetenciaDescTituloAsc(any());
+        verify(usuarioRepository, never()).findByIgrejaIdIn(any());
+        verify(ministerioRepository, never()).findByIgrejaIdInOrderByNomeAsc(any());
     }
 
     private Culto culto(UUID igrejaId, UUID categoriaId, LocalDate data, StatusCulto status) {

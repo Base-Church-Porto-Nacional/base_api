@@ -2,6 +2,8 @@ package com.example.base_api.servico.repository;
 
 import com.example.base_api.servico.entity.Servico;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -32,9 +34,13 @@ public interface ServicoRepository extends JpaRepository<Servico, UUID> {
 
     List<Servico> findByMinisterioIdInAndAtivoTrueOrderByNomeAsc(List<UUID> ministerioIds);
 
-    long countByMinisterioIdIn(List<UUID> ministerioIds);
-
     Optional<Servico> findByMinisterioIdAndNomeIgnoreCase(UUID ministerioId, String nome);
 
     boolean existsByMinisterioIdAndNomeIgnoreCaseAndIdNot(UUID ministerioId, String nome, UUID id);
+
+    @Query("""
+            select count(s) from Servico s, Ministerio m
+            where m.id = s.ministerioId and m.igrejaId in :igrejaIds
+            """)
+    long contarPorIgrejas(@Param("igrejaIds") Collection<UUID> igrejaIds);
 }

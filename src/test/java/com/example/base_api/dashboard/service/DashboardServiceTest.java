@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,14 +57,11 @@ class DashboardServiceTest {
 
         when(autorizacaoService.igrejaAtualId()).thenReturn(igrejaId);
         when(autorizacaoService.idsParaListagem(null)).thenReturn(ids);
-        when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(ids)).thenReturn(List.of());
-        when(ministerioRepository.findByIgrejaIdInOrderByNomeAsc(ids)).thenReturn(List.of());
         when(pessoaRepository.countByIgrejaIdIn(ids)).thenReturn(3L);
         when(pessoaRepository.countByIgrejaIdInAndAtivoTrue(ids)).thenReturn(2L);
         when(ministerioRepository.countByIgrejaIdIn(ids)).thenReturn(1L);
         when(escalaRepository.countByIgrejaIdIn(ids)).thenReturn(4L);
         when(usuarioRepository.countByIgrejaIdIn(ids)).thenReturn(5L);
-        when(usuarioRepository.findAtivosByPapelAndIgrejaIdIn("LIDER", ids)).thenReturn(List.of());
         when(cronogramaEventoRepository.countByIgrejaIdIn(ids)).thenReturn(6L);
 
         DashboardResponse resumo = dashboardService.obterResumo();
@@ -74,5 +72,28 @@ class DashboardServiceTest {
         verify(pessoaRepository).countByIgrejaIdIn(ids);
         verify(pessoaServicoRepository, never()).findAll();
         verify(pessoaPausaRepository, never()).findAll();
+    }
+
+    @Test
+    void resumoContaNoBancoSemCarregarEntidades() {
+        UUID igrejaId = UUID.randomUUID();
+        List<UUID> ids = List.of(igrejaId);
+
+        when(autorizacaoService.igrejaAtualId()).thenReturn(igrejaId);
+        when(autorizacaoService.idsParaListagem(null)).thenReturn(ids);
+        when(pessoaServicoRepository.contarAtivosPorIgrejas(ids)).thenReturn(7L);
+        when(pessoaPausaRepository.contarAtivasPorIgrejas(ids)).thenReturn(2L);
+        when(servicoRepository.contarPorIgrejas(ids)).thenReturn(9L);
+        when(usuarioRepository.countAtivosByPapelAndIgrejaIdIn("LIDER", ids)).thenReturn(4L);
+
+        DashboardResponse resumo = dashboardService.obterResumo();
+
+        assertThat(resumo.totalVoluntariosAtivos()).isEqualTo(7);
+        assertThat(resumo.totalPausasAtivas()).isEqualTo(2);
+        assertThat(resumo.totalServicos()).isEqualTo(9);
+        assertThat(resumo.totalLideres()).isEqualTo(4);
+        verify(pessoaRepository, never()).findByIgrejaIdInOrderByNomeAsc(any());
+        verify(ministerioRepository, never()).findByIgrejaIdInOrderByNomeAsc(any());
+        verify(usuarioRepository, never()).findAtivosByPapelAndIgrejaIdIn(any(), any());
     }
 }

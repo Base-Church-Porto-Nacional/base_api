@@ -48,4 +48,17 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     @Modifying
     @Query("delete from Usuario u where u.id = :id")
     int excluirDireto(@Param("id") UUID id);
+
+    @Query("""
+            SELECT COUNT(DISTINCT u) FROM Usuario u
+            JOIN u.papeisIgreja up
+            JOIN up.papel p
+            WHERE UPPER(p.nome) = UPPER(:papel)
+              AND u.ativo = true
+              AND up.igrejaId IN :igrejaIds
+            """)
+    long countAtivosByPapelAndIgrejaIdIn(
+            @Param("papel") String papel,
+            @Param("igrejaIds") Collection<UUID> igrejaIds
+    );
 }

@@ -3,9 +3,7 @@ package com.example.base_api.dashboard.service;
 import com.example.base_api.cronograma.repository.CronogramaEventoRepository;
 import com.example.base_api.dashboard.dto.DashboardResponse;
 import com.example.base_api.escala.repository.EscalaRepository;
-import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.repository.MinisterioRepository;
-import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaPausaRepository;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
@@ -61,34 +59,17 @@ public class DashboardService {
             return new DashboardResponse(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
-        List<UUID> pessoaIds = pessoaRepository.findByIgrejaIdInOrderByNomeAsc(ids).stream()
-                .map(Pessoa::getId)
-                .toList();
-        List<UUID> ministerioIds = ministerioRepository.findByIgrejaIdInOrderByNomeAsc(ids).stream()
-                .map(Ministerio::getId)
-                .toList();
-
-        long totalVoluntariosAtivos = pessoaIds.isEmpty()
-                ? 0
-                : pessoaServicoRepository.countByPessoaIdInAndAtivoTrue(pessoaIds);
-        long totalPausasAtivas = pessoaIds.isEmpty()
-                ? 0
-                : pessoaPausaRepository.countByPessoaIdInAndAtivaTrue(pessoaIds);
-        long totalServicos = ministerioIds.isEmpty()
-                ? 0
-                : servicoRepository.countByMinisterioIdIn(ministerioIds);
-
         return new DashboardResponse(
                 pessoaRepository.countByIgrejaIdIn(ids),
                 pessoaRepository.countByIgrejaIdInAndAtivoTrue(ids),
                 ministerioRepository.countByIgrejaIdIn(ids),
-                totalServicos,
-                totalVoluntariosAtivos,
+                servicoRepository.contarPorIgrejas(ids),
+                pessoaServicoRepository.contarAtivosPorIgrejas(ids),
                 escalaRepository.countByIgrejaIdIn(ids),
                 usuarioRepository.countByIgrejaIdIn(ids),
-                usuarioRepository.findAtivosByPapelAndIgrejaIdIn("LIDER", ids).size(),
+                usuarioRepository.countAtivosByPapelAndIgrejaIdIn("LIDER", ids),
                 cronogramaEventoRepository.countByIgrejaIdIn(ids),
-                totalPausasAtivas
+                pessoaPausaRepository.contarAtivasPorIgrejas(ids)
         );
     }
 }
