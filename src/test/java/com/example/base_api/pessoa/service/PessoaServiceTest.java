@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -154,7 +155,6 @@ PessoaUpdateRequest request = new PessoaUpdateRequest(
         when(autorizacaoService.idsParaListagem(null)).thenReturn(List.of(igrejaId));
         when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(List.of(igrejaId))).thenReturn(List.of(pessoa));
         when(autorizacaoService.podeIncluirPessoaNaListagem(pessoa)).thenReturn(true);
-        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.empty());
 
         List<PessoaResponse> lista = pessoaService.listar(null);
 
@@ -188,6 +188,25 @@ PessoaUpdateRequest request = new PessoaUpdateRequest(
         PessoaResponse response = pessoaService.toResponse(pessoa);
 
         assertThat(response.papeis()).doesNotContain("ADMIN");
+    }
+
+    @Test
+    void listarBuscaUsuariosDasPessoasNumaUnicaConsulta() {
+        Pessoa outra = new Pessoa();
+        outra.setId(UUID.randomUUID());
+        outra.setNome("Ana");
+        outra.setIgrejaId(igrejaId);
+        Usuario usuario = usuarioComPapeis();
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
+        when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(List.of(igrejaId))).thenReturn(List.of(outra, pessoa));
+        when(autorizacaoService.podeIncluirPessoaNaListagem(any(Pessoa.class))).thenReturn(true);
+        when(usuarioRepository.findByPessoaIdIn(List.of(outra.getId(), pessoa.getId()))).thenReturn(List.of(usuario));
+
+        List<PessoaResponse> lista = pessoaService.listar(igrejaId);
+
+        assertThat(lista).extracting(PessoaResponse::usuarioId).containsExactly(null, usuario.getId());
+        assertThat(lista.get(1).papeis()).contains("VOLUNTARIO", "LIDER");
+        verify(usuarioRepository, never()).findByPessoaId(any());
     }
 
     private Usuario usuarioComPapeis() {

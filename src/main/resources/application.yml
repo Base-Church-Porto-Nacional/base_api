@@ -16,6 +16,8 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+        # Agrupa cargas de coleções/associações (ex.: papéis EAGER do Usuario) em vez de 1 consulta por entidade.
+        default_batch_fetch_size: 100
 
   flyway:
     enabled: true

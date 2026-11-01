@@ -16,8 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class PessoaService {
@@ -45,9 +47,17 @@ public class PessoaService {
         if (ids.isEmpty()) {
             return List.of();
         }
-        return pessoaRepository.findByIgrejaIdInOrderByNomeAsc(ids).stream()
+        List<Pessoa> pessoas = pessoaRepository.findByIgrejaIdInOrderByNomeAsc(ids).stream()
                 .filter(autorizacaoService::podeIncluirPessoaNaListagem)
-                .map(this::toResponse)
+                .toList();
+        if (pessoas.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, Usuario> usuarios = usuarioRepository
+                .findByPessoaIdIn(pessoas.stream().map(Pessoa::getId).toList()).stream()
+                .collect(Collectors.toMap(Usuario::getPessoaId, u -> u, (a, b) -> a));
+        return pessoas.stream()
+                .map(p -> toResponse(p, usuarios.get(p.getId())))
                 .toList();
     }
 
@@ -127,7 +137,10 @@ public class PessoaService {
     }
 
     public PessoaResponse toResponse(Pessoa pessoa) {
-        Usuario usuario = usuarioRepository.findByPessoaId(pessoa.getId()).orElse(null);
+        return toResponse(pessoa, usuarioRepository.findByPessoaId(pessoa.getId()).orElse(null));
+    }
+
+    private PessoaResponse toResponse(Pessoa pessoa, Usuario usuario) {
         Set<String> papeis = usuario == null
                 ? Set.of()
                 : usuario.nomesPapeis(pessoa.getIgrejaId());

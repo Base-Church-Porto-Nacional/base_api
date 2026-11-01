@@ -3,6 +3,7 @@ package com.example.base_api.servico.repository;
 import com.example.base_api.servico.entity.Servico;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,6 +15,8 @@ public interface ServicoRepository extends JpaRepository<Servico, UUID> {
     void deleteByMinisterioId(UUID ministerioId);
 
     List<Servico> findByMinisterioIdIn(List<UUID> ministerioIds);
+
+    List<Servico> findByMinisterioIdInOrderByNomeAsc(Collection<UUID> ministerioIds);
 
     List<Servico> findByMinisterioIdInAndAtivoTrueOrderByNomeAsc(List<UUID> ministerioIds);
 

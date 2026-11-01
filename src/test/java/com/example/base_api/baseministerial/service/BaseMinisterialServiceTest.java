@@ -1,6 +1,7 @@
 package com.example.base_api.baseministerial.service;
 
 import com.example.base_api.baseministerial.dto.BaseMinisterialCreateRequest;
+import com.example.base_api.baseministerial.dto.BaseMinisterialResponse;
 import com.example.base_api.baseministerial.dto.BaseMinisterialUpdateRequest;
 import com.example.base_api.baseministerial.entity.BaseMinisterial;
 import com.example.base_api.baseministerial.repository.BaseMinisterialRepository;
@@ -14,12 +15,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -64,6 +69,27 @@ class BaseMinisterialServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Já existe uma base ministerial com este nome");
         verify(baseMinisterialRepository, never()).save(any(BaseMinisterial.class));
+    }
+
+    @Test
+    void listarBuscaNomesDeLiderECoordenadorEmLote() {
+        BaseMinisterial artes = base("Artes");
+        UUID lider = UUID.randomUUID();
+        UUID coordenador = UUID.randomUUID();
+        artes.setLiderPessoaId(lider);
+        artes.setCoordenadorPessoaId(coordenador);
+        BaseMinisterial ensino = base("Ensino");
+        ensino.setLiderPessoaId(lider);
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
+        when(baseMinisterialRepository.findByIgrejaIdInOrderByNomeAsc(List.of(igrejaId))).thenReturn(List.of(artes, ensino));
+        when(pessoaRepository.nomesPorId(any())).thenReturn(Map.of(lider, "Lia", coordenador, "Caio"));
+
+        List<BaseMinisterialResponse> lista = baseMinisterialService.listar(igrejaId);
+
+        assertThat(lista).extracting(BaseMinisterialResponse::liderNome).containsExactly("Lia", "Lia");
+        assertThat(lista).extracting(BaseMinisterialResponse::coordenadorNome).containsExactly("Caio", null);
+        verify(pessoaRepository, times(1)).nomesPorId(any());
+        verify(pessoaRepository, never()).findById(any());
     }
 
     private BaseMinisterial base(String nome) {
