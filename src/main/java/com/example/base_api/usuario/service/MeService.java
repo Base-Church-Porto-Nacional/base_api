@@ -21,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Set;
 
+import static com.example.base_api.common.util.Textos.blankToNull;
+
 @Service
 public class MeService {
 
@@ -130,12 +132,5 @@ public class MeService {
                 igrejaNome,
                 visiveis
         );
-    }
-
-    private String blankToNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
     }
 }

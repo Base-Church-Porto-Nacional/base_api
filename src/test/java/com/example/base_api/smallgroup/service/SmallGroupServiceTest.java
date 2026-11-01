@@ -7,7 +7,7 @@ import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.smallgroup.dto.SmallGroupCreateRequest;
 import com.example.base_api.smallgroup.dto.SmallGroupResponse;
 import com.example.base_api.smallgroup.dto.SmallGroupUpdateRequest;
-import com.example.base_api.smallgroup.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 import com.example.base_api.smallgroup.entity.SmallGroup;
 import com.example.base_api.smallgroup.entity.SmallGroupEncontro;
 import com.example.base_api.smallgroup.repository.SmallGroupEncontroRepository;

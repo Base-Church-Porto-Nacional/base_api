@@ -1,6 +1,6 @@
 package com.example.base_api.culto.dto;
 
-import com.example.base_api.culto.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;

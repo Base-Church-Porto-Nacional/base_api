@@ -31,7 +31,7 @@ import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.servico.entity.Servico;
 import com.example.base_api.servico.repository.ServicoRepository;
-import com.example.base_api.smallgroup.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 import com.example.base_api.smallgroup.entity.SmallGroup;
 import com.example.base_api.smallgroup.entity.SmallGroupEncontro;
 import com.example.base_api.smallgroup.entity.SmallGroupParticipante;
@@ -275,9 +275,9 @@ public class DataInitializer {
 
             if (categoriaCultoRepository.count() == 0) {
                 CategoriaCulto domingo = categoriaCulto(categoriaCultoRepository, "Domingo inesquecível",
-                        com.example.base_api.culto.entity.DiaSemana.DOMINGO, LocalTime.of(20, 0), 90, MATRIZ_ID, ana.getId());
+                        DiaSemana.DOMINGO, LocalTime.of(20, 0), 90, MATRIZ_ID, ana.getId());
                 CategoriaCulto quarta = categoriaCulto(categoriaCultoRepository, "Quarta de oração",
-                        com.example.base_api.culto.entity.DiaSemana.QUARTA, LocalTime.of(20, 0), 60, MATRIZ_ID, ana.getId());
+                        DiaSemana.QUARTA, LocalTime.of(20, 0), 60, MATRIZ_ID, ana.getId());
                 gerarCultosDoMes(cultoRepository, domingo, YearMonth.of(2026, 8));
                 gerarCultosDoMes(cultoRepository, quarta, YearMonth.of(2026, 8));
 
@@ -580,7 +580,7 @@ public class DataInitializer {
     private CategoriaCulto categoriaCulto(
             CategoriaCultoRepository repo,
             String titulo,
-            com.example.base_api.culto.entity.DiaSemana diaSemana,
+            DiaSemana diaSemana,
             LocalTime horaInicio,
             int duracaoMinutos,
             UUID igrejaId,
@@ -600,15 +600,7 @@ public class DataInitializer {
     }
 
     private void gerarCultosDoMes(CultoRepository repo, CategoriaCulto categoria, YearMonth mes) {
-        var dia = switch (categoria.getDiaSemana()) {
-            case DOMINGO -> java.time.DayOfWeek.SUNDAY;
-            case SEGUNDA -> java.time.DayOfWeek.MONDAY;
-            case TERCA -> java.time.DayOfWeek.TUESDAY;
-            case QUARTA -> java.time.DayOfWeek.WEDNESDAY;
-            case QUINTA -> java.time.DayOfWeek.THURSDAY;
-            case SEXTA -> java.time.DayOfWeek.FRIDAY;
-            case SABADO -> java.time.DayOfWeek.SATURDAY;
-        };
+        var dia = categoria.getDiaSemana().toDayOfWeek();
         mes.atDay(1).datesUntil(mes.atEndOfMonth().plusDays(1))
                 .filter(data -> data.getDayOfWeek() == dia)
                 .forEach(data -> {

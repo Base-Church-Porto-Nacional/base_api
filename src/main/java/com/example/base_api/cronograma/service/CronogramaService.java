@@ -2,6 +2,7 @@ package com.example.base_api.cronograma.service;
 
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
+import com.example.base_api.common.util.Horarios;
 import com.example.base_api.cronograma.dto.CronogramaConteudoResponse;
 import com.example.base_api.cronograma.dto.CronogramaConteudoUpdateRequest;
 import com.example.base_api.cronograma.dto.CronogramaEventoCreateRequest;
@@ -125,7 +126,7 @@ public class CronogramaService {
 
     @Transactional
     public CronogramaEventoResponse criar(CronogramaEventoCreateRequest request) {
-        validarHorario(request.horaInicio(), request.horaFim());
+        Horarios.validarFimAposInicio(request.horaInicio(), request.horaFim());
         UUID igrejaId = request.igrejaId() != null
                 ? request.igrejaId()
                 : autorizacaoService.requireUsuario().getIgrejaId();
@@ -167,7 +168,7 @@ public class CronogramaService {
     public CronogramaEventoResponse atualizar(UUID id, CronogramaEventoUpdateRequest request) {
         CronogramaEvento evento = buscarEntidade(id);
         autorizacaoService.assertPastorOuAdmin(evento.getIgrejaId());
-        validarHorario(request.horaInicio(), request.horaFim());
+        Horarios.validarFimAposInicio(request.horaInicio(), request.horaFim());
         validarTransicaoStatus(evento.getStatus(), request.status());
 
         evento.setTitulo(request.titulo().trim());
@@ -386,12 +387,6 @@ public class CronogramaService {
         }
         Igreja igreja = igrejaContextoService.buscarIgreja(evento.getIgrejaId());
         return igreja.getPastorPessoaId();
-    }
-
-    private void validarHorario(java.time.LocalTime inicio, java.time.LocalTime fim) {
-        if (fim != null && !fim.isAfter(inicio)) {
-            throw new BusinessException("Hora fim deve ser posterior à hora início");
-        }
     }
 
     private void validarTransicaoStatus(StatusEvento atual, StatusEvento novo) {

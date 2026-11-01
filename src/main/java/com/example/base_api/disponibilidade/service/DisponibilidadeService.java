@@ -2,6 +2,7 @@ package com.example.base_api.disponibilidade.service;
 
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
+import com.example.base_api.common.util.Horarios;
 import com.example.base_api.disponibilidade.dto.DisponibilidadeSemanalRequest;
 import com.example.base_api.disponibilidade.dto.DisponibilidadeSemanalResponse;
 import com.example.base_api.disponibilidade.dto.IndisponibilidadeRequest;
@@ -50,9 +51,7 @@ public class DisponibilidadeService {
     @Transactional
     public DisponibilidadeSemanalResponse criarSemanal(DisponibilidadeSemanalRequest request) {
         assertAcessoPessoa(request.pessoaId());
-        if (!request.horaFim().isAfter(request.horaInicio())) {
-            throw new BusinessException("Hora fim deve ser posterior à hora início");
-        }
+        Horarios.validarFimAposInicio(request.horaInicio(), request.horaFim());
 
         DisponibilidadeSemanal disponibilidade = new DisponibilidadeSemanal();
         disponibilidade.setPessoaId(request.pessoaId());
@@ -72,9 +71,7 @@ public class DisponibilidadeService {
 
         assertAcessoPessoa(disponibilidade.getPessoaId());
         assertAcessoPessoa(request.pessoaId());
-        if (!request.horaFim().isAfter(request.horaInicio())) {
-            throw new BusinessException("Hora fim deve ser posterior à hora início");
-        }
+        Horarios.validarFimAposInicio(request.horaInicio(), request.horaFim());
 
         disponibilidade.setPessoaId(request.pessoaId());
         disponibilidade.setDiaSemana(request.diaSemana());

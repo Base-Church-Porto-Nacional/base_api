@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+import static com.example.base_api.common.util.Textos.blankToNull;
+
 @Service
 public class PessoaPausaService {
 
@@ -120,12 +122,5 @@ public class PessoaPausaService {
                 pausa.getCreatedAt(),
                 pausa.getUpdatedAt()
         );
-    }
-
-    private String blankToNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
     }
 }

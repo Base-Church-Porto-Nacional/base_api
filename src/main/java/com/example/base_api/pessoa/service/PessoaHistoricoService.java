@@ -16,6 +16,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import static com.example.base_api.common.util.Textos.blankToNull;
+
 @Service
 public class PessoaHistoricoService {
 
@@ -134,12 +136,5 @@ public class PessoaHistoricoService {
                 historico.getCreatedAt(),
                 historico.getUpdatedAt()
         );
-    }
-
-    private String blankToNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
     }
 }

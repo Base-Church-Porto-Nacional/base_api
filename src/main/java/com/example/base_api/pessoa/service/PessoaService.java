@@ -23,6 +23,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static com.example.base_api.common.util.Textos.blankToNull;
+
 @Service
 public class PessoaService {
 
@@ -177,12 +179,5 @@ public class PessoaService {
                 jornada != null ? jornada.getBatizado() : null,
                 jornada != null ? jornada.getConcluiuTrilhaBase() : null
         );
-    }
-
-    private String blankToNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
     }
 }

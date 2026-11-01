@@ -4,7 +4,7 @@ import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.culto.entity.CategoriaCulto;
 import com.example.base_api.culto.entity.Culto;
-import com.example.base_api.culto.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 import com.example.base_api.culto.entity.StatusCulto;
 import com.example.base_api.culto.repository.CategoriaCultoRepository;
 import com.example.base_api.culto.repository.CultoRepository;
@@ -150,22 +150,10 @@ public class CultoAutomacaoService {
     }
 
     private List<LocalDate> datasDoMes(DiaSemana diaSemana, YearMonth mes) {
-        DayOfWeek dia = toDayOfWeek(diaSemana);
+        DayOfWeek dia = diaSemana.toDayOfWeek();
         return mes.atDay(1).datesUntil(mes.atEndOfMonth().plusDays(1))
                 .filter(data -> data.getDayOfWeek() == dia)
                 .toList();
-    }
-
-    private DayOfWeek toDayOfWeek(DiaSemana diaSemana) {
-        return switch (diaSemana) {
-            case DOMINGO -> DayOfWeek.SUNDAY;
-            case SEGUNDA -> DayOfWeek.MONDAY;
-            case TERCA -> DayOfWeek.TUESDAY;
-            case QUARTA -> DayOfWeek.WEDNESDAY;
-            case QUINTA -> DayOfWeek.THURSDAY;
-            case SEXTA -> DayOfWeek.FRIDAY;
-            case SABADO -> DayOfWeek.SATURDAY;
-        };
     }
 
     private YearMonth parseCompetencia(String competencia) {

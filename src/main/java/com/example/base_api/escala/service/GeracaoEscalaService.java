@@ -4,7 +4,7 @@ import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.cronograma.entity.CronogramaEvento;
 import com.example.base_api.cronograma.repository.CronogramaEventoRepository;
-import com.example.base_api.disponibilidade.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 import com.example.base_api.disponibilidade.entity.DisponibilidadeSemanal;
 import com.example.base_api.disponibilidade.entity.Indisponibilidade;
 import com.example.base_api.disponibilidade.repository.DisponibilidadeSemanalRepository;
@@ -26,7 +26,6 @@ import com.example.base_api.pessoa.entity.PessoaPausa;
 import com.example.base_api.pessoa.repository.PessoaPausaRepository;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
-import com.example.base_api.servico.entity.Servico;
 import com.example.base_api.servico.service.ServicoService;
 import com.example.base_api.voluntario.entity.PessoaServico;
 import com.example.base_api.voluntario.repository.PessoaServicoRepository;
@@ -472,15 +471,7 @@ public class GeracaoEscalaService {
 
         List<DisponibilidadeSemanal> semana = disponibilidades.getOrDefault(pessoaId, List.of());
         if (!semana.isEmpty()) {
-            DiaSemana dia = switch (data.getDayOfWeek()) {
-                case SUNDAY -> DiaSemana.DOMINGO;
-                case MONDAY -> DiaSemana.SEGUNDA;
-                case TUESDAY -> DiaSemana.TERCA;
-                case WEDNESDAY -> DiaSemana.QUARTA;
-                case THURSDAY -> DiaSemana.QUINTA;
-                case FRIDAY -> DiaSemana.SEXTA;
-                case SATURDAY -> DiaSemana.SABADO;
-            };
+            DiaSemana dia = DiaSemana.de(data.getDayOfWeek());
             boolean tem = semana.stream().anyMatch(d -> d.getDiaSemana() == dia
                     && Boolean.TRUE.equals(d.getDisponivel())
                     && dentroDoIntervalo(d.getHoraInicio(), d.getHoraFim(), evento.getHoraInicio(), evento.getHoraFim()));

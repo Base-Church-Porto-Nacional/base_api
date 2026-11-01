@@ -4,7 +4,7 @@ import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.cronograma.entity.CronogramaEvento;
 import com.example.base_api.cronograma.repository.CronogramaEventoRepository;
-import com.example.base_api.disponibilidade.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 import com.example.base_api.disponibilidade.entity.DisponibilidadeSemanal;
 import com.example.base_api.disponibilidade.entity.Indisponibilidade;
 import com.example.base_api.disponibilidade.repository.DisponibilidadeSemanalRepository;

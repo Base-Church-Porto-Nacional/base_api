@@ -14,7 +14,7 @@ import com.example.base_api.culto.dto.CultoUpdateRequest;
 import com.example.base_api.culto.entity.CategoriaCulto;
 import com.example.base_api.culto.entity.Culto;
 import com.example.base_api.culto.entity.CultoRelatorio;
-import com.example.base_api.culto.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 import com.example.base_api.culto.entity.StatusCulto;
 import com.example.base_api.culto.repository.CategoriaCultoRepository;
 import com.example.base_api.culto.repository.CultoRelatorioRepository;

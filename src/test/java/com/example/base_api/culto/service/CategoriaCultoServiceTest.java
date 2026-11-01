@@ -1,12 +1,11 @@
 package com.example.base_api.culto.service;
 
 import com.example.base_api.common.exception.BusinessException;
-import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.culto.dto.CategoriaCultoCreateRequest;
 import com.example.base_api.culto.dto.CategoriaCultoResponse;
 import com.example.base_api.culto.dto.CategoriaCultoUpdateRequest;
 import com.example.base_api.culto.entity.CategoriaCulto;
-import com.example.base_api.culto.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 import com.example.base_api.culto.repository.CategoriaCultoRepository;
 import com.example.base_api.culto.repository.CultoRepository;
 import com.example.base_api.pessoa.entity.Pessoa;

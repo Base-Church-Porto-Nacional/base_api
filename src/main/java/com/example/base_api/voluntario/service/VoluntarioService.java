@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.example.base_api.common.util.Textos.blankToNull;
+
 @Service
 public class VoluntarioService {
 
@@ -226,12 +228,5 @@ public class VoluntarioService {
                     vinculo.getUpdatedAt()
             );
         }).toList();
-    }
-
-    private String blankToNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
     }
 }

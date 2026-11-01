@@ -1,7 +1,7 @@
 package com.example.base_api.disponibilidade.service;
 
 import com.example.base_api.disponibilidade.dto.DisponibilidadeSemanalRequest;
-import com.example.base_api.disponibilidade.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 import com.example.base_api.disponibilidade.repository.DisponibilidadeSemanalRepository;
 import com.example.base_api.disponibilidade.repository.IndisponibilidadeRepository;
 import com.example.base_api.pessoa.entity.Pessoa;

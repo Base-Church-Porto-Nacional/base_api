@@ -2,6 +2,7 @@ package com.example.base_api.escala.service;
 
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
+import com.example.base_api.common.util.Horarios;
 import com.example.base_api.cronograma.entity.CronogramaEvento;
 import com.example.base_api.cronograma.repository.CronogramaEventoRepository;
 import com.example.base_api.cronograma.service.CronogramaService;
@@ -353,7 +354,7 @@ public class EscalaService {
             garantirMinisterioDaIgreja(request.ministerioId(), request.igrejaId());
         }
 
-        validarHorario(request.horaInicio(), request.horaFim());
+        Horarios.validarFimAposInicio(request.horaInicio(), request.horaFim());
         validarEvento(request.eventoId());
 
         Igreja igreja = igrejaContextoService.buscarIgreja(request.igrejaId());
@@ -441,7 +442,7 @@ public class EscalaService {
                 novoTipo, escala.getIgrejaId(), novaCompetencia, novoMinisterioId
         );
 
-        validarHorario(request.horaInicio(), request.horaFim());
+        Horarios.validarFimAposInicio(request.horaInicio(), request.horaFim());
         validarEvento(request.eventoId());
 
         escala.setTitulo(request.titulo().trim());
@@ -896,12 +897,6 @@ public class EscalaService {
         YearMonth mes = YearMonth.parse(competencia);
         LocalDate abertura = mes.minusMonths(1).atDay(20);
         return !hoje.isBefore(abertura);
-    }
-
-    private void validarHorario(LocalTime inicio, LocalTime fim) {
-        if (inicio != null && fim != null && !fim.isAfter(inicio)) {
-            throw new BusinessException("Hora fim deve ser posterior à hora início");
-        }
     }
 
     private void validarEvento(UUID eventoId) {

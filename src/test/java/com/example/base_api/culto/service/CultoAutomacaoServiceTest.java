@@ -4,7 +4,7 @@ import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.culto.entity.CategoriaCulto;
 import com.example.base_api.culto.entity.Culto;
-import com.example.base_api.culto.entity.DiaSemana;
+import com.example.base_api.common.entity.DiaSemana;
 import com.example.base_api.culto.entity.StatusCulto;
 import com.example.base_api.culto.repository.CategoriaCultoRepository;
 import com.example.base_api.culto.repository.CultoRepository;

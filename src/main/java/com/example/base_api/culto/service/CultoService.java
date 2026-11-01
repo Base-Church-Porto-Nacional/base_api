@@ -3,6 +3,7 @@ package com.example.base_api.culto.service;
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ConflictException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
+import com.example.base_api.common.util.Horarios;
 import com.example.base_api.culto.dto.CultoConteudoResponse;
 import com.example.base_api.culto.dto.CultoConteudoUpdateRequest;
 import com.example.base_api.culto.dto.CultoCreateRequest;
@@ -122,7 +123,7 @@ public class CultoService {
         LocalTime horaFim = request.horaFim() != null
                 ? request.horaFim()
                 : horaInicio.plusMinutes(categoria.getDuracaoMinutos());
-        validarHorario(horaInicio, horaFim);
+        Horarios.validarFimAposInicio(horaInicio, horaFim);
 
         Culto culto = new Culto();
         culto.setIgrejaId(categoria.getIgrejaId());
@@ -148,7 +149,7 @@ public class CultoService {
         autorizacaoService.assertPastorOuAdmin(culto.getIgrejaId());
         validarTransicaoStatus(culto.getStatus(), request.status());
         validarPregadorDoCulto(request.pregadorId(), culto.getIgrejaId());
-        validarHorario(request.horaInicio(), request.horaFim());
+        Horarios.validarFimAposInicio(request.horaInicio(), request.horaFim());
 
         if (!request.data().equals(culto.getData())) {
             cultoRepository.findByCategoriaCultoIdAndData(culto.getCategoriaCultoId(), request.data())
@@ -393,12 +394,6 @@ public class CultoService {
             return 0.0;
         }
         return Math.round(total * 10.0 / quantidade) / 10.0;
-    }
-
-    private void validarHorario(LocalTime inicio, LocalTime fim) {
-        if (fim != null && !fim.isAfter(inicio)) {
-            throw new BusinessException("Hora fim deve ser posterior à hora início");
-        }
     }
 
     private void validarPregadorDoCulto(UUID pregadorId, UUID igrejaId) {
