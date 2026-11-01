@@ -22,6 +22,7 @@ import com.example.base_api.escala.entity.TipoEscala;
 import com.example.base_api.escala.repository.EscalaRepository;
 import com.example.base_api.escala.repository.EscalaServicoRepository;
 import com.example.base_api.escala.repository.EscalaVoluntarioRepository;
+import com.example.base_api.escala.repository.TotalPorEscala;
 import com.example.base_api.escala.service.GeracaoEscalaService;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.service.IgrejaContextoService;
@@ -40,8 +41,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class CronogramaService {
@@ -108,7 +113,7 @@ public class CronogramaService {
         } else {
             eventos = repository.findByIgrejaIdInOrderByDataEventoAscHoraInicioAsc(ids);
         }
-        return eventos.stream().map(this::toResponse).toList();
+        return toResponses(eventos);
     }
 
     @Transactional(readOnly = true)
@@ -406,23 +411,45 @@ public class CronogramaService {
     }
 
     private CronogramaEventoResponse toResponse(CronogramaEvento evento) {
-        List<CronogramaEventoResponse.MinisterioParticipante> ministerios = eventoMinisterioRepository
-                .findByEventoId(evento.getId())
-                .stream()
-                .map(vinculo -> new CronogramaEventoResponse.MinisterioParticipante(
-                        vinculo.getMinisterioId(),
-                        ministerioRepository.findById(vinculo.getMinisterioId())
-                                .map(Ministerio::getNome)
-                                .orElse(null)))
-                .toList();
+        return toResponses(List.of(evento)).get(0);
+    }
 
-        List<CronogramaEventoResponse.EscalaEventoResumo> escalas = escalaRepository
-                .findByEventoId(evento.getId())
+    /** Monta os eventos carregando ministérios, escalas, vagas e nomes em lote. */
+    private List<CronogramaEventoResponse> toResponses(List<CronogramaEvento> eventos) {
+        if (eventos.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> eventoIds = eventos.stream().map(CronogramaEvento::getId).toList();
+        Map<UUID, List<EventoMinisterio>> vinculosPorEvento = eventoMinisterioRepository.findByEventoIdIn(eventoIds)
                 .stream()
-                .map(this::toEscalaResumo)
-                .toList();
+                .collect(Collectors.groupingBy(EventoMinisterio::getEventoId));
+        List<Escala> escalas = escalaRepository.findByEventoIdIn(eventoIds);
+        Map<UUID, List<Escala>> escalasPorEvento = escalas.stream()
+                .collect(Collectors.groupingBy(Escala::getEventoId));
 
-        return new CronogramaEventoResponse(
+        List<UUID> escalaIds = escalas.stream().map(Escala::getId).toList();
+        Map<UUID, Integer> vagasTotais = escalaIds.isEmpty()
+                ? Map.of()
+                : escalaServicoRepository.findByEscalaIdIn(escalaIds).stream()
+                .collect(Collectors.groupingBy(EscalaServico::getEscalaId,
+                        Collectors.summingInt(EscalaServico::getQuantidadeNecessaria)));
+        Map<UUID, Long> vagasPreenchidas = escalaIds.isEmpty()
+                ? Map.of()
+                : escalaVoluntarioRepository.contarPorEscala(escalaIds).stream()
+                .collect(Collectors.toMap(TotalPorEscala::escalaId, TotalPorEscala::total));
+
+        Set<UUID> ministerioIds = new HashSet<>();
+        vinculosPorEvento.values().forEach(lista -> lista.forEach(v -> ministerioIds.add(v.getMinisterioId())));
+        escalas.forEach(e -> ministerioIds.add(e.getMinisterioId()));
+        ministerioIds.remove(null);
+        Map<UUID, String> ministerios = ministerioIds.isEmpty()
+                ? Map.of()
+                : ministerioRepository.findAllById(ministerioIds).stream()
+                .collect(Collectors.toMap(Ministerio::getId, Ministerio::getNome));
+        Map<UUID, String> supervisores = pessoaRepository.nomesPorId(
+                eventos.stream().map(CronogramaEvento::getSupervisorPessoaId).toList());
+
+        return eventos.stream().map(evento -> new CronogramaEventoResponse(
                 evento.getId(),
                 evento.getTitulo(),
                 evento.getTema(),
@@ -436,34 +463,28 @@ public class CronogramaService {
                 evento.getCompetencia(),
                 evento.getStatus(),
                 evento.getSupervisorPessoaId(),
-                nomePessoa(evento.getSupervisorPessoaId()),
+                porId(supervisores, evento.getSupervisorPessoaId()),
                 evento.getAtivo(),
-                ministerios,
-                escalas,
+                vinculosPorEvento.getOrDefault(evento.getId(), List.of()).stream()
+                        .map(v -> new CronogramaEventoResponse.MinisterioParticipante(
+                                v.getMinisterioId(), porId(ministerios, v.getMinisterioId())))
+                        .toList(),
+                escalasPorEvento.getOrDefault(evento.getId(), List.of()).stream()
+                        .map(escala -> new CronogramaEventoResponse.EscalaEventoResumo(
+                                escala.getId(),
+                                escala.getMinisterioId(),
+                                porId(ministerios, escala.getMinisterioId()),
+                                escala.getTitulo(),
+                                vagasTotais.getOrDefault(escala.getId(), 0),
+                                vagasPreenchidas.getOrDefault(escala.getId(), 0L).intValue()))
+                        .toList(),
                 evento.getCreatedAt(),
                 evento.getUpdatedAt()
-        );
+        )).toList();
     }
 
-    private CronogramaEventoResponse.EscalaEventoResumo toEscalaResumo(Escala escala) {
-        int vagasTotais = escalaServicoRepository.findByEscalaId(escala.getId())
-                .stream()
-                .mapToInt(EscalaServico::getQuantidadeNecessaria)
-                .sum();
-        int vagasPreenchidas = escalaVoluntarioRepository.findByEscalaId(escala.getId()).size();
-        String ministerioNome = escala.getMinisterioId() == null
-                ? null
-                : ministerioRepository.findById(escala.getMinisterioId())
-                .map(Ministerio::getNome)
-                .orElse(null);
-        return new CronogramaEventoResponse.EscalaEventoResumo(
-                escala.getId(),
-                escala.getMinisterioId(),
-                ministerioNome,
-                escala.getTitulo(),
-                vagasTotais,
-                vagasPreenchidas
-        );
+    private static String porId(Map<UUID, String> nomes, UUID id) {
+        return id == null ? null : nomes.get(id);
     }
 
     private String nomePessoa(UUID pessoaId) {
