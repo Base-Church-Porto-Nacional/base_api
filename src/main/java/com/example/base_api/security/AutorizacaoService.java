@@ -21,10 +21,13 @@ import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 @Service
 public class AutorizacaoService {
@@ -120,14 +123,65 @@ public class AutorizacaoService {
     }
 
     public boolean podeIncluirPessoaNaListagem(Pessoa pessoa) {
-        if (isPastorOuAdmin(pessoa.getIgrejaId())) {
-            return true;
+        return !filtrarVisiveisNaListagem(List.of(pessoa)).isEmpty();
+    }
+
+    /**
+     * Filtra as pessoas que o usuário pode ver numa listagem. A regra é calculada uma vez por igreja:
+     * pastor/admin vê todas; os demais veem a si mesmos e as pessoas dos ministérios que lideram ou
+     * coordenam (líder, coordenador e voluntários com vínculo ativo).
+     */
+    public List<Pessoa> filtrarVisiveisNaListagem(List<Pessoa> pessoas) {
+        if (pessoas.isEmpty()) {
+            return List.of();
         }
-        Usuario usuario = requireUsuario();
-        if (usuario.getPessoaId() != null && usuario.getPessoaId().equals(pessoa.getId())) {
-            return true;
+        UUID minhaPessoaId = requireUsuario().getPessoaId();
+        Map<UUID, Predicate<Pessoa>> regraPorIgreja = new HashMap<>();
+        return pessoas.stream()
+                .filter(p -> regraPorIgreja
+                        .computeIfAbsent(p.getIgrejaId(), igrejaId -> regraDeVisibilidade(igrejaId, minhaPessoaId))
+                        .test(p))
+                .toList();
+    }
+
+    private Predicate<Pessoa> regraDeVisibilidade(UUID igrejaId, UUID minhaPessoaId) {
+        if (isPastorOuAdmin(igrejaId)) {
+            return p -> true;
         }
-        return pessoaNoMinisterioDoUsuario(pessoa);
+        Set<UUID> visiveis = pessoasDosMeusMinisterios(igrejaId, minhaPessoaId);
+        if (minhaPessoaId != null) {
+            visiveis.add(minhaPessoaId);
+        }
+        return p -> visiveis.contains(p.getId());
+    }
+
+    /** Líderes, coordenadores e voluntários ativos dos ministérios que a pessoa lidera ou coordena na igreja. */
+    private Set<UUID> pessoasDosMeusMinisterios(UUID igrejaId, UUID minhaPessoaId) {
+        Set<UUID> pessoas = new HashSet<>();
+        if (minhaPessoaId == null) {
+            return pessoas;
+        }
+        List<Ministerio> meus = ministerioRepository.findByIgrejaIdOrderByNomeAsc(igrejaId).stream()
+                .filter(m -> minhaPessoaId.equals(m.getLiderPessoaId())
+                        || minhaPessoaId.equals(m.getCoordenadorPessoaId()))
+                .toList();
+        if (meus.isEmpty()) {
+            return pessoas;
+        }
+        meus.forEach(m -> {
+            pessoas.add(m.getLiderPessoaId());
+            pessoas.add(m.getCoordenadorPessoaId());
+        });
+        pessoas.remove(null);
+        List<UUID> servicoIds = servicoRepository
+                .findByMinisterioIdInOrderByNomeAsc(meus.stream().map(Ministerio::getId).toList()).stream()
+                .map(Servico::getId)
+                .toList();
+        if (!servicoIds.isEmpty()) {
+            pessoaServicoRepository.findByServicoIdInAndAtivoTrue(servicoIds)
+                    .forEach(v -> pessoas.add(v.getPessoaId()));
+        }
+        return pessoas;
     }
 
     public void assertPessoaDaIgreja(Pessoa pessoa, UUID igrejaId) {
@@ -286,29 +340,8 @@ public class AutorizacaoService {
     }
 
     private boolean pessoaNoMinisterioDoUsuario(Pessoa pessoa) {
-        UUID pessoaId = requireUsuario().getPessoaId();
-        if (pessoaId == null) {
-            return false;
-        }
-        List<Ministerio> meus = ministerioRepository.findByIgrejaIdOrderByNomeAsc(pessoa.getIgrejaId()).stream()
-                .filter(m -> pessoaId.equals(m.getLiderPessoaId()) || pessoaId.equals(m.getCoordenadorPessoaId()))
-                .toList();
-        if (meus.isEmpty()) {
-            return false;
-        }
-        if (meus.stream().anyMatch(m -> pessoa.getId().equals(m.getLiderPessoaId())
-                || pessoa.getId().equals(m.getCoordenadorPessoaId()))) {
-            return true;
-        }
-        List<UUID> servicoIds = meus.stream()
-                .flatMap(m -> servicoRepository.findByMinisterioIdOrderByNomeAsc(m.getId()).stream())
-                .map(Servico::getId)
-                .toList();
-        if (servicoIds.isEmpty()) {
-            return false;
-        }
-        return pessoaServicoRepository.findByServicoIdInAndAtivoTrue(servicoIds).stream()
-                .anyMatch(v -> pessoa.getId().equals(v.getPessoaId()));
+        return pessoasDosMeusMinisterios(pessoa.getIgrejaId(), requireUsuario().getPessoaId())
+                .contains(pessoa.getId());
     }
 
     public void assertPodeVerConteudo(UUID igrejaId, UUID pregadorPessoaId) {

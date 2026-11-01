@@ -32,6 +32,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -156,7 +157,7 @@ PessoaUpdateRequest request = new PessoaUpdateRequest(
     void deveListarPessoasDaIgrejaVisivel() {
         when(autorizacaoService.idsParaListagem(null)).thenReturn(List.of(igrejaId));
         when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(List.of(igrejaId))).thenReturn(List.of(pessoa));
-        when(autorizacaoService.podeIncluirPessoaNaListagem(pessoa)).thenReturn(true);
+        when(autorizacaoService.filtrarVisiveisNaListagem(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
 
         List<PessoaResponse> lista = pessoaService.listar(null);
 
@@ -201,7 +202,7 @@ PessoaUpdateRequest request = new PessoaUpdateRequest(
         Usuario usuario = usuarioComPapeis();
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
         when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(List.of(igrejaId))).thenReturn(List.of(outra, pessoa));
-        when(autorizacaoService.podeIncluirPessoaNaListagem(any(Pessoa.class))).thenReturn(true);
+        when(autorizacaoService.filtrarVisiveisNaListagem(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
         when(usuarioRepository.findByPessoaIdIn(List.of(outra.getId(), pessoa.getId()))).thenReturn(List.of(usuario));
 
         List<PessoaResponse> lista = pessoaService.listar(igrejaId);
@@ -267,7 +268,7 @@ PessoaUpdateRequest request = new PessoaUpdateRequest(
         jornada.setConcluiuTrilhaBase(false);
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
         when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(List.of(igrejaId))).thenReturn(List.of(pessoa));
-        when(autorizacaoService.podeIncluirPessoaNaListagem(pessoa)).thenReturn(true);
+        when(autorizacaoService.filtrarVisiveisNaListagem(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
         when(jornadaService.buscarPorPessoas(List.of(pessoa.getId()))).thenReturn(Map.of(pessoa.getId(), jornada));
 
         PessoaResponse response = pessoaService.listar(igrejaId).getFirst();

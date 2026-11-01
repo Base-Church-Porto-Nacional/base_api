@@ -25,6 +25,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -80,7 +81,7 @@ class VoluntarioServiceTest {
         when(autorizacaoService.idsParaListagem(null)).thenReturn(List.of(igrejaVisivel));
         when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(List.of(igrejaVisivel)))
                 .thenReturn(List.of(pessoaVisivel));
-        when(autorizacaoService.podeIncluirPessoaNaListagem(pessoaVisivel)).thenReturn(true);
+        when(autorizacaoService.filtrarVisiveisNaListagem(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
         when(pessoaServicoRepository.findByPessoaIdIn(List.of(pessoaVisivelId))).thenReturn(List.of(vinculo));
         when(pessoaService.nomesPorId(any())).thenReturn(Map.of(pessoaVisivelId, "Visível"));
         when(servicoService.buscarPorIds(any())).thenReturn(Map.of(servicoId, servico));

@@ -184,8 +184,8 @@ public class VoluntarioService {
         if (igrejaIds.isEmpty()) {
             return List.of();
         }
-        return pessoaRepository.findByIgrejaIdInOrderByNomeAsc(igrejaIds).stream()
-                .filter(autorizacaoService::podeIncluirPessoaNaListagem)
+        return autorizacaoService.filtrarVisiveisNaListagem(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(igrejaIds))
+                .stream()
                 .map(Pessoa::getId)
                 .toList();
     }

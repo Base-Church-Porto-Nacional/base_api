@@ -49,9 +49,8 @@ public class PessoaService {
         if (ids.isEmpty()) {
             return List.of();
         }
-        List<Pessoa> pessoas = pessoaRepository.findByIgrejaIdInOrderByNomeAsc(ids).stream()
-                .filter(autorizacaoService::podeIncluirPessoaNaListagem)
-                .toList();
+        List<Pessoa> pessoas = autorizacaoService.filtrarVisiveisNaListagem(
+                pessoaRepository.findByIgrejaIdInOrderByNomeAsc(ids));
         if (pessoas.isEmpty()) {
             return List.of();
         }
