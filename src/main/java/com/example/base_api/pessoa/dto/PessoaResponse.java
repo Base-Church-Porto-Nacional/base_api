@@ -20,6 +20,9 @@ public record PessoaResponse(
         UUID usuarioId,
         Set<String> papeis,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        Boolean aceitouJesus,
+        Boolean batizado,
+        Boolean concluiuTrilhaBase
 ) {
 }

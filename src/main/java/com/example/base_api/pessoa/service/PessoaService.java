@@ -2,6 +2,7 @@ package com.example.base_api.pessoa.service;
 
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
+import com.example.base_api.jornada.entity.JornadaMembro;
 import com.example.base_api.jornada.service.JornadaService;
 import com.example.base_api.pessoa.dto.PessoaCreateRequest;
 import com.example.base_api.pessoa.dto.PessoaResponse;
@@ -57,8 +58,10 @@ public class PessoaService {
         Map<UUID, Usuario> usuarios = usuarioRepository
                 .findByPessoaIdIn(pessoas.stream().map(Pessoa::getId).toList()).stream()
                 .collect(Collectors.toMap(Usuario::getPessoaId, u -> u, (a, b) -> a));
+        Map<UUID, JornadaMembro> jornadas = jornadaService.buscarPorPessoas(
+                pessoas.stream().map(Pessoa::getId).toList());
         return pessoas.stream()
-                .map(p -> toResponse(p, usuarios.get(p.getId())))
+                .map(p -> toResponse(p, usuarios.get(p.getId()), jornadas.get(p.getId())))
                 .toList();
     }
 
@@ -144,10 +147,14 @@ public class PessoaService {
     }
 
     public PessoaResponse toResponse(Pessoa pessoa) {
-        return toResponse(pessoa, usuarioRepository.findByPessoaId(pessoa.getId()).orElse(null));
+        return toResponse(
+                pessoa,
+                usuarioRepository.findByPessoaId(pessoa.getId()).orElse(null),
+                jornadaService.buscarPorPessoas(List.of(pessoa.getId())).get(pessoa.getId())
+        );
     }
 
-    private PessoaResponse toResponse(Pessoa pessoa, Usuario usuario) {
+    private PessoaResponse toResponse(Pessoa pessoa, Usuario usuario, JornadaMembro jornada) {
         Set<String> papeis = usuario == null
                 ? Set.of()
                 : usuario.nomesPapeis(pessoa.getIgrejaId());
@@ -166,7 +173,10 @@ public class PessoaService {
                 usuario != null ? usuario.getId() : null,
                 papeis,
                 pessoa.getCreatedAt(),
-                pessoa.getUpdatedAt()
+                pessoa.getUpdatedAt(),
+                jornada != null ? jornada.getAceitouJesus() : null,
+                jornada != null ? jornada.getBatizado() : null,
+                jornada != null ? jornada.getConcluiuTrilhaBase() : null
         );
     }
 

@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Collection;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -43,6 +44,15 @@ public class JornadaService {
         this.pessoaJornadaEtapaRepository = pessoaJornadaEtapaRepository;
         this.pessoaRepository = pessoaRepository;
         this.autorizacaoService = autorizacaoService;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<UUID, JornadaMembro> buscarPorPessoas(Collection<UUID> pessoaIds) {
+        if (pessoaIds.isEmpty()) {
+            return Map.of();
+        }
+        return jornadaMembroRepository.findByPessoaIdIn(List.copyOf(pessoaIds)).stream()
+                .collect(Collectors.toMap(JornadaMembro::getPessoaId, j -> j, (a, b) -> a));
     }
 
     @Transactional
