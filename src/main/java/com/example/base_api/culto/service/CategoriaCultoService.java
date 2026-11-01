@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -50,7 +51,10 @@ public class CategoriaCultoService {
         List<CategoriaCulto> categorias = Boolean.TRUE.equals(ativo)
                 ? categoriaRepository.findByIgrejaIdInAndAtivoOrderByTituloAsc(ids, true)
                 : categoriaRepository.findByIgrejaIdInOrderByTituloAsc(ids);
-        return categorias.stream().map(this::toResponse).toList();
+        Map<UUID, String> pregadores = pessoaRepository.nomesPorId(
+                categorias.stream().map(CategoriaCulto::getPregadorPadraoId).toList());
+        return categorias.stream().map(c -> toResponse(
+                c, c.getPregadorPadraoId() == null ? null : pregadores.get(c.getPregadorPadraoId()))).toList();
     }
 
     @Transactional(readOnly = true)
@@ -148,6 +152,10 @@ public class CategoriaCultoService {
     }
 
     private CategoriaCultoResponse toResponse(CategoriaCulto categoria) {
+        return toResponse(categoria, nomePessoa(categoria.getPregadorPadraoId()));
+    }
+
+    private CategoriaCultoResponse toResponse(CategoriaCulto categoria, String pregadorPadraoNome) {
         return new CategoriaCultoResponse(
                 categoria.getId(),
                 categoria.getIgrejaId(),
@@ -157,7 +165,7 @@ public class CategoriaCultoService {
                 categoria.getHoraInicio(),
                 categoria.getDuracaoMinutos(),
                 categoria.getPregadorPadraoId(),
-                nomePessoa(categoria.getPregadorPadraoId()),
+                pregadorPadraoNome,
                 categoria.getAtivo(),
                 categoria.getCreatedAt(),
                 categoria.getUpdatedAt()

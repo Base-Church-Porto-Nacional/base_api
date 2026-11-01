@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -134,6 +135,12 @@ public class PessoaService {
     public Pessoa buscarEntidade(UUID id) {
         return pessoaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pessoa não encontrada"));
+    }
+
+    /** Nomes das pessoas por id, numa única consulta (ids nulos são ignorados). */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> nomesPorId(Collection<UUID> ids) {
+        return pessoaRepository.nomesPorId(ids);
     }
 
     public PessoaResponse toResponse(Pessoa pessoa) {

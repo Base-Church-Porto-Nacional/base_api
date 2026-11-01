@@ -53,6 +53,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -138,9 +139,7 @@ class EscalaServiceTest {
             es.setId(UUID.randomUUID());
             return es;
         });
-        when(escalaServicoRepository.findByEscalaId(escalaId)).thenReturn(List.of(escalaServico()));
-        when(escalaVoluntarioRepository.findByEscalaId(escalaId)).thenReturn(List.of());
-        when(pessoaService.buscarEntidade(pastorId)).thenReturn(pastor());
+        when(escalaServicoRepository.findByEscalaIdIn(List.of(escalaId))).thenReturn(List.of(escalaServico()));
         when(geracaoEscalaService.gerar(any(Escala.class)))
                 .thenReturn(new GeracaoEscalaResponse(escalaId, "SEM_EVENTOS", "Sem eventos", List.of()));
 
@@ -280,8 +279,8 @@ class EscalaServiceTest {
         when(cronogramaEventoRepository
                 .findByIgrejaIdInAndDataEventoBetweenOrderByDataEventoAscHoraInicioAsc(anyList(), any(), any()))
                 .thenReturn(List.of(evento));
-        when(servicoService.buscarEntidade(servicoId)).thenReturn(servico());
-        when(pessoaService.buscarEntidade(pessoaId)).thenReturn(pessoa());
+        when(servicoService.nomesPorId(any())).thenReturn(Map.of(servicoId, "Violão"));
+        when(pessoaService.nomesPorId(any())).thenReturn(Map.of(pessoaId, "Gustavo"));
 
         List<VisaoMensalEscalaResponse> resultado = escalaService.visaoMensal(igrejaId, "2026-08", null);
 
@@ -490,8 +489,6 @@ class EscalaServiceTest {
         escala.setStatus(StatusEscala.EDITANDO);
         when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
         when(escalaRepository.save(any(Escala.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(escalaServicoRepository.findByEscalaId(escalaId)).thenReturn(List.of());
-        when(escalaVoluntarioRepository.findByEscalaId(escalaId)).thenReturn(List.of());
 
         EscalaResponse response = escalaService.atualizarStatus(
                 escalaId, new EscalaStatusRequest(StatusEscala.EM_ANDAMENTO));
@@ -746,7 +743,7 @@ class EscalaServiceTest {
             escalaServico.setId(UUID.randomUUID());
             return escalaServico;
         });
-        when(escalaServicoRepository.findByEscalaId(escalaId)).thenReturn(List.of(escalaServico()));
+        when(escalaServicoRepository.findByEscalaIdIn(List.of(escalaId))).thenReturn(List.of(escalaServico()));
         when(escalaVoluntarioRepository.save(any(EscalaVoluntario.class))).thenAnswer(invocation -> {
             EscalaVoluntario designacao = invocation.getArgument(0);
             designacao.setId(UUID.randomUUID());
@@ -754,7 +751,6 @@ class EscalaServiceTest {
             designacao.setUpdatedAt(Instant.now());
             return designacao;
         });
-        when(escalaVoluntarioRepository.findByEscalaId(escalaId)).thenReturn(List.of());
 
         EscalaResponse response = escalaService.criar(new EscalaCreateRequest(
                 "Escala Louvor", "Descricao", competencia, TipoEscala.CULTO,
@@ -809,8 +805,6 @@ class EscalaServiceTest {
         when(autorizacaoService.podeVerEscala(escalaVisivel)).thenReturn(true);
         when(escalaRepository.findByIgrejaIdInAndPessoaDesignada(List.of(igrejaId), alvoId))
                 .thenReturn(List.of(escalaVisivel));
-        when(escalaServicoRepository.findByEscalaId(escalaId)).thenReturn(List.of());
-        when(escalaVoluntarioRepository.findByEscalaId(escalaId)).thenReturn(List.of());
 
         List<EscalaResponse> escalas = escalaService.listar(igrejaId, "2026-08", alvoId);
 
@@ -837,9 +831,6 @@ class EscalaServiceTest {
 
         when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
         when(escalaRepository.save(any(Escala.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(escalaServicoRepository.findByEscalaId(escalaId)).thenReturn(List.of());
-        when(escalaVoluntarioRepository.findByEscalaId(escalaId)).thenReturn(List.of());
-        when(pessoaService.buscarEntidade(pastorId)).thenReturn(pastor());
 
         EscalaResponse response = escalaService.atualizar(escalaId, new EscalaUpdateRequest(
                 "Escala Culto Domingo", "Nova descricao", null, null, null,
@@ -889,8 +880,6 @@ class EscalaServiceTest {
 
         when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
         when(escalaRepository.save(any(Escala.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(escalaServicoRepository.findByEscalaId(escalaId)).thenReturn(List.of());
-        when(escalaVoluntarioRepository.findByEscalaId(escalaId)).thenReturn(List.of());
 
         EscalaResponse response = escalaService.atualizarStatus(
                 escalaId, new EscalaStatusRequest(StatusEscala.FINALIZADA));
@@ -908,8 +897,6 @@ class EscalaServiceTest {
 
         when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
         when(escalaRepository.save(any(Escala.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(escalaServicoRepository.findByEscalaId(escalaId)).thenReturn(List.of());
-        when(escalaVoluntarioRepository.findByEscalaId(escalaId)).thenReturn(List.of());
 
         EscalaResponse response = escalaService.atualizarStatus(
                 escalaId, new EscalaStatusRequest(StatusEscala.EDITANDO));
@@ -926,8 +913,6 @@ class EscalaServiceTest {
 
         when(escalaRepository.findById(escalaId)).thenReturn(Optional.of(escala));
         when(escalaRepository.save(any(Escala.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(escalaServicoRepository.findByEscalaId(escalaId)).thenReturn(List.of());
-        when(escalaVoluntarioRepository.findByEscalaId(escalaId)).thenReturn(List.of());
 
         EscalaResponse response = escalaService.atualizarStatus(
                 escalaId, new EscalaStatusRequest(StatusEscala.FINALIZADA));
@@ -1372,7 +1357,6 @@ class EscalaServiceTest {
         when(cronogramaEventoRepository
                 .findByIgrejaIdInAndDataEventoBetweenOrderByDataEventoAscHoraInicioAsc(anyList(), any(), any()))
                 .thenReturn(List.of(ativo, inativo));
-        when(servicoService.buscarEntidade(servicoId)).thenReturn(servico());
 
         List<VisaoMensalEscalaResponse> visoes = escalaService.visaoMensal(igrejaId, "2026-08", null);
 
@@ -1405,5 +1389,44 @@ class EscalaServiceTest {
         ministerio.setIgrejaId(UUID.randomUUID());
         return ministerio;
     }
-}
 
+    @Test
+    void listarMontaEscalasComNomesCarregadosEmLote() {
+        Escala primeira = escala();
+        primeira.setSupervisorPessoaId(pastorId);
+        Escala segunda = escala();
+        segunda.setId(UUID.randomUUID());
+        EscalaServico necessidade = escalaServico();
+        EscalaVoluntario naPrimeira = designacao();
+        EscalaVoluntario naSegunda = designacao();
+        naSegunda.setId(UUID.randomUUID());
+        naSegunda.setEscalaId(segunda.getId());
+
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
+        when(autorizacaoService.requireUsuario()).thenReturn(usuarioLogado(pessoaId));
+        when(escalaRepository.findByIgrejaIdInOrderByCompetenciaDescTituloAsc(List.of(igrejaId)))
+                .thenReturn(List.of(primeira, segunda));
+        when(autorizacaoService.podeVerEscala(any(Escala.class))).thenReturn(true);
+        when(escalaServicoRepository.findByEscalaIdIn(List.of(primeira.getId(), segunda.getId())))
+                .thenReturn(List.of(necessidade));
+        when(escalaVoluntarioRepository.findByEscalaIdIn(List.of(primeira.getId(), segunda.getId())))
+                .thenReturn(List.of(naPrimeira, naSegunda));
+        when(pessoaService.nomesPorId(any())).thenReturn(Map.of(pessoaId, "Gustavo", pastorId, "Ana Costa"));
+        when(servicoService.nomesPorId(any())).thenReturn(Map.of(servicoId, "Violão"));
+
+        List<EscalaResponse> escalas = escalaService.listar(igrejaId, null, null);
+
+        assertThat(escalas).hasSize(2);
+        assertThat(escalas.get(0).supervisorNome()).isEqualTo("Ana Costa");
+        assertThat(escalas.get(0).servicos()).extracting(EscalaResponse.EscalaServicoResponse::servicoNome)
+                .containsExactly("Violão");
+        assertThat(escalas.get(0).voluntarios()).extracting(EscalaResponse.EscalaVoluntarioResponse::pessoaNome)
+                .containsExactly("Gustavo");
+        assertThat(escalas.get(1).itens()).extracting(EscalaResponse.EscalaItemResponse::servicoNome)
+                .containsExactly("Violão");
+        assertThat(escalas.get(1).servicos()).isEmpty();
+        verify(pessoaService, times(1)).nomesPorId(any());
+        verify(pessoaService, never()).buscarEntidade(any());
+        verify(servicoService, never()).buscarEntidade(any());
+    }
+}

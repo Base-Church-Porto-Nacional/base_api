@@ -12,7 +12,9 @@ import com.example.base_api.servico.repository.ServicoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -90,6 +92,12 @@ public class ServicoService {
         Servico servico = buscarEntidade(id);
         autorizacaoService.assertPodeGerenciarMinisterio(ministerioService.buscarEntidade(servico.getMinisterioId()));
         servicoRepository.delete(servico);
+    }
+
+    /** Nomes dos serviços por id, numa única consulta (ids nulos são ignorados). */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> nomesPorId(Collection<UUID> ids) {
+        return servicoRepository.nomesPorId(ids);
     }
 
     @Transactional(readOnly = true)

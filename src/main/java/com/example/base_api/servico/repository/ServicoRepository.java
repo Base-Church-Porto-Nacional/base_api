@@ -5,10 +5,22 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public interface ServicoRepository extends JpaRepository<Servico, UUID> {
+
+    /** Nomes dos serviços por id, numa única consulta. Ids nulos são ignorados. */
+    default Map<UUID, String> nomesPorId(Collection<UUID> ids) {
+        List<UUID> validos = ids.stream().filter(Objects::nonNull).distinct().toList();
+        if (validos.isEmpty()) {
+            return Map.of();
+        }
+        return findAllById(validos).stream().collect(Collectors.toMap(Servico::getId, Servico::getNome));
+    }
 
     List<Servico> findByMinisterioIdOrderByNomeAsc(UUID ministerioId);
 

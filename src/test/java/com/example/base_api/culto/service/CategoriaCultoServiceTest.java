@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -324,5 +326,24 @@ class CategoriaCultoServiceTest {
         categoria.setDuracaoMinutos(90);
         categoria.setAtivo(true);
         return categoria;
+    }
+
+    @Test
+    void listarBuscaNomesDosPregadoresPadraoNumaUnicaConsulta() {
+        UUID igrejaId = UUID.randomUUID();
+        UUID pregadorId = UUID.randomUUID();
+        CategoriaCulto domingo = categoriaExistente(UUID.randomUUID(), igrejaId);
+        domingo.setPregadorPadraoId(pregadorId);
+        CategoriaCulto quarta = categoriaExistente(UUID.randomUUID(), igrejaId);
+
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
+        when(categoriaRepository.findByIgrejaIdInOrderByTituloAsc(List.of(igrejaId))).thenReturn(List.of(domingo, quarta));
+        when(pessoaRepository.nomesPorId(any())).thenReturn(Map.of(pregadorId, "Pr. Daniel"));
+
+        List<CategoriaCultoResponse> categorias = categoriaService.listar(igrejaId, null);
+
+        assertThat(categorias).extracting(CategoriaCultoResponse::pregadorPadraoNome).containsExactly("Pr. Daniel", null);
+        verify(pessoaRepository, times(1)).nomesPorId(any());
+        verify(pessoaRepository, never()).findById(any());
     }
 }

@@ -83,11 +83,18 @@ public class CultoService {
         if (cultos.isEmpty()) {
             return List.of();
         }
-        Map<UUID, Boolean> relatorios = relatorioRepository.findByCultoIdIn(cultos.stream()
+        Set<UUID> comRelatorio = relatorioRepository.findByCultoIdIn(cultos.stream()
                         .map(Culto::getId).toList()).stream()
-                .collect(Collectors.toMap(CultoRelatorio::getCultoId, r -> true));
+                .map(CultoRelatorio::getCultoId)
+                .collect(Collectors.toSet());
         Map<UUID, CategoriaCulto> categorias = categoriasDos(cultos);
-        return cultos.stream().map(c -> toResponse(c, categorias.get(c.getCategoriaCultoId()), relatorios)).toList();
+        Map<UUID, String> pregadores = pessoaRepository.nomesPorId(cultos.stream().map(Culto::getPregadorId).toList());
+        return cultos.stream().map(c -> toResponse(
+                c,
+                categorias.get(c.getCategoriaCultoId()),
+                comRelatorio.contains(c.getId()),
+                c.getPregadorId() == null ? null : pregadores.get(c.getPregadorId())
+        )).toList();
     }
 
     @Transactional(readOnly = true)
@@ -475,13 +482,15 @@ public class CultoService {
     }
 
     private CultoResponse toResponse(Culto culto, CategoriaCulto categoria, boolean temRelatorio) {
-        return toResponse(culto, categoria, temRelatorio ? Map.of(culto.getId(), true) : Map.of());
+        return toResponse(culto, categoria, temRelatorio, nomePessoa(culto.getPregadorId()));
     }
 
-    private CultoResponse toResponse(Culto culto, CategoriaCulto categoria, Map<UUID, Boolean> relatorios) {
-        if (categoria == null) {
-            categoria = categoriaRepository.findById(culto.getCategoriaCultoId()).orElse(null);
-        }
+    private CultoResponse toResponse(
+            Culto culto,
+            CategoriaCulto categoria,
+            boolean temRelatorio,
+            String pregadorNome
+    ) {
         return new CultoResponse(
                 culto.getId(),
                 culto.getIgrejaId(),
@@ -493,13 +502,13 @@ public class CultoService {
                 culto.getHoraInicio(),
                 culto.getHoraFim(),
                 culto.getPregadorId(),
-                nomePessoa(culto.getPregadorId()),
+                pregadorNome,
                 culto.getStatus(),
                 culto.getCompetencia(),
                 culto.getEscalaId(),
                 culto.getAtivo(),
                 janelaConfiguracaoAberta(culto),
-                relatorios.containsKey(culto.getId()),
+                temRelatorio,
                 culto.getCreatedAt(),
                 culto.getUpdatedAt()
         );
