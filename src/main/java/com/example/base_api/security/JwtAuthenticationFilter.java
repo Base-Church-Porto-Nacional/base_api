@@ -12,7 +12,6 @@ import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -25,16 +24,10 @@ import java.time.Instant;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-    private final CustomUserDetailsService userDetailsService;
     private final UsuarioRepository usuarioRepository;
 
-    public JwtAuthenticationFilter(
-            JwtService jwtService,
-            CustomUserDetailsService userDetailsService,
-            UsuarioRepository usuarioRepository
-    ) {
+    public JwtAuthenticationFilter(JwtService jwtService, UsuarioRepository usuarioRepository) {
         this.jwtService = jwtService;
-        this.userDetailsService = userDetailsService;
         this.usuarioRepository = usuarioRepository;
     }
 
@@ -53,21 +46,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = authHeader.substring(7);
         try {
-            String username = jwtService.extrairUsername(token);
+            JwtService.TokenValidado validado = jwtService.validar(token);
+            String username = validado.username();
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 Usuario usuario = usuarioRepository.findByUsername(username).orElse(null);
                 if (usuario == null
                         || !Boolean.TRUE.equals(usuario.getAtivo())
-                        || !jwtService.isTokenValido(token, username)
-                        || jwtService.extrairTokenVersion(token) != versao(usuario)) {
+                        || validado.tokenVersion() != versao(usuario)) {
                     escrever401(response, request.getRequestURI());
                     return;
                 }
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                UsuarioAutenticado principal = UsuarioAutenticado.de(usuario);
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails,
+                        principal,
                         null,
-                        userDetails.getAuthorities()
+                        principal.getAuthorities()
                 );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
