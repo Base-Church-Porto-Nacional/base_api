@@ -112,20 +112,8 @@ public class IgrejaContextoService {
         return papeis.contains("ADMIN") || papeis.contains("PASTOR");
     }
 
-    public boolean isPastorOuAdmin() {
-        return isPastorOuAdmin(igrejaAtualId());
-    }
-
     public boolean isMatriz() {
         return igrejaAtual().isMatriz();
-    }
-
-    public boolean temPapel(String papel) {
-        return temPapel(igrejaAtualId(), papel);
-    }
-
-    public boolean temPapel(UUID igrejaId, String papel) {
-        return papeisNaIgreja(igrejaId).contains(papel);
     }
 
     public void assertPastorOuAdmin(UUID igrejaId) {

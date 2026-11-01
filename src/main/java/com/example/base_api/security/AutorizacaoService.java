@@ -119,10 +119,6 @@ public class AutorizacaoService {
         }
     }
 
-    public boolean podeListarPessoasDaIgreja(UUID igrejaId) {
-        return isPastorOuAdmin(igrejaId);
-    }
-
     public boolean podeIncluirPessoaNaListagem(Pessoa pessoa) {
         if (isPastorOuAdmin(pessoa.getIgrejaId())) {
             return true;
@@ -266,10 +262,6 @@ public class AutorizacaoService {
                 .stream()
                 .flatMap(e -> escalaVoluntarioRepository.findByEscalaId(e.getId()).stream())
                 .anyMatch(i -> pessoaId.equals(i.getPessoaId()));
-    }
-
-    public boolean podeVerTodasEscalasDaIgreja(UUID igrejaId) {
-        return isPastorOuAdmin(igrejaId);
     }
 
     public boolean podeVerEscala(Escala escala) {

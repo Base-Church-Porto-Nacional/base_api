@@ -12,7 +12,5 @@ public interface SmallGroupParticipanteRepository extends JpaRepository<SmallGro
 
     List<SmallGroupParticipante> findByEncontroIdOrderByPessoaNomeAsc(UUID encontroId);
 
-    void deleteByEncontroIdIn(List<UUID> encontroIds);
-
     void deleteByEncontroId(UUID encontroId);
 }

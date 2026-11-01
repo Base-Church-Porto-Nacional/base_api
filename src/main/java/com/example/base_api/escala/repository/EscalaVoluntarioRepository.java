@@ -15,10 +15,6 @@ public interface EscalaVoluntarioRepository extends JpaRepository<EscalaVoluntar
 
     List<EscalaVoluntario> findByEscalaIdIn(List<UUID> escalaIds);
 
-    List<EscalaVoluntario> findByPessoaId(UUID pessoaId);
-
-    List<EscalaVoluntario> findByEscalaIdAndPessoaId(UUID escalaId, UUID pessoaId);
-
     List<EscalaVoluntario> findByPessoaIdInAndDataItemBetween(
             List<UUID> pessoaIds,
             LocalDate inicio,

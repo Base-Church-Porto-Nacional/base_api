@@ -12,11 +12,6 @@ public interface SmallGroupEncontroRepository extends JpaRepository<SmallGroupEn
 
     List<SmallGroupEncontro> findBySmallGroupIdInOrderByDataAsc(List<UUID> smallGroupIds);
 
-    List<SmallGroupEncontro> findBySmallGroupIdOrderByDataAsc(UUID smallGroupId);
-
-    boolean existsBySmallGroupIdAndData(UUID smallGroupId, LocalDate data);
-
     Optional<SmallGroupEncontro> findFirstBySmallGroupIdAndData(UUID smallGroupId, LocalDate data);
 
-    void deleteBySmallGroupId(UUID smallGroupId);
 }

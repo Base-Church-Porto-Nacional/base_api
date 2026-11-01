@@ -11,9 +11,6 @@ public interface EventoMinisterioRepository extends JpaRepository<EventoMinister
 
     List<EventoMinisterio> findByEventoId(UUID eventoId);
 
-    List<EventoMinisterio> findByEventoIdIn(List<UUID> eventoIds);
-
     Optional<EventoMinisterio> findByEventoIdAndMinisterioId(UUID eventoId, UUID ministerioId);
 
-    void deleteByEventoIdAndMinisterioIdNotIn(UUID eventoId, List<UUID> ministerioIds);
 }

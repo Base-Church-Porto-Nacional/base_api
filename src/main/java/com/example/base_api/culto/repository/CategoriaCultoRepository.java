@@ -13,8 +13,6 @@ public interface CategoriaCultoRepository extends JpaRepository<CategoriaCulto, 
 
     List<CategoriaCulto> findByIgrejaIdInAndAtivoOrderByTituloAsc(List<UUID> igrejaIds, boolean ativo);
 
-    List<CategoriaCulto> findByIgrejaIdAndAtivoTrueOrderByTituloAsc(UUID igrejaId);
-
     Optional<CategoriaCulto> findByIgrejaIdAndTituloIgnoreCase(UUID igrejaId, String titulo);
 
     boolean existsByIgrejaIdAndTituloIgnoreCase(UUID igrejaId, String titulo);

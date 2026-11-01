@@ -13,9 +13,6 @@ public interface SmallGroupRepository extends JpaRepository<SmallGroup, UUID> {
 
     boolean existsByIgrejaIdAndNomeIgnoreCaseAndIdNot(UUID igrejaId, String nome, UUID id);
 
-    List<SmallGroup> findByIgrejaIdOrderByNomeAsc(UUID igrejaId);
-
     List<SmallGroup> findByIgrejaIdInOrderByNomeAsc(List<UUID> igrejaIds);
 
-    List<SmallGroup> findByMinisterioId(UUID ministerioId);
 }
