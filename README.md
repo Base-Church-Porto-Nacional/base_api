@@ -143,6 +143,8 @@ Fora do perfil `dev` não há seed. Na primeira subida com banco vazio, defina `
 
 Health check para o orquestrador: `GET /actuator/health` (também `/actuator/health/liveness` e `/readiness`). Atrás de proxy reverso mantenha `FORWARD_HEADERS_STRATEGY=NATIVE`; sem proxy, use `NONE`.
 
+`PUT /api/me` exige `senhaAtual` quando `novaSenha` é informada.
+
 ### Login
 
 ```bash
