@@ -130,7 +130,7 @@ public class AutorizacaoService {
 
     /**
      * Trocar o pastor titular: o pastor da matriz (para ela mesma ou uma filial da sua rede) ou o próprio pastor
-     * titular da igreja. Pastor de filial não mexe em outra filial.
+     * titular da igreja, desde que ainda tenha o PASTOR nela. Pastor de filial não mexe em outra filial.
      */
     public void assertPodeTrocarPastor(Igreja igreja) {
         assertAcesso(igreja.getId());
@@ -140,8 +140,10 @@ public class AutorizacaoService {
         if (daRede && tem(atual.getId(), Capacidade.FILIAL_CRIAR)) {
             return;
         }
+        // Titular por designação só troca enquanto ainda for PASTOR ali (titular rebaixado não nomeia outro PASTOR).
         if (igreja.getPastorPessoaId() != null
-                && igreja.getPastorPessoaId().equals(requireUsuario().getPessoaId())) {
+                && igreja.getPastorPessoaId().equals(requireUsuario().getPessoaId())
+                && tem(igreja.getId(), Capacidade.PAPEIS_GESTAO_ATRIBUIR)) {
             return;
         }
         throw new AccessDeniedException("Somente o pastor da matriz ou o pastor titular podem trocar o pastor");

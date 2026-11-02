@@ -297,9 +297,23 @@ class AutorizacaoServiceTest {
     void pastorTitularTrocaOPastorDaPropriaIgreja() {
         when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.FILIAL));
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+        capacidades(PASTOR);
 
         assertThatCode(() -> autorizacaoService.assertPodeTrocarPastor(igrejaAlvo(igrejaId, UUID.randomUUID(), pessoaId)))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void titularSemPastorNaoTrocaPastor() {
+        // Titular por designação cujo papel PASTOR foi removido não pode mais nomear outro PASTOR.
+        when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.FILIAL));
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+        capacidades(NENHUMA);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeTrocarPastor(
+                igrejaAlvo(igrejaId, UUID.randomUUID(), pessoaId)))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Somente o pastor da matriz ou o pastor titular podem trocar o pastor");
     }
 
     @Test
