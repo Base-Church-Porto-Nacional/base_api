@@ -196,14 +196,32 @@ public class AutorizacaoService {
     /** Busca de pessoas por nome: gestão ou quem lidera ministério, base ou grupo em alguma das igrejas. */
     public void assertPodeBuscarPessoas(List<UUID> igrejaIds) {
         for (UUID igrejaId : igrejaIds) {
-            if (isGestao(igrejaId)
-                    || !permissaoService.ministeriosLideradosEm(igrejaId).isEmpty()
-                    || !permissaoService.basesLideradasEm(igrejaId).isEmpty()
-                    || !permissaoService.gruposLideradosEm(igrejaId).isEmpty()) {
+            if (isGestao(igrejaId) || lideraAlgoEm(igrejaId)) {
                 return;
             }
         }
         throw new AccessDeniedException("Sem permissão para buscar pessoas");
+    }
+
+    /** Escopo da busca por nome: a igreja do próprio usuário mais as igrejas visíveis onde ele lidera algo. */
+    public List<UUID> igrejasParaBuscaDePessoas() {
+        UUID propria = requireUsuario().getIgrejaId();
+        java.util.LinkedHashSet<UUID> ids = new java.util.LinkedHashSet<>();
+        if (propria != null) {
+            ids.add(propria);
+        }
+        for (UUID id : idsParaListagem(null)) {
+            if (!ids.contains(id) && lideraAlgoEm(id)) {
+                ids.add(id);
+            }
+        }
+        return List.copyOf(ids);
+    }
+
+    private boolean lideraAlgoEm(UUID igrejaId) {
+        return !permissaoService.ministeriosLideradosEm(igrejaId).isEmpty()
+                || !permissaoService.basesLideradasEm(igrejaId).isEmpty()
+                || !permissaoService.gruposLideradosEm(igrejaId).isEmpty();
     }
 
     public void assertPodeVerPessoa(Pessoa pessoa) {

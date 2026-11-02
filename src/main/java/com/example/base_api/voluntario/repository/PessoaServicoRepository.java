@@ -33,4 +33,7 @@ public interface PessoaServicoRepository extends JpaRepository<PessoaServico, UU
     long contarAtivosPorIgrejas(@Param("igrejaIds") Collection<UUID> igrejaIds);
 
     boolean existsByPessoaIdAndAtivoTrue(UUID pessoaId);
+
+    @Query("select distinct ps.pessoaId from PessoaServico ps where ps.pessoaId in :pessoaIds and ps.ativo = true")
+    List<UUID> pessoaIdsComVinculoAtivo(@Param("pessoaIds") Collection<UUID> pessoaIds);
 }

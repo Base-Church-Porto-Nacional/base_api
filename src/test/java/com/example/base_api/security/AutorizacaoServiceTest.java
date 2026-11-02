@@ -705,4 +705,22 @@ class AutorizacaoServiceTest {
         pessoa.setIgrejaId(igrejaId);
         return pessoa;
     }
+
+    // --- escopo da busca por nome ---
+
+    @Test
+    void buscaDePessoasCobreIgrejaPropriaEIgrejasOndeLidera() {
+        UUID filialA = UUID.randomUUID();
+        UUID filialB = UUID.randomUUID();
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+        when(igrejaContextoService.idsParaListagem(null)).thenReturn(List.of(igrejaId, filialA, filialB));
+        when(permissaoService.ministeriosLideradosEm(filialA)).thenReturn(Set.of());
+        when(permissaoService.basesLideradasEm(filialA)).thenReturn(Set.of());
+        when(permissaoService.gruposLideradosEm(filialA)).thenReturn(Set.of(UUID.randomUUID()));
+        when(permissaoService.ministeriosLideradosEm(filialB)).thenReturn(Set.of());
+        when(permissaoService.basesLideradasEm(filialB)).thenReturn(Set.of());
+        when(permissaoService.gruposLideradosEm(filialB)).thenReturn(Set.of());
+
+        assertThat(autorizacaoService.igrejasParaBuscaDePessoas()).containsExactly(igrejaId, filialA);
+    }
 }

@@ -44,7 +44,7 @@ public interface PessoaRepository extends JpaRepository<Pessoa, UUID> {
 
     List<Pessoa> findByIgrejaIdInOrderByNomeAsc(List<UUID> igrejaIds);
 
-    List<Pessoa> findTop20ByIgrejaIdInAndNomeContainingIgnoreCaseOrderByNomeAsc(List<UUID> igrejaIds, String nome);
+    List<Pessoa> findTop20ByIgrejaIdInAndAtivoTrueAndNomeContainingIgnoreCaseOrderByNomeAsc(List<UUID> igrejaIds, String nome);
 
     long countByIgrejaIdIn(List<UUID> igrejaIds);
 

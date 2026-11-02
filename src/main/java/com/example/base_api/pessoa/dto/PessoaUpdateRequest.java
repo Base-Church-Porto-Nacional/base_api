@@ -1,14 +1,12 @@
 package com.example.base_api.pessoa.dto;
 
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
+/** Atualização parcial: campo nulo = não altera. */
 public record PessoaUpdateRequest(
-        @NotBlank(message = "Nome é obrigatório")
         @Size(max = 150, message = "Nome deve ter no máximo 150 caracteres")
         String nome,
 
@@ -27,7 +25,6 @@ public record PessoaUpdateRequest(
 
         LocalDate dataNascimento,
 
-        @NotNull(message = "Campo ativo é obrigatório")
         Boolean ativo,
 
         String observacoes

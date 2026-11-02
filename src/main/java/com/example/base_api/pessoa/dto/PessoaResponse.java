@@ -23,6 +23,8 @@ public record PessoaResponse(
         Instant updatedAt,
         Boolean aceitouJesus,
         Boolean batizado,
-        Boolean concluiuTrilhaBase
+        Boolean concluiuTrilhaBase,
+        /** Funções derivadas: PASTOR/SECRETARIA (papéis de sistema), LIDER (lidera algo), VOLUNTARIO (serve), MEMBRO (tem usuário ativo). */
+        Set<String> funcoes
 ) {
 }

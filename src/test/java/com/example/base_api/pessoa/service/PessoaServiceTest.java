@@ -61,6 +61,9 @@ class PessoaServiceTest {
     @Mock
     private PessoaServicoRepository pessoaServicoRepository;
 
+    @Mock
+    private com.example.base_api.usuario.service.LiderService liderService;
+
     @InjectMocks
     private PessoaService pessoaService;
 
@@ -380,8 +383,8 @@ class PessoaServiceTest {
             p.setIgrejaId(igrejaId);
             muitas.add(p);
         }
-        when(autorizacaoService.idsParaListagem(null)).thenReturn(List.of(igrejaId));
-        when(pessoaRepository.findTop20ByIgrejaIdInAndNomeContainingIgnoreCaseOrderByNomeAsc(List.of(igrejaId), "Ana"))
+        when(autorizacaoService.igrejasParaBuscaDePessoas()).thenReturn(List.of(igrejaId));
+        when(pessoaRepository.findTop20ByIgrejaIdInAndAtivoTrueAndNomeContainingIgnoreCaseOrderByNomeAsc(List.of(igrejaId), "Ana"))
                 .thenReturn(muitas);
 
         List<PessoaResumoResponse> resultado = pessoaService.buscarPorNome(" Ana ");
@@ -393,14 +396,15 @@ class PessoaServiceTest {
 
     @Test
     void membroSemLiderancaNaoBusca() {
-        when(autorizacaoService.idsParaListagem(null)).thenReturn(List.of(igrejaId));
+        when(autorizacaoService.igrejasParaBuscaDePessoas()).thenReturn(List.of(igrejaId));
         doThrow(new AccessDeniedException("Sem permissão para buscar pessoas"))
                 .when(autorizacaoService).assertPodeBuscarPessoas(List.of(igrejaId));
 
         assertThatThrownBy(() -> pessoaService.buscarPorNome("Ana"))
                 .isInstanceOf(AccessDeniedException.class);
         verify(pessoaRepository, never())
-                .findTop20ByIgrejaIdInAndNomeContainingIgnoreCaseOrderByNomeAsc(any(), any());
+                .findTop20ByIgrejaIdInAndAtivoTrueAndNomeContainingIgnoreCaseOrderByNomeAsc(any(), any());
+        verify(autorizacaoService, never()).idsParaListagem(any());
     }
 
     private Usuario usuarioComPapeis() {
@@ -477,5 +481,137 @@ class PessoaServiceTest {
         PessoaResponse response = pessoaService.buscarPorId(pessoa.getId());
 
         assertThat(response.batizado()).isNull();
+    }
+
+    // --- funções derivadas (pós-V18) ---
+
+    private Usuario usuarioCom(UUID pessoaId, boolean ativo, String... papeisSistema) {
+        Usuario usuario = new Usuario();
+        usuario.setId(UUID.randomUUID());
+        usuario.setPessoaId(pessoaId);
+        usuario.setIgrejaId(igrejaId);
+        usuario.setUsername("u" + pessoaId);
+        usuario.setSenhaHash("hash");
+        usuario.setAtivo(ativo);
+        for (String nome : papeisSistema) {
+            Papel papel = new Papel();
+            papel.setId(UUID.randomUUID());
+            papel.setNome(nome);
+            UsuarioPapel up = new UsuarioPapel();
+            up.setUsuarioId(usuario.getId());
+            up.setPapelId(papel.getId());
+            up.setIgrejaId(igrejaId);
+            up.setPapel(papel);
+            usuario.getPapeisIgreja().add(up);
+        }
+        return usuario;
+    }
+
+    private Pessoa novaPessoa(String nome) {
+        Pessoa p = new Pessoa();
+        p.setId(UUID.randomUUID());
+        p.setNome(nome);
+        p.setIgrejaId(igrejaId);
+        p.setAtivo(true);
+        return p;
+    }
+
+    @Test
+    void listarDerivaFuncoesEmLote() {
+        Pessoa pastor = novaPessoa("Ana");
+        Pessoa lider = novaPessoa("Bruno");
+        Pessoa visitante = novaPessoa("Carla");
+        Usuario usuarioPastor = usuarioCom(pastor.getId(), true, "PASTOR");
+        Papel custom = new Papel();
+        custom.setId(UUID.randomUUID());
+        custom.setNome("CONTADOR");
+        custom.setIgrejaId(igrejaId);
+        UsuarioPapel cp = new UsuarioPapel();
+        cp.setIgrejaId(igrejaId);
+        cp.setPapel(custom);
+        usuarioPastor.getPapeisIgreja().add(cp);
+        List<UUID> ids = List.of(pastor.getId(), lider.getId(), visitante.getId());
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
+        when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(List.of(igrejaId)))
+                .thenReturn(List.of(pastor, lider, visitante));
+        when(autorizacaoService.filtrarVisiveisNaListagem(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(usuarioRepository.findByPessoaIdIn(ids)).thenReturn(List.of(usuarioPastor));
+        when(liderService.pessoaIdsLideres(List.of(igrejaId))).thenReturn(java.util.Set.of(lider.getId()));
+        when(pessoaServicoRepository.pessoaIdsComVinculoAtivo(ids)).thenReturn(List.of(lider.getId()));
+
+        List<PessoaResponse> lista = pessoaService.listar(igrejaId);
+
+        assertThat(lista.get(0).funcoes()).containsExactlyInAnyOrder("PASTOR", "MEMBRO");
+        assertThat(lista.get(1).funcoes()).containsExactlyInAnyOrder("LIDER", "VOLUNTARIO");
+        assertThat(lista.get(2).funcoes()).isEmpty();
+        verify(liderService).pessoaIdsLideres(List.of(igrejaId));
+        verify(pessoaServicoRepository).pessoaIdsComVinculoAtivo(ids);
+        verify(usuarioRepository, never()).findByPessoaId(any());
+    }
+
+    @Test
+    void usuarioInativoNaoContaComoMembro() {
+        when(pessoaRepository.findById(pessoa.getId())).thenReturn(Optional.of(pessoa));
+        when(usuarioRepository.findByPessoaId(pessoa.getId()))
+                .thenReturn(Optional.of(usuarioCom(pessoa.getId(), false, "SECRETARIA")));
+
+        PessoaResponse response = pessoaService.buscarPorId(pessoa.getId());
+
+        assertThat(response.funcoes()).containsExactly("SECRETARIA");
+    }
+
+    // --- PUT parcial ---
+
+    @Test
+    void atualizacaoParcialNaoApagaCamposOmitidos() {
+        pessoa.setNomeSocial("Jo");
+        pessoa.setDataNascimento(LocalDate.of(1990, 1, 2));
+        pessoa.setObservacoes("nota");
+        pessoa.setTelefone("111");
+        when(pessoaRepository.findById(pessoa.getId())).thenReturn(Optional.of(pessoa));
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.empty());
+        
+        PessoaUpdateRequest request = new PessoaUpdateRequest(
+                null, null, null, "222", null, null, null, null);
+
+        PessoaResponse response = pessoaService.atualizar(pessoa.getId(), request);
+
+        assertThat(response.nome()).isEqualTo("João da Silva");
+        assertThat(response.nomeSocial()).isEqualTo("Jo");
+        assertThat(response.email()).isEqualTo("joao@email.com");
+        assertThat(response.dataNascimento()).isEqualTo(LocalDate.of(1990, 1, 2));
+        assertThat(response.observacoes()).isEqualTo("nota");
+        assertThat(response.ativo()).isTrue();
+        assertThat(response.telefone()).isEqualTo("222");
+    }
+
+    @Test
+    void liderEditaContatoDePessoaComObservacoesSemEnviarCamposPastorais() {
+        pessoa.setObservacoes("nota pastoral");
+        when(pessoaRepository.findById(pessoa.getId())).thenReturn(Optional.of(pessoa));
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.empty());
+
+        PessoaUpdateRequest request = new PessoaUpdateRequest(
+                "João", null, "joao@email.com", "11888888888", null, null, null, null);
+
+        PessoaResponse response = pessoaService.atualizar(pessoa.getId(), request);
+
+        assertThat(response.telefone()).isEqualTo("11888888888");
+        assertThat(response.observacoes()).isEqualTo("nota pastoral");
+        assertThat(response.ativo()).isTrue();
+    }
+
+    @Test
+    void nomeEmBrancoNaAtualizacaoEhRejeitado() {
+        when(pessoaRepository.findById(pessoa.getId())).thenReturn(Optional.of(pessoa));
+
+        PessoaUpdateRequest request = new PessoaUpdateRequest(
+                "   ", null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> pessoaService.atualizar(pessoa.getId(), request))
+                .isInstanceOf(BusinessException.class);
+        verify(pessoaRepository, never()).save(any());
     }
 }
