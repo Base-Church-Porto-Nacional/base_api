@@ -160,4 +160,12 @@ class TokenAcessoServiceTest {
     void linkSemBarraDupla() {
         assertThat(service.link("abc")).isEqualTo("http://localhost:3000/acesso/abc");
     }
+
+    @Test
+    void geradoRecentementeConsultaPendentesCriadosDentroDaJanela() {
+        when(repository.existsByUsuarioIdAndTipoAndUsadoEmIsNullAndCreatedAtAfter(
+                usuarioId, TipoTokenAcesso.REDEFINICAO, AGORA.minus(Duration.ofMinutes(5)))).thenReturn(true);
+
+        assertThat(service.geradoRecentemente(usuarioId, TipoTokenAcesso.REDEFINICAO, Duration.ofMinutes(5))).isTrue();
+    }
 }

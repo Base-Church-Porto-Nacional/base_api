@@ -490,6 +490,23 @@ class AcessoServiceTest {
     }
 
     @Test
+    void esqueciSenhaEmCooldownDeCincoMinutosNaoGeraNemEnvia() {
+        Usuario u = usuarioExistente(StatusUsuario.ATIVO);
+        u.setTelefone("5563999990000");
+        when(usuarioRepository.findByIdentificador("(63) 99999-0000")).thenReturn(Optional.of(u));
+        when(usuarioRepository.findById(u.getId())).thenReturn(Optional.of(u));
+        when(tokenAcessoService.geradoRecentemente(u.getId(), TipoTokenAcesso.REDEFINICAO,
+                EnvioRedefinicaoService.COOLDOWN)).thenReturn(true);
+
+        service.solicitarRedefinicao("(63) 99999-0000", IP);
+        filaExecutor.forEach(Runnable::run);
+
+        assertThat(EnvioRedefinicaoService.COOLDOWN).isEqualTo(java.time.Duration.ofMinutes(5));
+        verify(tokenAcessoService, never()).gerar(any(), any(), any());
+        verify(canalMensagem, never()).enviar(any());
+    }
+
+    @Test
     void esqueciSenhaIdentificadorDesconhecidoNaoEnviaNada() {
         when(usuarioRepository.findByIdentificador("x@y.com")).thenReturn(Optional.empty());
 

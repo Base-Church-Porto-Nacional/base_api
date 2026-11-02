@@ -15,6 +15,9 @@ public interface TokenAcessoRepository extends JpaRepository<TokenAcesso, UUID> 
 
     Optional<TokenAcesso> findByTokenHash(String tokenHash);
 
+    boolean existsByUsuarioIdAndTipoAndUsadoEmIsNullAndCreatedAtAfter(
+            UUID usuarioId, TipoTokenAcesso tipo, Instant criadoDepoisDe);
+
     @Modifying(flushAutomatically = true)
     @Query("DELETE FROM TokenAcesso t WHERE t.usuarioId = :usuarioId AND t.tipo = :tipo AND t.usadoEm IS NULL")
     int apagarPendentes(@Param("usuarioId") UUID usuarioId, @Param("tipo") TipoTokenAcesso tipo);

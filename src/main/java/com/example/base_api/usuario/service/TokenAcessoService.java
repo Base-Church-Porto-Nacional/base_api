@@ -13,6 +13,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
@@ -87,6 +88,13 @@ public class TokenAcessoService {
     @Transactional
     public void revogarPendentes(UUID usuarioId) {
         repository.apagarPendentes(usuarioId);
+    }
+
+    /** Há token pendente deste tipo criado dentro da janela (ex.: cooldown do esqueci a senha). */
+    @Transactional(readOnly = true)
+    public boolean geradoRecentemente(UUID usuarioId, TipoTokenAcesso tipo, Duration janela) {
+        return repository.existsByUsuarioIdAndTipoAndUsadoEmIsNullAndCreatedAtAfter(
+                usuarioId, tipo, clock.instant().minus(janela));
     }
 
     public String link(String bruto) {

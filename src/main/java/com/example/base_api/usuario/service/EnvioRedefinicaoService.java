@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.UUID;
 
 /**
@@ -21,6 +22,9 @@ import java.util.UUID;
 public class EnvioRedefinicaoService {
 
     private static final Logger log = LoggerFactory.getLogger(EnvioRedefinicaoService.class);
+
+    /** Um link de esqueci a senha por conta a cada 5 minutos: troca de IP não vira spam no WhatsApp do membro. */
+    static final Duration COOLDOWN = Duration.ofMinutes(5);
 
     private final UsuarioRepository usuarioRepository;
     private final PessoaService pessoaService;
@@ -39,13 +43,16 @@ public class EnvioRedefinicaoService {
         this.mensagemAcesso = mensagemAcesso;
     }
 
-    /** Nunca propaga erro; só o id do usuário vai ao log. */
+    /** Nunca propaga erro; só o id do usuário vai ao log. Dentro do cooldown não gera nem envia (resposta segue 204). */
     @Transactional
     public void gerarEEnviar(UUID usuarioId) {
         try {
             Usuario usuario = usuarioRepository.findById(usuarioId).orElse(null);
             if (usuario == null || usuario.getStatus() != StatusUsuario.ATIVO
                     || usuario.getTelefone() == null || usuario.getPessoaId() == null) {
+                return;
+            }
+            if (tokenAcessoService.geradoRecentemente(usuarioId, TipoTokenAcesso.REDEFINICAO, COOLDOWN)) {
                 return;
             }
             Pessoa pessoa = pessoaService.buscarEntidade(usuario.getPessoaId());
