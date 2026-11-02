@@ -224,7 +224,7 @@ Repo: `../base_interface`.
   - `AcessoService.definirSenha(String token, String senha): Future<Map<String, dynamic>>` → `POST /auth/definir-senha`.
   - `AcessoService.esqueciSenha(String identificador): Future<void>` → `POST /auth/esqueci-senha`.
   - Tela de definir senha: carrega `info`; título "Olá, {primeiroNome}" e subtítulo "Crie sua senha" (CONVITE) ou "Crie uma nova senha" (REDEFINICAO); campos senha e confirmar (mín. 8, iguais); sucesso → entra no app e vai para `/dashboard`. 410 em qualquer chamada → mensagem "Este link expirou ou já foi usado. Peça um novo convite." sem o formulário.
-  - Tela esqueci a senha: campo "E-mail ou telefone"; após enviar sempre mostra "Se houver uma conta com esse contato, enviamos um link pelo WhatsApp." (mesma mensagem em qualquer resposta 204).
+  - Tela esqueci a senha: campo "E-mail ou telefone"; após enviar sempre mostra "Se houver uma conta com esse contato, enviamos um link pelo WhatsApp. Se não receber, peça um novo link à secretaria da igreja." (mesma mensagem em qualquer resposta 204). O WhatsApp pode estar desligado (`app.whatsapp.habilitado=false`) ou a pessoa sem telefone — o caminho de saída é a secretaria gerar o link em "Redefinir senha" (Task 7) e copiar.
 
 - [ ] **Step 1: Testes que falham** — contrato: `loginEnviaIdentificador`, `infoFazGetToken`, `definirSenhaFazPost`, `esqueciSenhaFazPost`; rota: `acessoTokenEhPublico`, `esqueciSenhaEhPublico`; widget: `linkExpiradoMostraMensagemSemFormulario`, `senhasDiferentesNaoEnviam`.
 - [ ] **Step 2:** `flutter test test/services/contrato_api_test.dart test/utils/route_access_test.dart test/screens` → FAIL.
