@@ -11,6 +11,7 @@ import com.example.base_api.igreja.repository.IgrejaRepository;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
+import com.example.base_api.security.Capacidade;
 import com.example.base_api.security.Papeis;
 import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.entity.Usuario;
@@ -129,11 +130,18 @@ public class IgrejaService {
         autorizacaoService.assertGestao(id);
         Igreja igreja = buscarEntidade(id);
 
-        Pessoa pastor = pessoaRepository.findById(request.pastorPessoaId())
-                .orElseThrow(() -> new ResourceNotFoundException("Pastor não encontrado"));
+        if (!request.pastorPessoaId().equals(igreja.getPastorPessoaId())) {
+            // Trocar o pastor da igreja é decisão do pastor (não da secretaria).
+            autorizacaoService.assertTem(id, Capacidade.FILIAL_CRIAR);
+            Pessoa pastor = pessoaRepository.findById(request.pastorPessoaId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Pastor não encontrado"));
+            if (!id.equals(pastor.getIgrejaId())) {
+                throw new BusinessException("A pessoa não pertence a esta igreja");
+            }
+            igreja.setPastorPessoaId(pastor.getId());
+        }
 
         igreja.setNome(request.nome().trim());
-        igreja.setPastorPessoaId(pastor.getId());
         igreja.setAtivo(request.ativo());
         return toResponse(igrejaRepository.save(igreja));
     }

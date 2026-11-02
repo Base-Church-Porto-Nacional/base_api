@@ -142,6 +142,14 @@ public class UsuarioService {
     public UsuarioResponse atualizar(UUID id, UsuarioUpdateRequest request) {
         Usuario usuario = buscarEntidade(id);
         autorizacaoService.assertGestao(usuario.getIgrejaId());
+        boolean trocaSenha = request.novaSenha() != null && !request.novaSenha().isBlank();
+        boolean trocaAtivo = request.ativo() != null && !request.ativo().equals(usuario.getAtivo());
+        if (trocaSenha || trocaAtivo) {
+            assertPodeAlterarContaDeGestao(usuario);
+        }
+        if (trocaAtivo && Boolean.FALSE.equals(request.ativo())) {
+            assertRestaPastorAtivoSemEle(usuario);
+        }
 
         usuarioRepository.findByEmailIgnoreCase(request.email()).ifPresent(outro -> {
             if (!outro.getId().equals(id)) {
@@ -191,9 +199,8 @@ public class UsuarioService {
         } else {
             autorizacaoService.assertTem(igrejaId, Capacidade.PAPEIS_CUSTOM_GERIR);
         }
-        if (atuais.contains(Papeis.PASTOR) && !novos.contains(Papeis.PASTOR)
-                && usuarioRepository.countByPapelAndIgrejaId(Papeis.PASTOR, igrejaId) <= 1) {
-            throw new BusinessException("A igreja precisa de ao menos um pastor");
+        if (atuais.contains(Papeis.PASTOR) && !novos.contains(Papeis.PASTOR)) {
+            assertRestaPastorAtivoSemEle(usuario);
         }
 
         substituirPapeis(usuario, igrejaId, novos);
@@ -216,7 +223,29 @@ public class UsuarioService {
     public void excluir(UUID id) {
         Usuario usuario = buscarEntidade(id);
         autorizacaoService.assertGestao(usuario.getIgrejaId());
+        assertPodeAlterarContaDeGestao(usuario);
+        assertRestaPastorAtivoSemEle(usuario);
         usuarioRepository.excluirDireto(id);
+    }
+
+    /** Conta de pastor/secretaria (papel de sistema): senha, ativo e exclusão só com PAPEIS_GESTAO_ATRIBUIR (pastor). */
+    private void assertPodeAlterarContaDeGestao(Usuario usuario) {
+        UUID igrejaId = usuario.getIgrejaId();
+        if (igrejaId != null && !gestaoDe(usuario.nomesPapeisSistema(igrejaId)).isEmpty()) {
+            autorizacaoService.assertPodeAtribuirPapeisGestao(igrejaId);
+        }
+    }
+
+    /** Impede que a igreja fique sem pastor ATIVO ao remover o papel, desativar ou excluir este usuário. */
+    private void assertRestaPastorAtivoSemEle(Usuario usuario) {
+        UUID igrejaId = usuario.getIgrejaId();
+        if (igrejaId == null || !Boolean.TRUE.equals(usuario.getAtivo())
+                || !usuario.nomesPapeisSistema(igrejaId).contains(Papeis.PASTOR)) {
+            return;
+        }
+        if (usuarioRepository.countByPapelAndIgrejaId(Papeis.PASTOR, igrejaId) <= 1) {
+            throw new BusinessException("A igreja precisa de ao menos um pastor");
+        }
     }
 
     @Transactional(readOnly = true)

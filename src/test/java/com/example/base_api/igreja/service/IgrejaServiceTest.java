@@ -168,4 +168,75 @@ class IgrejaServiceTest {
         igreja.setAtivo(true);
         return igreja;
     }
+
+    // --- troca de pastor da igreja ---
+
+    private Pessoa pessoaDa(UUID igrejaId) {
+        Pessoa p = new Pessoa();
+        p.setId(UUID.randomUUID());
+        p.setNome("Pr. Novo");
+        p.setIgrejaId(igrejaId);
+        return p;
+    }
+
+    @Test
+    void secretariaNaoTrocaPastorDaIgreja() {
+        Igreja igreja = igreja(IgrejaTipo.MATRIZ, null);
+        igreja.setPastorPessoaId(UUID.randomUUID());
+        Pessoa novo = pessoaDa(igreja.getId());
+        when(igrejaRepository.findById(igreja.getId())).thenReturn(Optional.of(igreja));
+        doThrow(new AccessDeniedException("Sem permissão para esta ação"))
+                .when(autorizacaoService).assertTem(igreja.getId(), com.example.base_api.security.Capacidade.FILIAL_CRIAR);
+
+        assertThatThrownBy(() -> igrejaService.atualizar(igreja.getId(),
+                new com.example.base_api.igreja.dto.IgrejaUpdateRequest("Base", novo.getId(), true)))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(igrejaRepository, never()).save(any());
+    }
+
+    @Test
+    void secretariaAtualizaNomeMantendoPastor() {
+        Igreja igreja = igreja(IgrejaTipo.MATRIZ, null);
+        Pessoa pastor = pessoaDa(igreja.getId());
+        igreja.setPastorPessoaId(pastor.getId());
+        when(igrejaRepository.findById(igreja.getId())).thenReturn(Optional.of(igreja));
+        when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
+
+        igrejaService.atualizar(igreja.getId(),
+                new com.example.base_api.igreja.dto.IgrejaUpdateRequest("Novo nome", pastor.getId(), true));
+
+        assertThat(igreja.getNome()).isEqualTo("Novo nome");
+        verify(autorizacaoService, never()).assertTem(any(), any());
+    }
+
+    @Test
+    void pastorDeOutraIgrejaNaoPodeSerDefinido() {
+        Igreja igreja = igreja(IgrejaTipo.MATRIZ, null);
+        igreja.setPastorPessoaId(UUID.randomUUID());
+        Pessoa alheio = pessoaDa(UUID.randomUUID());
+        when(igrejaRepository.findById(igreja.getId())).thenReturn(Optional.of(igreja));
+        when(pessoaRepository.findById(alheio.getId())).thenReturn(Optional.of(alheio));
+
+        assertThatThrownBy(() -> igrejaService.atualizar(igreja.getId(),
+                new com.example.base_api.igreja.dto.IgrejaUpdateRequest("Base", alheio.getId(), true)))
+                .isInstanceOf(com.example.base_api.common.exception.BusinessException.class)
+                .hasMessage("A pessoa não pertence a esta igreja");
+        verify(igrejaRepository, never()).save(any());
+    }
+
+    @Test
+    void pastorTrocaPastorPorPessoaDaIgreja() {
+        Igreja igreja = igreja(IgrejaTipo.MATRIZ, null);
+        igreja.setPastorPessoaId(UUID.randomUUID());
+        Pessoa novo = pessoaDa(igreja.getId());
+        when(igrejaRepository.findById(igreja.getId())).thenReturn(Optional.of(igreja));
+        when(pessoaRepository.findById(novo.getId())).thenReturn(Optional.of(novo));
+        when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
+
+        igrejaService.atualizar(igreja.getId(),
+                new com.example.base_api.igreja.dto.IgrejaUpdateRequest("Base", novo.getId(), true));
+
+        assertThat(igreja.getPastorPessoaId()).isEqualTo(novo.getId());
+        verify(autorizacaoService).assertTem(igreja.getId(), com.example.base_api.security.Capacidade.FILIAL_CRIAR);
+    }
 }

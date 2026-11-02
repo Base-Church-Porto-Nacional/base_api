@@ -1108,4 +1108,28 @@ class CronogramaServiceTest {
         vinculos.forEach(v -> v.setServicoId(servicoId));
         voluntariosPorServico.put(servicoId, vinculos);
     }
+
+    @Test
+    void pregadorSalvaConteudoReenviandoOProprioPregadorSemSerGestao() {
+        UUID eventoId = UUID.randomUUID();
+        UUID igrejaId = UUID.randomUUID();
+        UUID pregadorId = UUID.randomUUID();
+        CronogramaEvento evento = evento(igrejaId, LocalDate.of(2026, 8, 16));
+        evento.setId(eventoId);
+        CronogramaConteudo conteudo = new CronogramaConteudo();
+        conteudo.setEventoId(eventoId);
+        conteudo.setPregadorPessoaId(pregadorId);
+
+        when(repository.findById(eventoId)).thenReturn(Optional.of(evento));
+        when(conteudoRepository.findByEventoId(eventoId)).thenReturn(Optional.of(conteudo));
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
+        when(autorizacaoService.podeEditarTexto(igrejaId, pregadorId)).thenReturn(true);
+        when(conteudoRepository.save(any(CronogramaConteudo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CronogramaConteudoResponse response = cronogramaService.salvarConteudo(
+                eventoId, new CronogramaConteudoUpdateRequest("João 15", null, pregadorId));
+
+        assertThat(response.textoPregacao()).isEqualTo("João 15");
+        assertThat(response.pregadorPessoaId()).isEqualTo(pregadorId);
+    }
 }

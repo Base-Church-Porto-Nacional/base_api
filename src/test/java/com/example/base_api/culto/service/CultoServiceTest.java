@@ -791,4 +791,23 @@ class CultoServiceTest {
         verify(pessoaRepository, times(1)).nomesPorId(any());
         verify(pessoaRepository, never()).findById(any());
     }
+
+    @Test
+    void pregadorSalvaConteudoReenviandoOProprioPregadorSemSerGestao() {
+        UUID igrejaId = UUID.randomUUID();
+        UUID pregadorId = UUID.randomUUID();
+        Culto culto = culto(igrejaId, StatusCulto.ABERTO);
+        culto.setPregadorId(pregadorId);
+
+        when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
+        when(autorizacaoService.podeEditarTexto(igrejaId, pregadorId)).thenReturn(true);
+        when(cultoRepository.save(any(Culto.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CultoConteudoResponse response = cultoService.salvarConteudo(culto.getId(),
+                new CultoConteudoUpdateRequest("João 15", null, null, pregadorId));
+
+        assertThat(response.textoPregacao()).isEqualTo("João 15");
+        assertThat(culto.getPregadorId()).isEqualTo(pregadorId);
+    }
 }

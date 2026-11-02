@@ -35,7 +35,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     @Query("delete from Usuario u where u.id = :id")
     int excluirDireto(@Param("id") UUID id);
 
-    /** Usuários da igreja que possuem o papel de SISTEMA indicado (ex.: PASTOR). */
+    /** Usuários ATIVOS da igreja que possuem o papel de SISTEMA indicado (ex.: PASTOR). */
     @Query("""
             SELECT COUNT(DISTINCT u) FROM Usuario u
             JOIN u.papeisIgreja up
@@ -43,6 +43,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
             WHERE p.nome = :nome
               AND p.igrejaId IS NULL
               AND up.igrejaId = :igrejaId
+              AND u.ativo = true
             """)
     long countByPapelAndIgrejaId(@Param("nome") String nome, @Param("igrejaId") UUID igrejaId);
 }

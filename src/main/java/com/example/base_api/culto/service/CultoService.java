@@ -213,7 +213,8 @@ public class CultoService {
         if (podeTexto && request.tema() != null) {
             culto.setTema(request.tema());
         }
-        if (request.pregadorPessoaId() != null) {
+        // Reenviar o pregador atual é no-op (o app sempre envia); só a troca exige gestão.
+        if (request.pregadorPessoaId() != null && !request.pregadorPessoaId().equals(pregadorPersistido)) {
             if (!gestao) {
                 throw new AccessDeniedException("Somente pastor ou secretaria pode alterar o pregador");
             }

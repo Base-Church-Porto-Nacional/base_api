@@ -11,6 +11,7 @@ import com.example.base_api.security.JwtService;
 import com.example.base_api.usuario.dto.UsuarioCreateRequest;
 import com.example.base_api.usuario.dto.UsuarioPapeisRequest;
 import com.example.base_api.usuario.dto.UsuarioResponse;
+import com.example.base_api.usuario.dto.UsuarioUpdateRequest;
 import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.entity.UsuarioPapel;
@@ -265,5 +266,123 @@ class UsuarioServiceTest {
         assertThat(lista).extracting(UsuarioResponse::igrejaNome).containsExactly("Sede", "Sede");
         verify(pessoaService, never()).buscarEntidade(any());
         verify(igrejaRepository, never()).findById(any());
+    }
+
+    // --- conta do pastor/secretaria protegida ---
+
+    private void secretariaNaoAtribuiGestao(UUID igrejaId) {
+        doThrow(new AccessDeniedException("Somente o pastor"))
+                .when(autorizacaoService).assertPodeAtribuirPapeisGestao(igrejaId);
+    }
+
+    @Test
+    void secretariaNaoRedefineSenhaDoPastor() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
+        alvo.setEmail("pastor@email.com");
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        secretariaNaoAtribuiGestao(igrejaId);
+
+        assertThatThrownBy(() -> usuarioService.atualizar(alvo.getId(),
+                new UsuarioUpdateRequest("pastor@email.com", true, "novasenha")))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void secretariaNaoDesativaPastor() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
+        alvo.setEmail("pastor@email.com");
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        secretariaNaoAtribuiGestao(igrejaId);
+
+        assertThatThrownBy(() -> usuarioService.atualizar(alvo.getId(),
+                new UsuarioUpdateRequest("pastor@email.com", false, null)))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void secretariaNaoExcluiOutraSecretaria() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "SECRETARIA");
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        secretariaNaoAtribuiGestao(igrejaId);
+
+        assertThatThrownBy(() -> usuarioService.excluir(alvo.getId()))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(usuarioRepository, never()).excluirDireto(any());
+    }
+
+    @Test
+    void secretariaAtualizaEmailDoPastorSemTocarSenhaOuAtivo() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
+        alvo.setEmail("pastor@email.com");
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
+
+        usuarioService.atualizar(alvo.getId(), new UsuarioUpdateRequest("novo@email.com", true, null));
+
+        verify(autorizacaoService, never()).assertPodeAtribuirPapeisGestao(any());
+        assertThat(alvo.getEmail()).isEqualTo("novo@email.com");
+    }
+
+    @Test
+    void secretariaRedefineSenhaDeUsuarioComum() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "CONTADOR");
+        alvo.setEmail("c@email.com");
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("novasenha")).thenReturn("hash2");
+
+        usuarioService.atualizar(alvo.getId(), new UsuarioUpdateRequest("c@email.com", true, "novasenha"));
+
+        verify(autorizacaoService, never()).assertPodeAtribuirPapeisGestao(any());
+        assertThat(alvo.getSenhaHash()).isEqualTo("hash2");
+    }
+
+    @Test
+    void pastorNaoDesativaUltimoPastorAtivo() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
+        alvo.setEmail("pastor@email.com");
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", igrejaId)).thenReturn(1L);
+
+        assertThatThrownBy(() -> usuarioService.atualizar(alvo.getId(),
+                new UsuarioUpdateRequest("pastor@email.com", false, null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("A igreja precisa de ao menos um pastor");
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void pastorNaoExcluiUltimoPastorAtivo() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", igrejaId)).thenReturn(1L);
+
+        assertThatThrownBy(() -> usuarioService.excluir(alvo.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("A igreja precisa de ao menos um pastor");
+        verify(usuarioRepository, never()).excluirDireto(any());
+    }
+
+    @Test
+    void pastorExcluiPastorInativoMesmoComUmUnicoAtivo() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
+        alvo.setAtivo(false);
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+
+        usuarioService.excluir(alvo.getId());
+
+        verify(usuarioRepository).excluirDireto(alvo.getId());
     }
 }
