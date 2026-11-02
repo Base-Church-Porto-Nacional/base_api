@@ -44,7 +44,7 @@ A geração automática de escalas está preparada via `GeracaoEscalaService`, s
 2. **Voluntário** — modelado como `pessoa_servico` (não há entidade `Voluntario` separada). Uma pessoa pode atuar em vários ministérios/serviços.
 3. **Jornada** — campos principais em `jornada_membro` + catálogo extensível (`jornada_etapa_catalogo` / `pessoa_jornada_etapa`) para novas etapas sem obrigar sequência rígida.
 4. **Escalas** — tabelas separadas: `escala`, `escala_servico`, `escala_voluntario`.
-5. **RBAC** — papéis em tabela (`ADMIN`, `PASTOR`, `LIDER`, `VOLUNTARIO`, `MEMBRO`); usuário pode ter múltiplos papéis, sempre no contexto da igreja.
+5. **RBAC** — papéis de sistema `PASTOR` e `SECRETARIA` (os da matriz cascateiam para as filiais) + papéis customizados por igreja, com capacidades; usuário pode ter múltiplos papéis, sempre no contexto da igreja.
 6. **Rede de igrejas** — uma matriz vê todas as filiais; filial só acessa a própria. `igrejaId` em pessoa, ministério, usuário, cronograma e escala.
 7. **Escalas mensais** — competência `YYYY-MM` e tipo `SUPERVISOR | PREGADOR | CULTO | MINISTERIO`. Supervisor/pregador padrão: pastor da igreja.
 8. **Coordenador** — serviço ficção (`ficcao: true`) criado automaticamente em cada ministério; não é papel.
@@ -169,12 +169,16 @@ Rodam automaticamente na subida da aplicação.
 
 | Método | Caminho | Descrição |
 |--------|---------|-----------|
-| POST | `/api/auth/login` | Autenticação JWT (claims: `pessoaId`, `igrejaId`, `igrejaTipo`, `papeis`) |
+| POST | `/api/auth/login` | Autenticação JWT por e-mail ou telefone (claims: `pessoaId`, `igrejaId`, `igrejaTipo`, `papeis`) |
+| GET/POST | `/api/auth/token/{token}` · `/api/auth/definir-senha` | Validar link de convite/redefinição e definir a senha |
+| POST | `/api/auth/esqueci-senha` | Pedir link de nova senha por WhatsApp |
 | GET/PUT | `/api/me` | Perfil com `pessoaId`, `igrejaId`, `igrejaTipo`, `igrejasVisiveis[]` |
-| GET/POST | `/api/igrejas` | Igrejas visíveis (matriz vê a rede; filial só a própria) |
-| POST | `/api/igrejas/{matrizId}/filiais` | Criar filial com pastor e admin |
+| GET | `/api/igrejas` | Igrejas visíveis (matriz vê a rede; filial só a própria) |
+| PUT | `/api/igrejas/{id}` | Atualizar nome/ativo da igreja |
+| POST | `/api/igrejas/{matrizId}/filiais` | Criar filial com pastor (pessoa existente transferida ou nova) e convite, se o pastor ainda não tem conta ativa |
+| PUT | `/api/igrejas/{id}/pastor` | Trocar o pastor titular (move o papel PASTOR; convida se preciso; `anteriorMantevePastor` indica que o anterior ficou com PASTOR até ser removido em Papéis) |
 | GET/POST | `/api/pessoas` | Pessoas (`?igrejaId=`) |
-| POST | `/api/pessoas/{id}/usuario` | Criar usuário a partir da pessoa (papéis da igreja) |
+| POST | `/api/pessoas/{id}/convite` | Convidar a pessoa para o app (link de uso único; a conta nasce `CONVIDADO`) |
 | GET/POST | `/api/pessoas/{id}/historico` | Histórico da pessoa |
 | GET/PUT | `/api/pessoas/{id}/jornada` | Jornada |
 | CRUD | `/api/jornada-etapas` | Catálogo de etapas |
@@ -185,7 +189,9 @@ Rodam automaticamente na subida da aplicação.
 | CRUD | `/api/escalas/{id}/servicos` | Serviços da escala |
 | CRUD | `/api/escalas/{id}/voluntarios` | Designações |
 | CRUD | `/api/disponibilidades/...` | Disponibilidade |
-| CRUD | `/api/usuarios` | Usuários (`?igrejaId=`) |
+| GET | `/api/usuarios` | Usuários (`?igrejaId=`); contas nascem só por convite |
+| PUT | `/api/usuarios/{id}/papeis` | Definir papéis (PASTOR/SECRETARIA só pelo pastor) |
+| POST | `/api/usuarios/{id}/desativar` · `/reativar` · `/redefinicao-senha` | Ciclo de vida da conta |
 | CRUD | `/api/papeis` | Papéis |
 | CRUD | `/api/cronograma` | Cultos/eventos (`supervisorPessoaId`, `?igrejaId=`) |
 | GET/PUT | `/api/cronograma/{id}/conteudo` | Texto da pregação e louvor |

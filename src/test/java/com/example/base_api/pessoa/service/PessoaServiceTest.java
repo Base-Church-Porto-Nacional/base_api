@@ -759,6 +759,25 @@ class PessoaServiceTest {
     }
 
     @Test
+    void gestorApagandoTelefoneComContaComEmailLimpaOTelefoneDoLogin() {
+        pessoa.setWhatsapp("(63) 91111-2222");
+        pessoa.setTelefone("(63) 3333-4444");
+        Usuario usuario = contaDaPessoa(StatusUsuario.ATIVO, "MEMBRO");
+        usuario.setTelefone("5563911112222");
+        permissoes(true, false);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        pessoaService.atualizar(pessoa.getId(), contato(null, "", ""));
+
+        assertThat(pessoa.getWhatsapp()).isNull();
+        assertThat(pessoa.getTelefone()).isNull();
+        assertThat(usuario.getTelefone()).isNull();
+        assertThat(usuario.getEmail()).isEqualTo("joao@email.com");
+        verify(usuarioRepository).save(usuario);
+        verify(usuarioRepository, never()).findByTelefone(any());
+    }
+
+    @Test
     void telefoneDeOutraContaNaSincronizacaoLanca409() {
         contaDaPessoa(StatusUsuario.ATIVO, "MEMBRO");
         permissoes(true, false);
