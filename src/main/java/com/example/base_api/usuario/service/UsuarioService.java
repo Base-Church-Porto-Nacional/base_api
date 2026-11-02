@@ -182,7 +182,7 @@ public class UsuarioService {
         if (igrejaAlvo == null) {
             throw new AccessDeniedException("Igreja obrigatória no contexto");
         }
-        autorizacaoService.assertPodePromoverGestao(igrejaAlvo);
+        autorizacaoService.assertPodeAtribuirPapeisGestao(igrejaAlvo);
 
         Set<String> atuais = new HashSet<>(usuario.nomesPapeis(igrejaAlvo));
         for (String nome : request.papeis()) {

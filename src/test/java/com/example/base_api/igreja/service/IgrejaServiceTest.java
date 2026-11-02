@@ -98,8 +98,8 @@ class IgrejaServiceTest {
     @Test
     void membroNaoCriaFilial() {
         UUID matrizId = UUID.randomUUID();
-        doThrow(new AccessDeniedException("Somente pastor ou secretaria da matriz"))
-                .when(autorizacaoService).assertMatrizGestao();
+        doThrow(new AccessDeniedException("Somente o pastor da matriz pode criar filial"))
+                .when(autorizacaoService).assertPodeCriarFilial();
 
         IgrejaFilialCreateRequest request = new IgrejaFilialCreateRequest(
                 "Nova Filial",

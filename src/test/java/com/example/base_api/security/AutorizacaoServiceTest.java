@@ -1,18 +1,21 @@
 package com.example.base_api.security;
 
+import com.example.base_api.baseministerial.entity.BaseMinisterial;
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.escala.entity.TipoEscala;
 import com.example.base_api.escala.repository.EscalaRepository;
 import com.example.base_api.escala.repository.EscalaVoluntarioRepository;
+import com.example.base_api.igreja.entity.Igreja;
+import com.example.base_api.igreja.entity.IgrejaTipo;
 import com.example.base_api.igreja.service.IgrejaContextoService;
 import com.example.base_api.ministerio.entity.Ministerio;
+import com.example.base_api.ministerio.entity.MinisterioTipo;
 import com.example.base_api.ministerio.repository.MinisterioRepository;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.servico.entity.Servico;
 import com.example.base_api.servico.repository.ServicoRepository;
-import com.example.base_api.usuario.entity.Papel;
+import com.example.base_api.smallgroup.entity.SmallGroup;
 import com.example.base_api.usuario.entity.Usuario;
-import com.example.base_api.usuario.entity.UsuarioPapel;
 import com.example.base_api.voluntario.entity.PessoaServico;
 import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,11 +27,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -40,8 +43,14 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AutorizacaoServiceTest {
 
+    private static final Set<Capacidade> PASTOR = Capacidade.de(Set.of(Papeis.PASTOR), false);
+    private static final Set<Capacidade> SECRETARIA = Capacidade.de(Set.of(Papeis.SECRETARIA), false);
+    private static final Set<Capacidade> NENHUMA = Set.of();
+
     @Mock
     private IgrejaContextoService igrejaContextoService;
+    @Mock
+    private PermissaoService permissaoService;
     @Mock
     private MinisterioRepository ministerioRepository;
     @Mock
@@ -70,37 +79,60 @@ class AutorizacaoServiceTest {
         membro.setIgrejaId(igrejaId);
     }
 
-    @Test
-    void membroNaoCriaFilial() {
-        doThrow(new AccessDeniedException("Somente pastor ou secretaria da matriz"))
-                .when(igrejaContextoService).assertMatrizGestao();
-
-        assertThatThrownBy(() -> autorizacaoService.assertMatrizGestao())
-                .isInstanceOf(AccessDeniedException.class);
+    private void capacidades(Set<Capacidade> capacidades) {
+        when(permissaoService.capacidadesEm(igrejaId)).thenReturn(capacidades);
     }
 
-    @Test
-    void membroNaoCriaUsuario() {
-        doThrow(new AccessDeniedException("Somente pastor ou secretaria desta igreja"))
-                .when(igrejaContextoService).assertGestao(igrejaId);
-
-        assertThatThrownBy(() -> autorizacaoService.assertPodeCriarUsuario(igrejaId))
-                .isInstanceOf(AccessDeniedException.class);
+    private Igreja igreja(IgrejaTipo tipo) {
+        Igreja igreja = new Igreja();
+        igreja.setId(igrejaId);
+        igreja.setTipo(tipo);
+        return igreja;
     }
 
+    // --- tem / assertTem ---
+
     @Test
-    void atalhoRejeitaPapeisDeGestao() {
-        assertThatThrownBy(() -> autorizacaoService.validarPapeisAtalho(Set.of("SECRETARIA")))
+    void assertTemVerificaAcessoAntesDaCapacidade() {
+        doThrow(new AccessDeniedException("Sem acesso a esta igreja"))
+                .when(igrejaContextoService).assertAcesso(igrejaId);
+
+        assertThatThrownBy(() -> autorizacaoService.assertTem(igrejaId, Capacidade.EXPORTAR))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("PASTOR/SECRETARIA");
-        assertThatThrownBy(() -> autorizacaoService.validarPapeisAtalho(Set.of("PASTOR")))
-                .isInstanceOf(AccessDeniedException.class);
+                .hasMessageContaining("Sem acesso");
+        verify(permissaoService, never()).capacidadesEm(any());
+    }
+
+    @Test
+    void assertTemSemCapacidadeLanca403() {
+        capacidades(NENHUMA);
+
+        assertThatThrownBy(() -> autorizacaoService.assertTem(igrejaId, Capacidade.EXPORTAR))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Sem permissão para esta ação");
+    }
+
+    @Test
+    void isGestaoEhVerTodasAsPessoas() {
+        capacidades(SECRETARIA);
+        assertThat(autorizacaoService.isGestao(igrejaId)).isTrue();
+    }
+
+    // --- escalas ---
+
+    @Test
+    void secretariaPodeCriarEscalaDePregador() {
+        capacidades(SECRETARIA);
+
+        assertThatCode(() -> autorizacaoService.assertPodeCriarEscala(
+                TipoEscala.PREGADOR, igrejaId, "2026-08", null)).doesNotThrowAnyException();
+        assertThatCode(() -> autorizacaoService.assertPodeCriarEscala(
+                TipoEscala.SUPERVISOR, igrejaId, "2026-08", null)).doesNotThrowAnyException();
     }
 
     @Test
     void membroNaoCriaEscalaSupervisor() {
-        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
+        capacidades(NENHUMA);
 
         assertThatThrownBy(() -> autorizacaoService.assertPodeCriarEscala(
                 TipoEscala.SUPERVISOR, igrejaId, "2026-08", null
@@ -109,50 +141,14 @@ class AutorizacaoServiceTest {
     }
 
     @Test
-    void membroNaoEditaTextoDoCulto() {
-        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
-
-        boolean pode = autorizacaoService.podeEditarTexto(igrejaId, UUID.randomUUID());
-
-        org.assertj.core.api.Assertions.assertThat(pode).isFalse();
-    }
-
-    @Test
-    void voluntarioNaoAlteraDisponibilidadeDeOutraPessoa() {
-        Pessoa outra = new Pessoa();
-        outra.setId(UUID.randomUUID());
-        outra.setIgrejaId(igrejaId);
-
-        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
-
-        assertThatThrownBy(() -> autorizacaoService.assertPodeAcessarDisponibilidade(outra))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("própria disponibilidade");
-    }
-
-    @Test
     void liderSoCriaEscalaDoProprioMinisterio() {
         UUID ministerioProprio = UUID.randomUUID();
         UUID ministerioAlheio = UUID.randomUUID();
-
-        Ministerio proprio = new Ministerio();
-        proprio.setId(ministerioProprio);
-        proprio.setIgrejaId(igrejaId);
-        proprio.setLiderPessoaId(pessoaId);
-
-        Ministerio alheio = new Ministerio();
-        alheio.setId(ministerioAlheio);
-        alheio.setIgrejaId(igrejaId);
-        alheio.setLiderPessoaId(UUID.randomUUID());
-
+        capacidades(NENHUMA);
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
         when(escalaRepository.findByIgrejaIdAndCompetenciaAndTipo(igrejaId, "2026-08", TipoEscala.SUPERVISOR))
-                .thenReturn(java.util.List.of());
-        when(ministerioRepository.findById(ministerioProprio)).thenReturn(Optional.of(proprio));
-        when(ministerioRepository.findById(ministerioAlheio)).thenReturn(Optional.of(alheio));
+                .thenReturn(List.of());
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of(ministerioProprio));
 
         autorizacaoService.assertPodeCriarEscala(TipoEscala.MINISTERIO, igrejaId, "2026-08", ministerioProprio);
 
@@ -162,15 +158,245 @@ class AutorizacaoServiceTest {
                 .hasMessageContaining("próprio ministério");
     }
 
+    // --- conteúdo do culto ---
+
+    @Test
+    void secretariaNaoEditaTextoDoCulto() {
+        capacidades(SECRETARIA);
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+
+        assertThat(autorizacaoService.podeEditarTexto(igrejaId, UUID.randomUUID())).isFalse();
+    }
+
+    @Test
+    void pastorEditaTextoDoCulto() {
+        capacidades(PASTOR);
+
+        assertThat(autorizacaoService.podeEditarTexto(igrejaId, UUID.randomUUID())).isTrue();
+    }
+
+    @Test
+    void pregadorEditaProprioTexto() {
+        capacidades(NENHUMA);
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+
+        assertThat(autorizacaoService.podeEditarTexto(igrejaId, pessoaId)).isTrue();
+    }
+
+    @Test
+    void membroNaoEditaTextoDoCulto() {
+        capacidades(NENHUMA);
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+
+        assertThat(autorizacaoService.podeEditarTexto(igrejaId, UUID.randomUUID())).isFalse();
+    }
+
+    @Test
+    void secretariaVeConteudoDoCulto() {
+        capacidades(SECRETARIA);
+
+        assertThatCode(() -> autorizacaoService.assertPodeVerConteudo(igrejaId, UUID.randomUUID()))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void liderDeMusicaEditaLouvorESecretariaNao() {
+        Ministerio musica = new Ministerio();
+        musica.setId(UUID.randomUUID());
+        musica.setIgrejaId(igrejaId);
+        musica.setTipo(MinisterioTipo.MUSICA);
+        capacidades(NENHUMA);
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of(musica.getId()));
+        when(ministerioRepository.findAllById(Set.of(musica.getId()))).thenReturn(List.of(musica));
+
+        assertThat(autorizacaoService.podeEditarLouvor(igrejaId)).isTrue();
+    }
+
+    @Test
+    void secretariaSemMinisterioDeMusicaNaoEditaLouvor() {
+        capacidades(SECRETARIA);
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of());
+
+        assertThat(autorizacaoService.podeEditarLouvor(igrejaId)).isFalse();
+    }
+
+    // --- papéis de gestão e filial ---
+
+    @Test
+    void secretariaNaoAtribuiPapeisDeGestao() {
+        capacidades(SECRETARIA);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeAtribuirPapeisGestao(igrejaId))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void pastorAtribuiPapeisDeGestao() {
+        capacidades(PASTOR);
+
+        assertThatCode(() -> autorizacaoService.assertPodeAtribuirPapeisGestao(igrejaId))
+                .doesNotThrowAnyException();
+        verify(igrejaContextoService).assertAcesso(igrejaId);
+    }
+
+    @Test
+    void secretariaNaoCriaFilial() {
+        when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.MATRIZ));
+        capacidades(SECRETARIA);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeCriarFilial())
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void pastorDaFilialNaoCriaFilial() {
+        when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.FILIAL));
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeCriarFilial())
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void pastorDaMatrizCriaFilial() {
+        when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.MATRIZ));
+        capacidades(PASTOR);
+
+        assertThatCode(() -> autorizacaoService.assertPodeCriarFilial()).doesNotThrowAnyException();
+    }
+
+    @Test
+    void secretariaDaMatrizDisparaGeracaoDeEscalas() {
+        when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.MATRIZ));
+        capacidades(SECRETARIA);
+
+        assertThatCode(() -> autorizacaoService.assertMatrizGestao()).doesNotThrowAnyException();
+    }
+
+    @Test
+    void membroDaMatrizNaoDisparaGeracaoDeEscalas() {
+        when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.MATRIZ));
+        capacidades(NENHUMA);
+
+        assertThatThrownBy(() -> autorizacaoService.assertMatrizGestao())
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    // --- contagem ---
+
+    @Test
+    void contadorLancaContagem() {
+        capacidades(Capacidade.de(Set.of(), true));
+
+        assertThatCode(() -> autorizacaoService.assertPodeLancarContagem(igrejaId)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void semCapacidadeDeContagemNaoLanca() {
+        capacidades(NENHUMA);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeLancarContagem(igrejaId))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("contagem");
+    }
+
+    // --- ministérios, bases e grupos ---
+
+    @Test
+    void membroNaoCriaUsuario() {
+        capacidades(NENHUMA);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeCriarUsuario(igrejaId))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void secretariaCriaMinisterio() {
+        capacidades(SECRETARIA);
+
+        assertThatCode(() -> autorizacaoService.assertPodeCriarMinisterio(igrejaId)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void liderDeBaseGerenciaMinisterioDaBase() {
+        Ministerio ministerio = new Ministerio();
+        ministerio.setId(UUID.randomUUID());
+        ministerio.setIgrejaId(igrejaId);
+        capacidades(NENHUMA);
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of(ministerio.getId()));
+
+        assertThatCode(() -> autorizacaoService.assertPodeGerenciarMinisterio(ministerio))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void membroNaoGerenciaMinisterioAlheio() {
+        Ministerio ministerio = new Ministerio();
+        ministerio.setId(UUID.randomUUID());
+        ministerio.setIgrejaId(igrejaId);
+        capacidades(NENHUMA);
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of());
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeGerenciarMinisterio(ministerio))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void liderDaBaseGerenciaABase() {
+        BaseMinisterial base = new BaseMinisterial();
+        base.setId(UUID.randomUUID());
+        base.setIgrejaId(igrejaId);
+        capacidades(NENHUMA);
+        when(permissaoService.basesLideradasEm(igrejaId)).thenReturn(Set.of(base.getId()));
+
+        assertThatCode(() -> autorizacaoService.assertPodeGerenciarBaseMinisterial(base))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void liderDoMinisterioGerenciaGrupoDoMinisterio() {
+        SmallGroup grupo = new SmallGroup();
+        grupo.setId(UUID.randomUUID());
+        grupo.setIgrejaId(igrejaId);
+        grupo.setMinisterioId(UUID.randomUUID());
+        capacidades(NENHUMA);
+        when(permissaoService.gruposLideradosEm(igrejaId)).thenReturn(Set.of());
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of(grupo.getMinisterioId()));
+
+        assertThatCode(() -> autorizacaoService.assertPodeGerenciarSmallGroup(grupo))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void membroNaoGerenciaGrupoAlheio() {
+        SmallGroup grupo = new SmallGroup();
+        grupo.setId(UUID.randomUUID());
+        grupo.setIgrejaId(igrejaId);
+        capacidades(NENHUMA);
+        when(permissaoService.gruposLideradosEm(igrejaId)).thenReturn(Set.of());
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeGerenciarSmallGroup(grupo))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    // --- pessoas ---
+
+    @Test
+    void voluntarioNaoAlteraDisponibilidadeDeOutraPessoa() {
+        Pessoa outra = pessoaDaIgreja();
+        capacidades(NENHUMA);
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeAcessarDisponibilidade(outra))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("própria disponibilidade");
+    }
+
     @Test
     void liderNaoVePessoaForaDoMinisterio() {
-        Pessoa outra = new Pessoa();
-        outra.setId(UUID.randomUUID());
-        outra.setIgrejaId(igrejaId);
-
+        Pessoa outra = pessoaDaIgreja();
+        capacidades(NENHUMA);
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
-        when(ministerioRepository.findByIgrejaIdOrderByNomeAsc(igrejaId)).thenReturn(java.util.List.of());
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of());
 
         assertThatThrownBy(() -> autorizacaoService.assertPodeVerPessoa(outra))
                 .isInstanceOf(AccessDeniedException.class);
@@ -188,72 +414,18 @@ class AutorizacaoServiceTest {
     }
 
     @Test
-    void papelCustomizadoComPermissaoLancaContagem() {
-        membro.getPapeisIgreja().add(vinculo(papelCustomizado("CONTADOR", true), igrejaId));
-        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
-        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-
-        assertThat(autorizacaoService.podeLancarContagem(igrejaId)).isTrue();
-    }
-
-    @Test
-    void papelCustomizadoSemPermissaoNaoLancaContagem() {
-        membro.getPapeisIgreja().add(vinculo(papelCustomizado("RECEPCAO", false), igrejaId));
-        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
-        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-
-        assertThatThrownBy(() -> autorizacaoService.assertPodeLancarContagem(igrejaId))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("contagem");
-    }
-
-    @Test
-    void permissaoDeContagemDeOutraIgrejaNaoVale() {
-        membro.getPapeisIgreja().add(vinculo(papelCustomizado("CONTADOR", true), UUID.randomUUID()));
-        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
-        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-
-        assertThat(autorizacaoService.podeLancarContagem(igrejaId)).isFalse();
-    }
-
-    @Test
-    void pastorOuAdminLancaContagemSemPapelEspecial() {
-        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(true);
-
-        assertThat(autorizacaoService.podeLancarContagem(igrejaId)).isTrue();
-    }
-
-    private Papel papelCustomizado(String nome, boolean podeLancarContagem) {
-        Papel papel = new Papel();
-        papel.setId(UUID.randomUUID());
-        papel.setNome(nome);
-        papel.setIgrejaId(igrejaId);
-        papel.setPodeLancarContagem(podeLancarContagem);
-        return papel;
-    }
-
-    private UsuarioPapel vinculo(Papel papel, UUID igrejaDoVinculo) {
-        UsuarioPapel vinculo = new UsuarioPapel();
-        vinculo.setUsuarioId(membro.getId());
-        vinculo.setPapelId(papel.getId());
-        vinculo.setIgrejaId(igrejaDoVinculo);
-        vinculo.setPapel(papel);
-        return vinculo;
-    }
-
-    @Test
-    void pastorVeTodasAsPessoasDaIgrejaConsultandoOPapelUmaVezPorIgreja() {
+    void pastorVeTodasAsPessoasDaIgrejaConsultandoAsCapacidadesUmaVezPorIgreja() {
         List<Pessoa> pessoas = List.of(pessoaDaIgreja(), pessoaDaIgreja(), pessoaDaIgreja());
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(true);
+        capacidades(PASTOR);
 
         assertThat(autorizacaoService.filtrarVisiveisNaListagem(pessoas)).containsExactlyElementsOf(pessoas);
-        verify(igrejaContextoService, times(1)).isGestao(igrejaId);
-        verify(ministerioRepository, never()).findByIgrejaIdOrderByNomeAsc(any());
+        verify(permissaoService, times(1)).capacidadesEm(igrejaId);
+        verify(permissaoService, never()).ministeriosLideradosEm(any());
     }
 
     @Test
-    void liderVeASiMesmoEAsPessoasDosSeusMinisteriosComPoucasConsultas() {
+    void liderVeASiMesmoEAsPessoasDosMinisteriosQueLidera() {
         Pessoa eu = pessoaDaIgreja();
         eu.setId(pessoaId);
         Pessoa coordenador = pessoaDaIgreja();
@@ -265,10 +437,6 @@ class AutorizacaoServiceTest {
         meu.setIgrejaId(igrejaId);
         meu.setLiderPessoaId(pessoaId);
         meu.setCoordenadorPessoaId(coordenador.getId());
-        Ministerio alheio = new Ministerio();
-        alheio.setId(UUID.randomUUID());
-        alheio.setIgrejaId(igrejaId);
-        alheio.setLiderPessoaId(liderDeOutroMinisterio.getId());
         Servico servicoMeu = new Servico();
         servicoMeu.setId(UUID.randomUUID());
         servicoMeu.setMinisterioId(meu.getId());
@@ -278,8 +446,9 @@ class AutorizacaoServiceTest {
         vinculo.setAtivo(true);
 
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
-        when(ministerioRepository.findByIgrejaIdOrderByNomeAsc(igrejaId)).thenReturn(List.of(meu, alheio));
+        capacidades(NENHUMA);
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of(meu.getId()));
+        when(ministerioRepository.findAllById(Set.of(meu.getId()))).thenReturn(List.of(meu));
         when(servicoRepository.findByMinisterioIdInOrderByNomeAsc(List.of(meu.getId()))).thenReturn(List.of(servicoMeu));
         when(pessoaServicoRepository.findByServicoIdInAndAtivoTrue(List.of(servicoMeu.getId()))).thenReturn(List.of(vinculo));
 
@@ -287,7 +456,7 @@ class AutorizacaoServiceTest {
                 eu, coordenador, voluntario, voluntarioInativoOuDeOutroMinisterio, liderDeOutroMinisterio));
 
         assertThat(visiveis).containsExactly(eu, coordenador, voluntario);
-        verify(ministerioRepository, times(1)).findByIgrejaIdOrderByNomeAsc(igrejaId);
+        verify(permissaoService, times(1)).ministeriosLideradosEm(igrejaId);
         verify(pessoaServicoRepository, times(1)).findByServicoIdInAndAtivoTrue(any());
     }
 
@@ -297,8 +466,8 @@ class AutorizacaoServiceTest {
         eu.setId(pessoaId);
         Pessoa outra = pessoaDaIgreja();
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
-        when(ministerioRepository.findByIgrejaIdOrderByNomeAsc(igrejaId)).thenReturn(List.of());
+        capacidades(NENHUMA);
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of());
 
         assertThat(autorizacaoService.filtrarVisiveisNaListagem(List.of(outra, eu))).containsExactly(eu);
         assertThat(autorizacaoService.podeIncluirPessoaNaListagem(outra)).isFalse();

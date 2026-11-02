@@ -75,7 +75,7 @@ public class IgrejaService {
 
     @Transactional
     public IgrejaResponse criarFilial(UUID matrizId, IgrejaFilialCreateRequest request) {
-        autorizacaoService.assertMatrizGestao();
+        autorizacaoService.assertPodeCriarFilial();
         Igreja matriz = buscarEntidade(matrizId);
         if (!matriz.isMatriz()) {
             throw new BusinessException("A igreja informada não é matriz");

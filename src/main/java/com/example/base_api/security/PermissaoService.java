@@ -48,6 +48,14 @@ public class PermissaoService {
         return em(igrejaId).ministeriosLiderados();
     }
 
+    public Set<UUID> basesLideradasEm(UUID igrejaId) {
+        return em(igrejaId).basesLideradas();
+    }
+
+    public Set<UUID> gruposLideradosEm(UUID igrejaId) {
+        return em(igrejaId).gruposLiderados();
+    }
+
     private Permissoes em(UUID igrejaId) {
         RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
         if (attrs == null) {

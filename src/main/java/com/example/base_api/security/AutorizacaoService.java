@@ -1,13 +1,13 @@
 package com.example.base_api.security;
 
 import com.example.base_api.baseministerial.entity.BaseMinisterial;
-import com.example.base_api.baseministerial.repository.BaseMinisterialRepository;
-import com.example.base_api.common.exception.ConflictException;
 import com.example.base_api.common.exception.BusinessException;
+import com.example.base_api.common.exception.ConflictException;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.TipoEscala;
 import com.example.base_api.escala.repository.EscalaRepository;
 import com.example.base_api.escala.repository.EscalaVoluntarioRepository;
+import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.service.IgrejaContextoService;
 import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.entity.MinisterioTipo;
@@ -29,36 +29,42 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
 
+/**
+ * API de autorização usada pelos services. As permissões vêm do {@link PermissaoService}:
+ * capacidades por papel (com cascata matriz → filial) e escopos derivados por vínculo
+ * (ministérios/bases/grupos liderados).
+ */
 @Service
 public class AutorizacaoService {
 
+    // Removidos na Task 5, junto com a reescrita do UsuarioService.
     public static final Set<String> PAPEIS_GESTAO = Papeis.GESTAO;
     public static final Set<String> PAPEIS_ATALHO = Set.of("MEMBRO", "VOLUNTARIO", "LIDER");
 
     private final IgrejaContextoService igrejaContextoService;
+    private final PermissaoService permissaoService;
     private final MinisterioRepository ministerioRepository;
     private final ServicoRepository servicoRepository;
     private final PessoaServicoRepository pessoaServicoRepository;
     private final EscalaRepository escalaRepository;
     private final EscalaVoluntarioRepository escalaVoluntarioRepository;
-    private final BaseMinisterialRepository baseMinisterialRepository;
 
     public AutorizacaoService(
             IgrejaContextoService igrejaContextoService,
+            PermissaoService permissaoService,
             MinisterioRepository ministerioRepository,
             ServicoRepository servicoRepository,
             PessoaServicoRepository pessoaServicoRepository,
             EscalaRepository escalaRepository,
-            EscalaVoluntarioRepository escalaVoluntarioRepository,
-            BaseMinisterialRepository baseMinisterialRepository
+            EscalaVoluntarioRepository escalaVoluntarioRepository
     ) {
         this.igrejaContextoService = igrejaContextoService;
+        this.permissaoService = permissaoService;
         this.ministerioRepository = ministerioRepository;
         this.servicoRepository = servicoRepository;
         this.pessoaServicoRepository = pessoaServicoRepository;
         this.escalaRepository = escalaRepository;
         this.escalaVoluntarioRepository = escalaVoluntarioRepository;
-        this.baseMinisterialRepository = baseMinisterialRepository;
     }
 
     public Usuario requireUsuario() {
@@ -77,42 +83,62 @@ public class AutorizacaoService {
         return igrejaContextoService.igrejaAtualId();
     }
 
-    public void assertGestao(UUID igrejaId) {
-        igrejaContextoService.assertGestao(igrejaId);
+    public boolean tem(UUID igrejaId, Capacidade capacidade) {
+        return igrejaId != null && permissaoService.capacidadesEm(igrejaId).contains(capacidade);
     }
 
-    public void assertMatrizGestao() {
-        igrejaContextoService.assertMatrizGestao();
+    public void assertTem(UUID igrejaId, Capacidade capacidade) {
+        assertTem(igrejaId, capacidade, "Sem permissão para esta ação");
     }
 
-    public boolean isGestao(UUID igrejaId) {
-        return igrejaContextoService.isGestao(igrejaId);
-    }
-
-    /**
-     * Contagem do culto: pastor/secretaria (inclusive da matriz) ou quem tem, nesta
-     * igreja, um papel customizado com permissão de contagem (ex.: CONTADOR).
-     */
-    public boolean podeLancarContagem(UUID igrejaId) {
-        if (isGestao(igrejaId)) {
-            return true;
+    private void assertTem(UUID igrejaId, Capacidade capacidade, String mensagem) {
+        assertAcesso(igrejaId);
+        if (!tem(igrejaId, capacidade)) {
+            throw new AccessDeniedException(mensagem);
         }
-        Usuario usuario = requireUsuario();
-        return usuario.getPapeisIgreja() != null && usuario.getPapeisIgreja().stream()
-                .anyMatch(up -> igrejaId.equals(up.getIgrejaId())
-                        && up.getPapel() != null
-                        && up.getPapel().isPodeLancarContagem());
+    }
+
+    /** Gestão = pastor ou secretaria (inclusive da matriz): quem vê todas as pessoas da igreja. */
+    public boolean isGestao(UUID igrejaId) {
+        return tem(igrejaId, Capacidade.PESSOAS_VER_TODAS);
+    }
+
+    public void assertGestao(UUID igrejaId) {
+        assertTem(igrejaId, Capacidade.PESSOAS_VER_TODAS, "Somente pastor ou secretaria desta igreja");
+    }
+
+    /** Pastor ou secretaria da matriz (ações que valem para toda a rede, ex.: gerar escalas do próximo mês). */
+    public void assertMatrizGestao() {
+        Igreja atual = igrejaContextoService.igrejaAtual();
+        if (!atual.isMatriz() || !isGestao(atual.getId())) {
+            throw new AccessDeniedException("Somente pastor ou secretaria da matriz");
+        }
+    }
+
+    public void assertPodeCriarFilial() {
+        Igreja atual = igrejaContextoService.igrejaAtual();
+        if (!atual.isMatriz() || !tem(atual.getId(), Capacidade.FILIAL_CRIAR)) {
+            throw new AccessDeniedException("Somente o pastor da matriz pode criar filial");
+        }
+    }
+
+    public void assertPodeAtribuirPapeisGestao(UUID igrejaAlvoId) {
+        assertTem(igrejaAlvoId, Capacidade.PAPEIS_GESTAO_ATRIBUIR,
+                "Somente o pastor da igreja alvo ou da matriz pode atribuir PASTOR/SECRETARIA");
+    }
+
+    /** Contagem do culto: pastor/secretaria (inclusive da matriz) ou papel customizado com contagem nesta igreja. */
+    public boolean podeLancarContagem(UUID igrejaId) {
+        return tem(igrejaId, Capacidade.CULTO_CONTAGEM);
     }
 
     public void assertPodeLancarContagem(UUID igrejaId) {
-        assertAcesso(igrejaId);
-        if (!podeLancarContagem(igrejaId)) {
-            throw new AccessDeniedException("Somente pastor, secretaria ou papel com permissão de contagem desta igreja");
-        }
+        assertTem(igrejaId, Capacidade.CULTO_CONTAGEM,
+                "Somente pastor, secretaria ou papel com permissão de contagem desta igreja");
     }
 
     public void assertPodeMutarPessoas(UUID igrejaId) {
-        assertGestao(igrejaId);
+        assertTem(igrejaId, Capacidade.PESSOAS_GERIR);
     }
 
     public void assertPodeVerPessoa(Pessoa pessoa) {
@@ -129,7 +155,7 @@ public class AutorizacaoService {
     /**
      * Filtra as pessoas que o usuário pode ver numa listagem. A regra é calculada uma vez por igreja:
      * pastor/secretaria vê todas; os demais veem a si mesmos e as pessoas dos ministérios que lideram ou
-     * coordenam (líder, coordenador e voluntários com vínculo ativo).
+     * coordenam, diretamente ou pela base (líder, coordenador e voluntários com vínculo ativo).
      */
     public List<Pessoa> filtrarVisiveisNaListagem(List<Pessoa> pessoas) {
         if (pessoas.isEmpty()) {
@@ -145,36 +171,32 @@ public class AutorizacaoService {
     }
 
     private Predicate<Pessoa> regraDeVisibilidade(UUID igrejaId, UUID minhaPessoaId) {
-        if (isGestao(igrejaId)) {
+        if (tem(igrejaId, Capacidade.PESSOAS_VER_TODAS)) {
             return p -> true;
         }
-        Set<UUID> visiveis = pessoasDosMeusMinisterios(igrejaId, minhaPessoaId);
+        Set<UUID> visiveis = minhaPessoaId == null
+                ? new HashSet<>()
+                : pessoasDosMinisterios(permissaoService.ministeriosLideradosEm(igrejaId));
         if (minhaPessoaId != null) {
             visiveis.add(minhaPessoaId);
         }
         return p -> visiveis.contains(p.getId());
     }
 
-    /** Líderes, coordenadores e voluntários ativos dos ministérios que a pessoa lidera ou coordena na igreja. */
-    private Set<UUID> pessoasDosMeusMinisterios(UUID igrejaId, UUID minhaPessoaId) {
+    /** Líderes, coordenadores e voluntários ativos dos ministérios informados. */
+    private Set<UUID> pessoasDosMinisterios(Set<UUID> ministerioIds) {
         Set<UUID> pessoas = new HashSet<>();
-        if (minhaPessoaId == null) {
+        if (ministerioIds.isEmpty()) {
             return pessoas;
         }
-        List<Ministerio> meus = ministerioRepository.findByIgrejaIdOrderByNomeAsc(igrejaId).stream()
-                .filter(m -> minhaPessoaId.equals(m.getLiderPessoaId())
-                        || minhaPessoaId.equals(m.getCoordenadorPessoaId()))
-                .toList();
-        if (meus.isEmpty()) {
-            return pessoas;
-        }
-        meus.forEach(m -> {
+        List<Ministerio> ministerios = ministerioRepository.findAllById(ministerioIds);
+        ministerios.forEach(m -> {
             pessoas.add(m.getLiderPessoaId());
             pessoas.add(m.getCoordenadorPessoaId());
         });
         pessoas.remove(null);
         List<UUID> servicoIds = servicoRepository
-                .findByMinisterioIdInOrderByNomeAsc(meus.stream().map(Ministerio::getId).toList()).stream()
+                .findByMinisterioIdInOrderByNomeAsc(ministerios.stream().map(Ministerio::getId).toList()).stream()
                 .map(Servico::getId)
                 .toList();
         if (!servicoIds.isEmpty()) {
@@ -190,113 +212,73 @@ public class AutorizacaoService {
         }
     }
 
+    /** Gestão de ministérios, ou líder/coordenador do ministério ou da sua base. */
     public void assertPodeGerenciarMinisterio(Ministerio ministerio) {
-        assertAcesso(ministerio.getIgrejaId());
-        if (isGestao(ministerio.getIgrejaId())) {
+        UUID igrejaId = ministerio.getIgrejaId();
+        assertAcesso(igrejaId);
+        if (tem(igrejaId, Capacidade.MINISTERIOS_GERIR)
+                || permissaoService.ministeriosLideradosEm(igrejaId).contains(ministerio.getId())) {
             return;
-        }
-        UUID pessoaId = requireUsuario().getPessoaId();
-        if (pessoaId != null && (pessoaId.equals(ministerio.getLiderPessoaId())
-                || pessoaId.equals(ministerio.getCoordenadorPessoaId()))) {
-            return;
-        }
-        if (pessoaId != null && ministerio.getBaseMinisterialId() != null) {
-            BaseMinisterial base = baseMinisterialRepository.findById(ministerio.getBaseMinisterialId())
-                    .orElse(null);
-            if (base != null && (pessoaId.equals(base.getLiderPessoaId())
-                    || pessoaId.equals(base.getCoordenadorPessoaId()))) {
-                return;
-            }
         }
         throw new AccessDeniedException("Sem permissão para gerenciar este ministério");
     }
 
     public void assertPodeCriarMinisterio(UUID igrejaId) {
-        assertGestao(igrejaId);
+        assertTem(igrejaId, Capacidade.MINISTERIOS_GERIR);
     }
 
     public void assertPodeGerenciarBaseMinisterial(BaseMinisterial base) {
-        assertAcesso(base.getIgrejaId());
-        if (isGestao(base.getIgrejaId())) {
-            return;
-        }
-        UUID pessoaId = requireUsuario().getPessoaId();
-        if (pessoaId != null && (pessoaId.equals(base.getLiderPessoaId())
-                || pessoaId.equals(base.getCoordenadorPessoaId()))) {
+        UUID igrejaId = base.getIgrejaId();
+        assertAcesso(igrejaId);
+        if (tem(igrejaId, Capacidade.MINISTERIOS_GERIR)
+                || permissaoService.basesLideradasEm(igrejaId).contains(base.getId())) {
             return;
         }
         throw new AccessDeniedException("Sem permissão para gerenciar esta base ministerial");
     }
 
     public void assertPodeCriarBaseMinisterial(UUID igrejaId) {
-        assertGestao(igrejaId);
+        assertTem(igrejaId, Capacidade.MINISTERIOS_GERIR);
     }
 
     public void assertPodeCriarSmallGroup(UUID igrejaId) {
-        assertGestao(igrejaId);
+        assertTem(igrejaId, Capacidade.MINISTERIOS_GERIR);
     }
 
+    /** Gestão de ministérios, líder do grupo, ou líder/coordenador do ministério do grupo (ou da base dele). */
     public void assertPodeGerenciarSmallGroup(SmallGroup grupo) {
-        assertAcesso(grupo.getIgrejaId());
-        if (isGestao(grupo.getIgrejaId())) {
+        UUID igrejaId = grupo.getIgrejaId();
+        assertAcesso(igrejaId);
+        if (tem(igrejaId, Capacidade.MINISTERIOS_GERIR)
+                || permissaoService.gruposLideradosEm(igrejaId).contains(grupo.getId())
+                || (grupo.getMinisterioId() != null
+                        && permissaoService.ministeriosLideradosEm(igrejaId).contains(grupo.getMinisterioId()))) {
             return;
-        }
-        UUID pessoaId = requireUsuario().getPessoaId();
-        if (pessoaId == null) {
-            throw new AccessDeniedException("Sem permissão para gerenciar este pequeno grupo");
-        }
-        if (pessoaId.equals(grupo.getLiderPessoaId())) {
-            return;
-        }
-        if (grupo.getMinisterioId() != null) {
-            Ministerio ministerio = ministerioRepository.findById(grupo.getMinisterioId()).orElse(null);
-            if (ministerio != null) {
-                if (pessoaId.equals(ministerio.getLiderPessoaId())
-                        || pessoaId.equals(ministerio.getCoordenadorPessoaId())) {
-                    return;
-                }
-                if (ministerio.getBaseMinisterialId() != null) {
-                    BaseMinisterial base = baseMinisterialRepository
-                            .findById(ministerio.getBaseMinisterialId())
-                            .orElse(null);
-                    if (base != null && (pessoaId.equals(base.getLiderPessoaId())
-                            || pessoaId.equals(base.getCoordenadorPessoaId()))) {
-                        return;
-                    }
-                }
-            }
         }
         throw new AccessDeniedException("Sem permissão para gerenciar este pequeno grupo");
     }
 
     public void assertPodeCriarEscala(TipoEscala tipo, UUID igrejaId, String competencia, UUID ministerioId) {
-        igrejaContextoService.requireUsuario();
         assertAcesso(igrejaId);
-        if (isGestao(igrejaId)) {
+        if (tem(igrejaId, Capacidade.ESCALAS_GERIR)) {
             return;
         }
-        boolean supervisor = isSupervisorNoMes(igrejaId, competencia);
-        UUID pessoaId = requireUsuario().getPessoaId();
-
         switch (tipo) {
             case SUPERVISOR, PREGADOR ->
                     throw new AccessDeniedException("Somente pastor ou secretaria podem criar escala de supervisor/pregador");
             case CULTO -> {
-                if (!supervisor) {
+                if (!isSupervisorNoMes(igrejaId, competencia)) {
                     throw new AccessDeniedException("Somente o supervisor do mês pode criar escala de culto");
                 }
             }
             case MINISTERIO -> {
-                if (supervisor) {
+                if (isSupervisorNoMes(igrejaId, competencia)) {
                     return;
                 }
                 if (ministerioId == null) {
                     throw new AccessDeniedException("Sem permissão para criar esta escala");
                 }
-                Ministerio ministerio = ministerioRepository.findById(ministerioId)
-                        .orElseThrow(() -> new AccessDeniedException("Ministério não encontrado"));
-                if (pessoaId == null || (!pessoaId.equals(ministerio.getLiderPessoaId())
-                        && !pessoaId.equals(ministerio.getCoordenadorPessoaId()))) {
+                if (!permissaoService.ministeriosLideradosEm(igrejaId).contains(ministerioId)) {
                     throw new AccessDeniedException("Líder/coordenador só pode criar a escala do próprio ministério");
                 }
             }
@@ -331,47 +313,37 @@ public class AutorizacaoService {
         if (designado) {
             return true;
         }
-        if (escala.getTipo() == TipoEscala.MINISTERIO && escala.getMinisterioId() != null) {
-            return ministerioRepository.findById(escala.getMinisterioId())
-                    .filter(m -> pessoaId.equals(m.getLiderPessoaId()) || pessoaId.equals(m.getCoordenadorPessoaId()))
-                    .isPresent();
-        }
-        return false;
+        return escala.getTipo() == TipoEscala.MINISTERIO && escala.getMinisterioId() != null
+                && permissaoService.ministeriosLideradosEm(escala.getIgrejaId()).contains(escala.getMinisterioId());
     }
 
-    private boolean pessoaNoMinisterioDoUsuario(Pessoa pessoa) {
-        return pessoasDosMeusMinisterios(pessoa.getIgrejaId(), requireUsuario().getPessoaId())
-                .contains(pessoa.getId());
-    }
-
+    /** Pastor/secretaria (vê tudo), quem edita texto ou louvor, ou quem pertence à mídia. */
     public void assertPodeVerConteudo(UUID igrejaId, UUID pregadorPessoaId) {
         assertAcesso(igrejaId);
-        if (isGestao(igrejaId) || podeEditarTexto(igrejaId, pregadorPessoaId) || podeEditarLouvor(igrejaId)
-                || pertenceAMidia(igrejaId)) {
+        if (tem(igrejaId, Capacidade.PESSOAS_VER_TODAS) || podeEditarTexto(igrejaId, pregadorPessoaId)
+                || podeEditarLouvor(igrejaId) || pertenceAMidia(igrejaId)) {
             return;
         }
         throw new AccessDeniedException("Sem permissão para ver o conteúdo deste culto");
     }
 
+    /** Pastor (override) ou o próprio pregador. */
     public boolean podeEditarTexto(UUID igrejaId, UUID pregadorPessoaId) {
-        Usuario usuario = requireUsuario();
-        if (isGestao(igrejaId)) {
-            return true;
-        }
-        return usuario.getPessoaId() != null && usuario.getPessoaId().equals(pregadorPessoaId);
-    }
-
-    public boolean podeEditarLouvor(UUID igrejaId) {
-        if (isGestao(igrejaId)) {
+        if (tem(igrejaId, Capacidade.CULTO_CONTEUDO_EDITAR)) {
             return true;
         }
         UUID pessoaId = requireUsuario().getPessoaId();
-        if (pessoaId == null) {
-            return false;
+        return pessoaId != null && pessoaId.equals(pregadorPessoaId);
+    }
+
+    /** Pastor (override) ou líder/coordenador (direto ou pela base) de um ministério de música. */
+    public boolean podeEditarLouvor(UUID igrejaId) {
+        if (tem(igrejaId, Capacidade.CULTO_CONTEUDO_EDITAR)) {
+            return true;
         }
-        return ministerioRepository.findByIgrejaIdOrderByNomeAsc(igrejaId).stream()
-                .anyMatch(m -> m.getTipo() == MinisterioTipo.MUSICA
-                        && (pessoaId.equals(m.getLiderPessoaId()) || pessoaId.equals(m.getCoordenadorPessoaId())));
+        Set<UUID> liderados = permissaoService.ministeriosLideradosEm(igrejaId);
+        return !liderados.isEmpty() && ministerioRepository.findAllById(liderados).stream()
+                .anyMatch(m -> m.getTipo() == MinisterioTipo.MUSICA);
     }
 
     public boolean pertenceAMidia(UUID igrejaId) {
@@ -411,7 +383,7 @@ public class AutorizacaoService {
     }
 
     public void assertPodeCriarUsuario(UUID igrejaId) {
-        assertGestao(igrejaId);
+        assertTem(igrejaId, Capacidade.CONTAS_GERIR);
     }
 
     public Set<String> validarPapeisAtalho(Set<String> papeis) {
@@ -432,14 +404,6 @@ public class AutorizacaoService {
             normalizados.add(papel);
         }
         return normalizados;
-    }
-
-    public void assertPodePromoverGestao(UUID igrejaAlvoId) {
-        assertGestao(igrejaAlvoId);
-        IgrejaContextoService ctx = igrejaContextoService;
-        if (!ctx.isMatriz() && !ctx.igrejaAtualId().equals(igrejaAlvoId)) {
-            throw new AccessDeniedException("Somente pastor/secretaria da igreja alvo ou da matriz podem promover gestão");
-        }
     }
 
     public void assertPessoaSemUsuario(boolean jaTemUsuario) {
