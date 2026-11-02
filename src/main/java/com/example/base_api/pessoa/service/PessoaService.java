@@ -167,6 +167,9 @@ public class PessoaService {
             throw new BusinessException("Já existe uma pessoa com este e-mail");
         }
 
+        String emailAntes = Identificador.email(pessoa.getEmail()).orElse(null);
+        String telefoneAntes = telefoneDeLogin(pessoa);
+
         if (request.nome() != null) {
             pessoa.setNome(request.nome().trim());
         }
@@ -192,7 +195,7 @@ public class PessoaService {
             pessoa.setObservacoes(blankToNull(request.observacoes()));
         }
         if (request.email() != null || request.telefone() != null || request.whatsapp() != null) {
-            sincronizarLoginDaConta(pessoa);
+            sincronizarLoginDaConta(pessoa, emailAntes, telefoneAntes);
         }
 
         return toResponse(pessoaRepository.save(pessoa));
@@ -201,9 +204,11 @@ public class PessoaService {
     /**
      * Leva e-mail (minúsculo) e telefone (WhatsApp normalizado, senão o telefone) da pessoa para a conta.
      * Só quem gere contas na igreja — e, se a conta é de pastor/secretaria, só quem atribui esses papéis.
+     * Só leva o identificador que mudou NESTA requisição (comparado ao valor anterior da pessoa), para que um número
+     * plantado antes por um líder não vá para o login num save posterior da secretaria.
      * Um líder editando o contato do seu voluntário NÃO troca o login dele (seria tomada de conta).
      */
-    private void sincronizarLoginDaConta(Pessoa pessoa) {
+    private void sincronizarLoginDaConta(Pessoa pessoa, String emailAntes, String telefoneAntes) {
         Usuario usuario = usuarioRepository.findByPessoaId(pessoa.getId()).orElse(null);
         if (usuario == null) {
             return;
@@ -218,15 +223,15 @@ public class PessoaService {
         }
 
         String email = Identificador.email(pessoa.getEmail()).orElse(null);
-        String telefone = Identificador.telefone(pessoa.getWhatsapp())
-                .or(() -> Identificador.telefone(pessoa.getTelefone()))
-                .orElse(null);
-        boolean emailMudou = !Objects.equals(email, usuario.getEmail());
-        boolean telefoneMudou = !Objects.equals(telefone, usuario.getTelefone());
+        String telefone = telefoneDeLogin(pessoa);
+        boolean emailMudou = !Objects.equals(email, emailAntes) && !Objects.equals(email, usuario.getEmail());
+        boolean telefoneMudou = !Objects.equals(telefone, telefoneAntes) && !Objects.equals(telefone, usuario.getTelefone());
         if (!emailMudou && !telefoneMudou) {
             return;
         }
-        if (email == null && telefone == null) {
+        String emailFinal = emailMudou ? email : usuario.getEmail();
+        String telefoneFinal = telefoneMudou ? telefone : usuario.getTelefone();
+        if (emailFinal == null && telefoneFinal == null) {
             throw new BusinessException("Informe e-mail ou telefone para entrar no app");
         }
         if (email != null && emailMudou) {
@@ -243,11 +248,17 @@ public class PessoaService {
                         throw new ConflictException("Telefone já usado por outra conta");
                     });
         }
-        usuario.setEmail(email);
-        usuario.setTelefone(telefone);
+        usuario.setEmail(emailFinal);
+        usuario.setTelefone(telefoneFinal);
         usuarioRepository.save(usuario);
         auditService.registrar("SINCRONIZAR_LOGIN", "usuario", "usuarioId=" + usuario.getId()
                 + " email=" + emailMudou + " telefone=" + telefoneMudou);
+    }
+
+    private static String telefoneDeLogin(Pessoa pessoa) {
+        return Identificador.telefone(pessoa.getWhatsapp())
+                .or(() -> Identificador.telefone(pessoa.getTelefone()))
+                .orElse(null);
     }
 
     /**

@@ -225,6 +225,7 @@ class IgrejaServiceTest {
         Usuario uAntigo = usuarioDe(antigo, StatusUsuario.ATIVO);
         darPapel(uAntigo, "PASTOR", filial.getId());
         when(usuarioRepository.findByPessoaId(antigo.getId())).thenReturn(Optional.of(uAntigo));
+        when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", filial.getId())).thenReturn(2L);
         when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
 
         FilialCriadaResponse resposta = igrejaService.trocarPastor(filial.getId(), troca(novo.getId()));
@@ -236,6 +237,50 @@ class IgrejaServiceTest {
         verify(usuarioService).substituirPapeis(uNovo, filial.getId(), Set.of("PASTOR"));
         verify(usuarioService).substituirPapeis(uAntigo, filial.getId(), Set.of());
         verify(auditService).registrar(eq("TROCAR_PASTOR"), eq("igreja"), anyString());
+    }
+
+    @Test
+    void anteriorMantemPastorQuandoNovoAindaNaoEstaAtivo() {
+        Pessoa antigo = pessoaDa(UUID.randomUUID());
+        Igreja igreja = igrejaComPastor(antigo);
+        antigo.setIgrejaId(igreja.getId());
+        Pessoa novo = pessoaExistente(igreja.getId());
+        Usuario uNovo = usuarioDe(novo, StatusUsuario.CONVIDADO);
+        when(usuarioRepository.findByPessoaId(novo.getId())).thenReturn(Optional.of(uNovo));
+        Usuario uAntigo = usuarioDe(antigo, StatusUsuario.ATIVO);
+        darPapel(uAntigo, "PASTOR", igreja.getId());
+        when(usuarioRepository.findByPessoaId(antigo.getId())).thenReturn(Optional.of(uAntigo));
+        // só o anterior é pastor ATIVO: o convidado ainda não conta
+        when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", igreja.getId())).thenReturn(1L);
+        when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
+
+        igrejaService.trocarPastor(igreja.getId(), troca(novo.getId()));
+
+        assertThat(igreja.getPastorPessoaId()).isEqualTo(novo.getId());
+        verify(usuarioService, never()).substituirPapeis(eq(uAntigo), any(), any());
+        assertThat(uAntigo.getTokenVersion()).isZero();
+        verify(usuarioRepository, never()).save(uAntigo);
+    }
+
+    @Test
+    void anteriorPerdePastorQuandoNovoJaEstaAtivo() {
+        Pessoa antigo = pessoaDa(UUID.randomUUID());
+        Igreja igreja = igrejaComPastor(antigo);
+        antigo.setIgrejaId(igreja.getId());
+        Pessoa novo = pessoaExistente(igreja.getId());
+        Usuario uNovo = usuarioDe(novo, StatusUsuario.ATIVO);
+        when(usuarioRepository.findByPessoaId(novo.getId())).thenReturn(Optional.of(uNovo));
+        Usuario uAntigo = usuarioDe(antigo, StatusUsuario.ATIVO);
+        darPapel(uAntigo, "PASTOR", igreja.getId());
+        when(usuarioRepository.findByPessoaId(antigo.getId())).thenReturn(Optional.of(uAntigo));
+        when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", igreja.getId())).thenReturn(2L);
+        when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
+
+        igrejaService.trocarPastor(igreja.getId(), troca(novo.getId()));
+
+        verify(usuarioService).substituirPapeis(uAntigo, igreja.getId(), Set.of());
+        assertThat(uAntigo.getTokenVersion()).isEqualTo(1);
+        verify(usuarioRepository).save(uAntigo);
     }
 
     @Test
@@ -360,6 +405,7 @@ class IgrejaServiceTest {
         darPapel(uAntigo, "PASTOR", igreja.getId());
         darPapel(uAntigo, "SECRETARIA", igreja.getId());
         when(usuarioRepository.findByPessoaId(antigo.getId())).thenReturn(Optional.of(uAntigo));
+        when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", igreja.getId())).thenReturn(2L);
         when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
 
         igrejaService.trocarPastor(igreja.getId(), troca(novo.getId()));

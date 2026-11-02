@@ -729,6 +729,36 @@ class PessoaServiceTest {
     }
 
     @Test
+    void saveDaSecretariaSemMudarTelefoneNaoSincronizaNumeroPlantado() {
+        // Um líder plantou o WhatsApp na pessoa antes; a secretaria só troca o e-mail agora.
+        pessoa.setWhatsapp("(63) 91111-2222");
+        Usuario usuario = contaDaPessoa(StatusUsuario.ATIVO, "MEMBRO");
+        permissoes(true, false);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(usuarioRepository.findByEmailIgnoreCase("novo@email.com")).thenReturn(Optional.empty());
+
+        pessoaService.atualizar(pessoa.getId(), contato("novo@email.com", null, "(63) 91111-2222"));
+
+        assertThat(usuario.getEmail()).isEqualTo("novo@email.com");
+        assertThat(usuario.getTelefone()).isNull();
+        verify(usuarioRepository, never()).findByTelefone(any());
+    }
+
+    @Test
+    void secretariaMudandoTelefoneSincroniza() {
+        pessoa.setWhatsapp("(63) 91111-2222");
+        Usuario usuario = contaDaPessoa(StatusUsuario.ATIVO, "MEMBRO");
+        permissoes(true, false);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(usuarioRepository.findByTelefone("5563933334444")).thenReturn(Optional.empty());
+
+        pessoaService.atualizar(pessoa.getId(), contato(null, null, "(63) 93333-4444"));
+
+        assertThat(usuario.getTelefone()).isEqualTo("5563933334444");
+        assertThat(usuario.getEmail()).isEqualTo("joao@email.com");
+    }
+
+    @Test
     void telefoneDeOutraContaNaSincronizacaoLanca409() {
         contaDaPessoa(StatusUsuario.ATIVO, "MEMBRO");
         permissoes(true, false);

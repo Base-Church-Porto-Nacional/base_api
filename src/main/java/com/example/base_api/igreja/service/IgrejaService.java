@@ -213,8 +213,10 @@ public class IgrejaService {
     }
 
     /**
-     * Troca o pastor titular: o novo recebe PASTOR (e convite, se sem conta ativa) antes de o anterior perdê-lo,
-     * então a igreja nunca fica sem pastor. O anterior mantém os demais papéis.
+     * Troca o pastor titular: o novo recebe PASTOR (e convite, se sem conta ativa) e o anterior perde o papel, mantendo
+     * os demais. Só que, se o novo ainda não está ATIVO (convidado/recém-convidado), tirar o PASTOR do anterior
+     * deixaria a igreja sem nenhum pastor ativo; nesse caso o anterior mantém o PASTOR e só o titular
+     * ({@code pastorPessoaId}) muda.
      */
     @Transactional
     public FilialCriadaResponse trocarPastor(UUID igrejaId, TrocarPastorRequest request) {
@@ -244,8 +246,10 @@ public class IgrejaService {
         if (anteriorId != null) {
             usuarioRepository.findByPessoaId(anteriorId).ifPresent(anterior -> {
                 Set<String> restantes = new HashSet<>(anterior.nomesPapeis(igrejaId));
-                if (restantes.remove(Papeis.PASTOR)) {
+                if (restantes.contains(Papeis.PASTOR) && !deixariaIgrejaSemPastorAtivo(anterior, igrejaId)) {
+                    restantes.remove(Papeis.PASTOR);
                     usuarioService.substituirPapeis(anterior, igrejaId, restantes);
+                    // Só invalida quando o papel de fato saiu; se ele ficou, os tokens atuais continuam válidos.
                     anterior.invalidarTokens();
                     usuarioRepository.save(anterior);
                 }
@@ -261,6 +265,13 @@ public class IgrejaService {
                         + " convite=" + (conta.convite() != null)
         );
         return new FilialCriadaResponse(toResponse(salva), conta.convite());
+    }
+
+    /** True se, sem {@code anterior}, não restaria nenhum usuário ATIVO com o PASTOR do sistema na igreja. */
+    private boolean deixariaIgrejaSemPastorAtivo(Usuario anterior, UUID igrejaId) {
+        long ativos = usuarioRepository.countByPapelAndIgrejaId(Papeis.PASTOR, igrejaId);
+        long semAnterior = anterior.isAtivo() ? ativos - 1 : ativos;
+        return semAnterior < 1;
     }
 
     /**

@@ -315,6 +315,29 @@ class AutorizacaoServiceTest {
     }
 
     @Test
+    void pastorDeFilialNaoTrocaPastorDaMatriz() {
+        UUID matrizId = UUID.randomUUID();
+        when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.FILIAL));
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeTrocarPastor(
+                igrejaAlvo(matrizId, null, UUID.randomUUID())))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void assertPodeTrocarPastorVerificaAcessoAntes() {
+        UUID alvoId = UUID.randomUUID();
+        doThrow(new AccessDeniedException("sem acesso")).when(igrejaContextoService).assertAcesso(alvoId);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeTrocarPastor(
+                igrejaAlvo(alvoId, UUID.randomUUID(), pessoaId)))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(igrejaContextoService, never()).igrejaAtual();
+        verify(igrejaContextoService, never()).requireUsuario();
+    }
+
+    @Test
     void secretariaDaMatrizNaoTrocaPastor() {
         when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.MATRIZ));
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);

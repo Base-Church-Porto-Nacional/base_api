@@ -58,6 +58,8 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_SENHA: ${ADMIN_SENHA:-}
       ADMIN_NOME: ${ADMIN_NOME:-}
+      # Com o perfil prod a URL do app precisa ser https://... (ou rode com SPRING_PROFILES_ACTIVE=dev).
+      FRONTEND_URL_BASE: ${FRONTEND_URL_BASE:-http://localhost:3000}
       FORWARD_HEADERS_STRATEGY: ${FORWARD_HEADERS_STRATEGY:-NATIVE}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       CORS_ALLOWED_ORIGIN_PATTERNS: ${CORS_ALLOWED_ORIGIN_PATTERNS:-http://localhost:*,http://127.0.0.1:*}
