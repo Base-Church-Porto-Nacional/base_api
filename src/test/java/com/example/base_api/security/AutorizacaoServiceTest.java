@@ -272,6 +272,69 @@ class AutorizacaoServiceTest {
         assertThatCode(() -> autorizacaoService.assertPodeCriarFilial()).doesNotThrowAnyException();
     }
 
+    // --- trocar pastor ---
+
+    private Igreja igrejaAlvo(UUID id, UUID matrizId, UUID pastorPessoaId) {
+        Igreja alvo = new Igreja();
+        alvo.setId(id);
+        alvo.setTipo(matrizId == null ? IgrejaTipo.MATRIZ : IgrejaTipo.FILIAL);
+        alvo.setIgrejaMatrizId(matrizId);
+        alvo.setPastorPessoaId(pastorPessoaId);
+        return alvo;
+    }
+
+    @Test
+    void pastorDaMatrizTrocaPastorDeFilialDaRede() {
+        UUID filialId = UUID.randomUUID();
+        when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.MATRIZ));
+        capacidades(PASTOR);
+
+        assertThatCode(() -> autorizacaoService.assertPodeTrocarPastor(igrejaAlvo(filialId, igrejaId, UUID.randomUUID())))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void pastorTitularTrocaOPastorDaPropriaIgreja() {
+        when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.FILIAL));
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+
+        assertThatCode(() -> autorizacaoService.assertPodeTrocarPastor(igrejaAlvo(igrejaId, UUID.randomUUID(), pessoaId)))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void pastorDeFilialNaoTrocaPastorDeOutraFilial() {
+        UUID outraId = UUID.randomUUID();
+        when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.FILIAL));
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeTrocarPastor(
+                igrejaAlvo(outraId, UUID.randomUUID(), UUID.randomUUID())))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Somente o pastor da matriz ou o pastor titular podem trocar o pastor");
+    }
+
+    @Test
+    void secretariaDaMatrizNaoTrocaPastor() {
+        when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.MATRIZ));
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+        capacidades(SECRETARIA);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeTrocarPastor(
+                igrejaAlvo(UUID.randomUUID(), igrejaId, UUID.randomUUID())))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void pastorDeOutraMatrizNaoTrocaPastorDeFilialQueNaoELiga() {
+        when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.MATRIZ));
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeTrocarPastor(
+                igrejaAlvo(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
     @Test
     void secretariaDaMatrizDisparaGeracaoDeEscalas() {
         when(igrejaContextoService.igrejaAtual()).thenReturn(igreja(IgrejaTipo.MATRIZ));

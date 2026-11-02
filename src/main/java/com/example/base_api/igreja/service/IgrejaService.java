@@ -10,6 +10,7 @@ import com.example.base_api.igreja.dto.IgrejaFilialCreateRequest;
 import com.example.base_api.igreja.dto.IgrejaResponse;
 import com.example.base_api.igreja.dto.IgrejaUpdateRequest;
 import com.example.base_api.igreja.dto.PastorFilialRequest;
+import com.example.base_api.igreja.dto.TrocarPastorRequest;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.entity.IgrejaTipo;
 import com.example.base_api.igreja.repository.IgrejaRepository;
@@ -17,7 +18,6 @@ import com.example.base_api.jornada.service.JornadaService;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
-import com.example.base_api.security.Capacidade;
 import com.example.base_api.security.Identificador;
 import com.example.base_api.security.Papeis;
 import com.example.base_api.usuario.dto.LinkAcessoResponse;
@@ -132,16 +132,7 @@ public class IgrejaService {
             usuario = null;
         }
 
-        boolean precisaConvite = usuario == null || usuario.getStatus() == StatusUsuario.CONVIDADO;
-        if (precisaConvite && !temContato(pastor)) {
-            throw new EntidadeNaoProcessavelException(MSG_SEM_CONTATO);
-        }
-        if (precisaConvite) {
-            assertIdentificadoresLivres(pastor, usuario);
-        }
-        if (usuario != null && usuario.getStatus() == StatusUsuario.DESATIVADO) {
-            throw new ConflictException(MSG_CONTA_DESATIVADA);
-        }
+        boolean precisaConvite = validarContaDoPastor(pastor, usuario);
         if (existente) {
             transferenciaPessoaService.validar(pastor);
         }
@@ -168,16 +159,8 @@ public class IgrejaService {
         salva = igrejaRepository.save(salva);
 
         // 3. Convite (se ainda sem conta ativa) e papel PASTOR na filial.
-        LinkAcessoResponse convite = null;
-        if (precisaConvite) {
-            convite = acessoService.convidar(pastor.getId());
-            UUID pastorId = pastor.getId();
-            usuario = usuarioRepository.findByPessoaId(pastorId)
-                    .orElseThrow(() -> new IllegalStateException("Conta do pastor não criada: pessoaId=" + pastorId));
-        }
-        Set<String> papeis = new HashSet<>(usuario.nomesPapeis(filialId));
-        papeis.add(Papeis.PASTOR);
-        usuarioService.substituirPapeis(usuario, filialId, papeis);
+        ContaPastor conta = garantirContaEPastor(pastor, usuario, precisaConvite, filialId);
+        LinkAcessoResponse convite = conta.convite();
 
         // Audita depois do flush: os registros são REQUIRES_NEW e não devem sobrar se a criação falhar.
         igrejaRepository.flush();
@@ -191,6 +174,93 @@ public class IgrejaService {
                         + " convite=" + (convite != null)
         );
         return new FilialCriadaResponse(toResponse(salva), convite);
+    }
+
+    /**
+     * Pré-validações da conta do futuro pastor (antes de salvar qualquer coisa). Devolve se ele precisa de
+     * convite: sem conta ou ainda CONVIDADO.
+     */
+    private boolean validarContaDoPastor(Pessoa pastor, Usuario usuario) {
+        boolean precisaConvite = usuario == null || usuario.getStatus() == StatusUsuario.CONVIDADO;
+        if (precisaConvite && !temContato(pastor)) {
+            throw new EntidadeNaoProcessavelException(MSG_SEM_CONTATO);
+        }
+        if (precisaConvite) {
+            assertIdentificadoresLivres(pastor, usuario);
+        }
+        if (usuario != null && usuario.getStatus() == StatusUsuario.DESATIVADO) {
+            throw new ConflictException(MSG_CONTA_DESATIVADA);
+        }
+        return precisaConvite;
+    }
+
+    private record ContaPastor(Usuario usuario, LinkAcessoResponse convite) {
+    }
+
+    /** Convida (se preciso) e garante PASTOR de sistema na igreja, preservando os demais papéis da conta. */
+    private ContaPastor garantirContaEPastor(Pessoa pastor, Usuario usuario, boolean precisaConvite, UUID igrejaId) {
+        LinkAcessoResponse convite = null;
+        if (precisaConvite) {
+            convite = acessoService.convidar(pastor.getId());
+            UUID pastorId = pastor.getId();
+            usuario = usuarioRepository.findByPessoaId(pastorId)
+                    .orElseThrow(() -> new IllegalStateException("Conta do pastor não criada: pessoaId=" + pastorId));
+        }
+        Set<String> papeis = new HashSet<>(usuario.nomesPapeis(igrejaId));
+        papeis.add(Papeis.PASTOR);
+        usuarioService.substituirPapeis(usuario, igrejaId, papeis);
+        return new ContaPastor(usuario, convite);
+    }
+
+    /**
+     * Troca o pastor titular: o novo recebe PASTOR (e convite, se sem conta ativa) antes de o anterior perdê-lo,
+     * então a igreja nunca fica sem pastor. O anterior mantém os demais papéis.
+     */
+    @Transactional
+    public FilialCriadaResponse trocarPastor(UUID igrejaId, TrocarPastorRequest request) {
+        Igreja igreja = buscarEntidade(igrejaId);
+        autorizacaoService.assertPodeTrocarPastor(igreja);
+
+        UUID anteriorId = igreja.getPastorPessoaId();
+        if (request.pessoaId().equals(anteriorId)) {
+            return new FilialCriadaResponse(toResponse(igreja), null);
+        }
+
+        Pessoa novo = pessoaRepository.findById(request.pessoaId())
+                .orElseThrow(() -> new ResourceNotFoundException("Pessoa não encontrada"));
+        if (!igrejaId.equals(novo.getIgrejaId())) {
+            throw new BusinessException("A pessoa não pertence a esta igreja");
+        }
+        if (Boolean.FALSE.equals(novo.getAtivo())) {
+            throw new BusinessException(MSG_PESSOA_INATIVA);
+        }
+        Usuario usuarioNovo = usuarioRepository.findByPessoaId(novo.getId()).orElse(null);
+        boolean precisaConvite = validarContaDoPastor(novo, usuarioNovo);
+
+        igreja.setPastorPessoaId(novo.getId());
+        Igreja salva = igrejaRepository.save(igreja);
+        ContaPastor conta = garantirContaEPastor(novo, usuarioNovo, precisaConvite, igrejaId);
+
+        if (anteriorId != null) {
+            usuarioRepository.findByPessoaId(anteriorId).ifPresent(anterior -> {
+                Set<String> restantes = new HashSet<>(anterior.nomesPapeis(igrejaId));
+                if (restantes.remove(Papeis.PASTOR)) {
+                    usuarioService.substituirPapeis(anterior, igrejaId, restantes);
+                    anterior.invalidarTokens();
+                    usuarioRepository.save(anterior);
+                }
+            });
+        }
+
+        // Audita no fim: os registros são REQUIRES_NEW e não devem sobrar se algo acima falhar.
+        igrejaRepository.flush();
+        auditService.registrar(
+                "TROCAR_PASTOR",
+                "igreja",
+                "igrejaId=" + igrejaId + " anterior=" + anteriorId + " novo=" + novo.getId()
+                        + " convite=" + (conta.convite() != null)
+        );
+        return new FilialCriadaResponse(toResponse(salva), conta.convite());
     }
 
     /**
@@ -225,17 +295,6 @@ public class IgrejaService {
     public IgrejaResponse atualizar(UUID id, IgrejaUpdateRequest request) {
         autorizacaoService.assertGestao(id);
         Igreja igreja = buscarEntidade(id);
-
-        if (!request.pastorPessoaId().equals(igreja.getPastorPessoaId())) {
-            // Trocar o pastor da igreja é decisão do pastor (não da secretaria).
-            autorizacaoService.assertTem(id, Capacidade.FILIAL_CRIAR);
-            Pessoa pastor = pessoaRepository.findById(request.pastorPessoaId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Pastor não encontrado"));
-            if (!id.equals(pastor.getIgrejaId())) {
-                throw new BusinessException("A pessoa não pertence a esta igreja");
-            }
-            igreja.setPastorPessoaId(pastor.getId());
-        }
 
         igreja.setNome(request.nome().trim());
         igreja.setAtivo(request.ativo());

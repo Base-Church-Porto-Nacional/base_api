@@ -170,64 +170,214 @@ class IgrejaServiceTest {
     }
 
     @Test
-    void secretariaNaoTrocaPastorDaIgreja() {
+    void atualizarAlteraSoNomeEAtivoEMantemPastor() {
+        Igreja igreja = igreja(IgrejaTipo.MATRIZ, null);
+        UUID pastorId = UUID.randomUUID();
+        igreja.setPastorPessoaId(pastorId);
+        when(igrejaRepository.findById(igreja.getId())).thenReturn(Optional.of(igreja));
+        when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
+
+        igrejaService.atualizar(igreja.getId(),
+                new com.example.base_api.igreja.dto.IgrejaUpdateRequest("Novo nome", false));
+
+        assertThat(igreja.getNome()).isEqualTo("Novo nome");
+        assertThat(igreja.getAtivo()).isFalse();
+        assertThat(igreja.getPastorPessoaId()).isEqualTo(pastorId);
+        verify(autorizacaoService, never()).assertTem(any(), any());
+    }
+
+    // --- trocar pastor ---
+
+    private Igreja igrejaComPastor(Pessoa titular) {
+        Igreja igreja = igreja(IgrejaTipo.FILIAL, UUID.randomUUID());
+        igreja.setPastorPessoaId(titular.getId());
+        when(igrejaRepository.findById(igreja.getId())).thenReturn(Optional.of(igreja));
+        return igreja;
+    }
+
+    private void darPapel(Usuario u, String nome, UUID igrejaId) {
+        com.example.base_api.usuario.entity.Papel papel = new com.example.base_api.usuario.entity.Papel();
+        papel.setId(UUID.randomUUID());
+        papel.setNome(nome);
+        com.example.base_api.usuario.entity.UsuarioPapel up = new com.example.base_api.usuario.entity.UsuarioPapel();
+        up.setUsuarioId(u.getId());
+        up.setPapelId(papel.getId());
+        up.setIgrejaId(igrejaId);
+        up.setPapel(papel);
+        if (u.getPapeisIgreja() == null) {
+            u.setPapeisIgreja(new java.util.HashSet<>());
+        }
+        u.getPapeisIgreja().add(up);
+    }
+
+    private static com.example.base_api.igreja.dto.TrocarPastorRequest troca(UUID pessoaId) {
+        return new com.example.base_api.igreja.dto.TrocarPastorRequest(pessoaId);
+    }
+
+    @Test
+    void pastorDaMatrizTrocaPastorDaFilial() {
+        Pessoa antigo = pessoaDa(UUID.randomUUID());
+        Igreja filial = igrejaComPastor(antigo);
+        antigo.setIgrejaId(filial.getId());
+        Pessoa novo = pessoaExistente(filial.getId());
+        Usuario uNovo = usuarioDe(novo, StatusUsuario.ATIVO);
+        when(usuarioRepository.findByPessoaId(novo.getId())).thenReturn(Optional.of(uNovo));
+        Usuario uAntigo = usuarioDe(antigo, StatusUsuario.ATIVO);
+        darPapel(uAntigo, "PASTOR", filial.getId());
+        when(usuarioRepository.findByPessoaId(antigo.getId())).thenReturn(Optional.of(uAntigo));
+        when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
+
+        FilialCriadaResponse resposta = igrejaService.trocarPastor(filial.getId(), troca(novo.getId()));
+
+        verify(autorizacaoService).assertPodeTrocarPastor(filial);
+        assertThat(filial.getPastorPessoaId()).isEqualTo(novo.getId());
+        assertThat(resposta.igreja().pastorPessoaId()).isEqualTo(novo.getId());
+        assertThat(resposta.convite()).isNull();
+        verify(usuarioService).substituirPapeis(uNovo, filial.getId(), Set.of("PASTOR"));
+        verify(usuarioService).substituirPapeis(uAntigo, filial.getId(), Set.of());
+        verify(auditService).registrar(eq("TROCAR_PASTOR"), eq("igreja"), anyString());
+    }
+
+    @Test
+    void pastorTitularTrocaOProprio() {
+        Pessoa antigo = pessoaDa(UUID.randomUUID());
+        Igreja igreja = igrejaComPastor(antigo);
+        antigo.setIgrejaId(igreja.getId());
+        Pessoa novo = pessoaExistente(igreja.getId());
+        Usuario uNovo = usuarioDe(novo, StatusUsuario.ATIVO);
+        when(usuarioRepository.findByPessoaId(novo.getId())).thenReturn(Optional.of(uNovo));
+        when(usuarioRepository.findByPessoaId(antigo.getId())).thenReturn(Optional.empty());
+        when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
+
+        igrejaService.trocarPastor(igreja.getId(), troca(novo.getId()));
+
+        assertThat(igreja.getPastorPessoaId()).isEqualTo(novo.getId());
+        verify(usuarioService).substituirPapeis(uNovo, igreja.getId(), Set.of("PASTOR"));
+        verify(usuarioService, never()).substituirPapeis(any(), any(), eq(Set.of()));
+    }
+
+    @Test
+    void pastorDeFilialNaoTrocaPastorDeOutraFilial() {
+        Igreja outra = igreja(IgrejaTipo.FILIAL, UUID.randomUUID());
+        when(igrejaRepository.findById(outra.getId())).thenReturn(Optional.of(outra));
+        doThrow(new AccessDeniedException("Somente o pastor da matriz ou o pastor titular podem trocar o pastor"))
+                .when(autorizacaoService).assertPodeTrocarPastor(outra);
+
+        assertThatThrownBy(() -> igrejaService.trocarPastor(outra.getId(), troca(UUID.randomUUID())))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(igrejaRepository, never()).save(any());
+        verify(auditService, never()).registrar(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void secretariaNaoTrocaPastor() {
         Igreja igreja = igreja(IgrejaTipo.MATRIZ, null);
         igreja.setPastorPessoaId(UUID.randomUUID());
-        Pessoa novo = pessoaDa(igreja.getId());
         when(igrejaRepository.findById(igreja.getId())).thenReturn(Optional.of(igreja));
-        doThrow(new AccessDeniedException("Sem permissão para esta ação"))
-                .when(autorizacaoService).assertTem(igreja.getId(), com.example.base_api.security.Capacidade.FILIAL_CRIAR);
+        doThrow(new AccessDeniedException("Somente o pastor da matriz ou o pastor titular podem trocar o pastor"))
+                .when(autorizacaoService).assertPodeTrocarPastor(igreja);
 
-        assertThatThrownBy(() -> igrejaService.atualizar(igreja.getId(),
-                new com.example.base_api.igreja.dto.IgrejaUpdateRequest("Base", novo.getId(), true)))
+        assertThatThrownBy(() -> igrejaService.trocarPastor(igreja.getId(), troca(UUID.randomUUID())))
                 .isInstanceOf(AccessDeniedException.class);
         verify(igrejaRepository, never()).save(any());
     }
 
     @Test
-    void secretariaAtualizaNomeMantendoPastor() {
-        Igreja igreja = igreja(IgrejaTipo.MATRIZ, null);
-        Pessoa pastor = pessoaDa(igreja.getId());
-        igreja.setPastorPessoaId(pastor.getId());
-        when(igrejaRepository.findById(igreja.getId())).thenReturn(Optional.of(igreja));
-        when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
+    void trocarPelaMesmaPessoaNaoMudaNada() {
+        Pessoa titular = pessoaDa(UUID.randomUUID());
+        Igreja igreja = igrejaComPastor(titular);
 
-        igrejaService.atualizar(igreja.getId(),
-                new com.example.base_api.igreja.dto.IgrejaUpdateRequest("Novo nome", pastor.getId(), true));
+        FilialCriadaResponse resposta = igrejaService.trocarPastor(igreja.getId(), troca(titular.getId()));
 
-        assertThat(igreja.getNome()).isEqualTo("Novo nome");
-        verify(autorizacaoService, never()).assertTem(any(), any());
+        assertThat(resposta.convite()).isNull();
+        assertThat(resposta.igreja().pastorPessoaId()).isEqualTo(titular.getId());
+        verify(igrejaRepository, never()).save(any());
+        verify(usuarioService, never()).substituirPapeis(any(), any(), any());
+        verify(acessoService, never()).convidar(any());
+        verify(auditService, never()).registrar(anyString(), anyString(), anyString());
     }
 
     @Test
-    void pastorDeOutraIgrejaNaoPodeSerDefinido() {
-        Igreja igreja = igreja(IgrejaTipo.MATRIZ, null);
-        igreja.setPastorPessoaId(UUID.randomUUID());
-        Pessoa alheio = pessoaDa(UUID.randomUUID());
-        when(igrejaRepository.findById(igreja.getId())).thenReturn(Optional.of(igreja));
-        when(pessoaRepository.findById(alheio.getId())).thenReturn(Optional.of(alheio));
+    void novoSemContaRecebeConvite() {
+        Pessoa antigo = pessoaDa(UUID.randomUUID());
+        Igreja igreja = igrejaComPastor(antigo);
+        Pessoa novo = pessoaExistente(igreja.getId());
+        when(usuarioRepository.findByPessoaId(antigo.getId())).thenReturn(Optional.empty());
+        Usuario convidado = usuarioDe(novo, StatusUsuario.CONVIDADO);
+        java.util.concurrent.atomic.AtomicBoolean convidou = new java.util.concurrent.atomic.AtomicBoolean();
+        when(usuarioRepository.findByPessoaId(novo.getId())).thenAnswer(i ->
+                convidou.get() ? Optional.of(convidado) : Optional.empty());
+        when(acessoService.convidar(novo.getId())).thenAnswer(i -> {
+            convidou.set(true);
+            return new LinkAcessoResponse("https://app/convite?token=xyz", true);
+        });
+        when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
 
-        assertThatThrownBy(() -> igrejaService.atualizar(igreja.getId(),
-                new com.example.base_api.igreja.dto.IgrejaUpdateRequest("Base", alheio.getId(), true)))
-                .isInstanceOf(com.example.base_api.common.exception.BusinessException.class)
-                .hasMessage("A pessoa não pertence a esta igreja");
+        FilialCriadaResponse resposta = igrejaService.trocarPastor(igreja.getId(), troca(novo.getId()));
+
+        assertThat(resposta.convite().link()).isEqualTo("https://app/convite?token=xyz");
+        verify(usuarioService).substituirPapeis(convidado, igreja.getId(), Set.of("PASTOR"));
+        assertThat(igreja.getPastorPessoaId()).isEqualTo(novo.getId());
+    }
+
+    @Test
+    void novoSemContaESemContatoLanca422SemMudarNada() {
+        Pessoa antigo = pessoaDa(UUID.randomUUID());
+        Igreja igreja = igrejaComPastor(antigo);
+        Pessoa novo = pessoaDa(igreja.getId());
+        when(pessoaRepository.findById(novo.getId())).thenReturn(Optional.of(novo));
+        when(usuarioRepository.findByPessoaId(novo.getId())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> igrejaService.trocarPastor(igreja.getId(), troca(novo.getId())))
+                .isInstanceOf(EntidadeNaoProcessavelException.class)
+                .hasMessage("Cadastre e-mail ou WhatsApp antes de convidar");
+        verify(igrejaRepository, never()).save(any());
+        verify(auditService, never()).registrar(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void novoComContaDesativadaLanca409() {
+        Pessoa antigo = pessoaDa(UUID.randomUUID());
+        Igreja igreja = igrejaComPastor(antigo);
+        Pessoa novo = pessoaExistente(igreja.getId());
+        when(usuarioRepository.findByPessoaId(novo.getId()))
+                .thenReturn(Optional.of(usuarioDe(novo, StatusUsuario.DESATIVADO)));
+
+        assertThatThrownBy(() -> igrejaService.trocarPastor(igreja.getId(), troca(novo.getId())))
+                .isInstanceOf(ConflictException.class);
         verify(igrejaRepository, never()).save(any());
     }
 
     @Test
-    void pastorTrocaPastorPorPessoaDaIgreja() {
-        Igreja igreja = igreja(IgrejaTipo.MATRIZ, null);
-        igreja.setPastorPessoaId(UUID.randomUUID());
-        Pessoa novo = pessoaDa(igreja.getId());
-        when(igrejaRepository.findById(igreja.getId())).thenReturn(Optional.of(igreja));
-        when(pessoaRepository.findById(novo.getId())).thenReturn(Optional.of(novo));
+    void anteriorPerdePastorMasMantemSecretaria() {
+        Pessoa antigo = pessoaDa(UUID.randomUUID());
+        Igreja igreja = igrejaComPastor(antigo);
+        antigo.setIgrejaId(igreja.getId());
+        Pessoa novo = pessoaExistente(igreja.getId());
+        Usuario uNovo = usuarioDe(novo, StatusUsuario.ATIVO);
+        when(usuarioRepository.findByPessoaId(novo.getId())).thenReturn(Optional.of(uNovo));
+        Usuario uAntigo = usuarioDe(antigo, StatusUsuario.ATIVO);
+        darPapel(uAntigo, "PASTOR", igreja.getId());
+        darPapel(uAntigo, "SECRETARIA", igreja.getId());
+        when(usuarioRepository.findByPessoaId(antigo.getId())).thenReturn(Optional.of(uAntigo));
         when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
 
-        igrejaService.atualizar(igreja.getId(),
-                new com.example.base_api.igreja.dto.IgrejaUpdateRequest("Base", novo.getId(), true));
+        igrejaService.trocarPastor(igreja.getId(), troca(novo.getId()));
 
-        assertThat(igreja.getPastorPessoaId()).isEqualTo(novo.getId());
-        verify(autorizacaoService).assertTem(igreja.getId(), com.example.base_api.security.Capacidade.FILIAL_CRIAR);
+        verify(usuarioService).substituirPapeis(uAntigo, igreja.getId(), Set.of("SECRETARIA"));
+        assertThat(uAntigo.getTokenVersion()).isEqualTo(1);
+    }
+
+    @Test
+    void pessoaDeOutraIgrejaLanca400() {
+        Pessoa antigo = pessoaDa(UUID.randomUUID());
+        Igreja igreja = igrejaComPastor(antigo);
+        Pessoa alheia = pessoaExistente(UUID.randomUUID());
+
+        assertThatThrownBy(() -> igrejaService.trocarPastor(igreja.getId(), troca(alheia.getId())))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("A pessoa não pertence a esta igreja");
+        verify(igrejaRepository, never()).save(any());
     }
 
     // --- criar filial com pastor ---

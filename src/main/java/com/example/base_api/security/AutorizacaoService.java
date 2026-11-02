@@ -128,6 +128,25 @@ public class AutorizacaoService {
         }
     }
 
+    /**
+     * Trocar o pastor titular: o pastor da matriz (para ela mesma ou uma filial da sua rede) ou o próprio pastor
+     * titular da igreja. Pastor de filial não mexe em outra filial.
+     */
+    public void assertPodeTrocarPastor(Igreja igreja) {
+        assertAcesso(igreja.getId());
+        Igreja atual = igrejaContextoService.igrejaAtual();
+        boolean daRede = atual.isMatriz()
+                && (atual.getId().equals(igreja.getId()) || atual.getId().equals(igreja.getIgrejaMatrizId()));
+        if (daRede && tem(atual.getId(), Capacidade.FILIAL_CRIAR)) {
+            return;
+        }
+        if (igreja.getPastorPessoaId() != null
+                && igreja.getPastorPessoaId().equals(requireUsuario().getPessoaId())) {
+            return;
+        }
+        throw new AccessDeniedException("Somente o pastor da matriz ou o pastor titular podem trocar o pastor");
+    }
+
     public void assertPodeAtribuirPapeisGestao(UUID igrejaAlvoId) {
         assertTem(igrejaAlvoId, Capacidade.PAPEIS_GESTAO_ATRIBUIR,
                 "Somente o pastor da igreja alvo ou da matriz pode atribuir PASTOR/SECRETARIA");
