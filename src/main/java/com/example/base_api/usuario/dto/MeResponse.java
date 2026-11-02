@@ -24,6 +24,7 @@ public record MeResponse(
         UUID igrejaId,
         IgrejaTipo igrejaTipo,
         String igrejaNome,
-        List<IgrejaResponse> igrejasVisiveis
+        List<IgrejaResponse> igrejasVisiveis,
+        PermissoesResponse permissoes
 ) {
 }

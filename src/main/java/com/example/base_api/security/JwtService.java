@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -25,7 +24,6 @@ public class JwtService {
 
     public String gerarToken(
             String username,
-            Set<String> papeis,
             UUID pessoaId,
             UUID igrejaId,
             String igrejaTipo,
@@ -36,7 +34,6 @@ public class JwtService {
 
         var builder = Jwts.builder()
                 .subject(username)
-                .claim("papeis", papeis)
                 .claim("tv", tokenVersion)
                 .issuedAt(agora)
                 .expiration(expiracao);

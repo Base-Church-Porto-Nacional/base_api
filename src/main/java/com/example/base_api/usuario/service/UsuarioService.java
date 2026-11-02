@@ -232,8 +232,6 @@ public class UsuarioService {
             throw new BusinessException("Usuário inativo");
         }
 
-        Set<String> papeis = usuario.nomesPapeisDaIgrejaAtual();
-
         Igreja igreja = usuario.getIgrejaId() == null
                 ? null
                 : igrejaRepository.findById(usuario.getIgrejaId()).orElse(null);
@@ -241,7 +239,6 @@ public class UsuarioService {
 
         String token = jwtService.gerarToken(
                 usuario.getUsername(),
-                papeis,
                 usuario.getPessoaId(),
                 usuario.getIgrejaId(),
                 igrejaTipo,
@@ -253,7 +250,6 @@ public class UsuarioService {
                 "Bearer",
                 usuario.getId(),
                 usuario.getUsername(),
-                papeis,
                 usuario.getPessoaId(),
                 usuario.getIgrejaId(),
                 igrejaTipo

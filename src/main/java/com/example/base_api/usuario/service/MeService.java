@@ -9,8 +9,10 @@ import com.example.base_api.igreja.service.IgrejaContextoService;
 import com.example.base_api.igreja.service.IgrejaService;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
+import com.example.base_api.security.PermissaoService;
 import com.example.base_api.usuario.dto.MeResponse;
 import com.example.base_api.usuario.dto.MeUpdateRequest;
+import com.example.base_api.usuario.dto.PermissoesResponse;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.repository.UsuarioRepository;
 import org.springframework.security.core.Authentication;
@@ -31,19 +33,22 @@ public class MeService {
     private final PasswordEncoder passwordEncoder;
     private final IgrejaContextoService igrejaContextoService;
     private final IgrejaService igrejaService;
+    private final PermissaoService permissaoService;
 
     public MeService(
             UsuarioRepository usuarioRepository,
             PessoaRepository pessoaRepository,
             PasswordEncoder passwordEncoder,
             IgrejaContextoService igrejaContextoService,
-            IgrejaService igrejaService
+            IgrejaService igrejaService,
+            PermissaoService permissaoService
     ) {
         this.usuarioRepository = usuarioRepository;
         this.pessoaRepository = pessoaRepository;
         this.passwordEncoder = passwordEncoder;
         this.igrejaContextoService = igrejaContextoService;
         this.igrejaService = igrejaService;
+        this.permissaoService = permissaoService;
     }
 
     @Transactional(readOnly = true)
@@ -130,7 +135,8 @@ public class MeService {
                 usuario.getIgrejaId(),
                 tipo,
                 igrejaNome,
-                visiveis
+                visiveis,
+                PermissoesResponse.de(permissaoService.doUsuarioAtual())
         );
     }
 }

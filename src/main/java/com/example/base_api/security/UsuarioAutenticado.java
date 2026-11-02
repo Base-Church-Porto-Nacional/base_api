@@ -1,9 +1,9 @@
 package com.example.base_api.security;
 
 import com.example.base_api.usuario.entity.Usuario;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -23,9 +23,8 @@ public class UsuarioAutenticado extends User {
                 true,
                 true,
                 true,
-                usuario.nomesPapeisDaIgrejaAtual().stream()
-                        .map(nome -> new SimpleGrantedAuthority("ROLE_" + nome))
-                        .toList()
+                // Sem authorities: permissões são calculadas no servidor (PermissaoService).
+                List.of()
         );
         this.usuarioId = usuario.getId();
     }
