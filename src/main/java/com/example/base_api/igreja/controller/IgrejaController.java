@@ -1,6 +1,7 @@
 package com.example.base_api.igreja.controller;
 
 import com.example.base_api.igreja.dto.FilialCriadaResponse;
+import com.example.base_api.igreja.dto.PastorTrocadoResponse;
 import com.example.base_api.igreja.dto.IgrejaFilialCreateRequest;
 import com.example.base_api.igreja.dto.IgrejaResponse;
 import com.example.base_api.igreja.dto.IgrejaUpdateRequest;
@@ -72,7 +73,7 @@ public class IgrejaController {
     @PutMapping("/{id}/pastor")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Trocar o pastor titular da igreja (move o papel PASTOR; convida se a pessoa não tem conta)")
-    public FilialCriadaResponse trocarPastor(
+    public PastorTrocadoResponse trocarPastor(
             @PathVariable UUID id,
             @Valid @RequestBody TrocarPastorRequest request
     ) {

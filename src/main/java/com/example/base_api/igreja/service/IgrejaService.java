@@ -6,6 +6,7 @@ import com.example.base_api.common.exception.ConflictException;
 import com.example.base_api.common.exception.EntidadeNaoProcessavelException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.igreja.dto.FilialCriadaResponse;
+import com.example.base_api.igreja.dto.PastorTrocadoResponse;
 import com.example.base_api.igreja.dto.IgrejaFilialCreateRequest;
 import com.example.base_api.igreja.dto.IgrejaResponse;
 import com.example.base_api.igreja.dto.IgrejaUpdateRequest;
@@ -111,6 +112,9 @@ public class IgrejaService {
         if (existente == nova || (existente && (StringUtils.hasText(dados.email()) || StringUtils.hasText(dados.whatsapp())))) {
             throw new BusinessException(MSG_MODO_PASTOR);
         }
+        if (existente && dados.pessoaId().equals(igrejaContextoService.requireUsuario().getPessoaId())) {
+            throw new ConflictException("Você não pode se transferir para a nova filial.");
+        }
 
         // 1. Resolve o pastor sem salvar nada.
         Pessoa pastor;
@@ -215,17 +219,17 @@ public class IgrejaService {
     /**
      * Troca o pastor titular: o novo recebe PASTOR (e convite, se sem conta ativa) e o anterior perde o papel, mantendo
      * os demais. Só que, se o novo ainda não está ATIVO (convidado/recém-convidado), tirar o PASTOR do anterior
-     * deixaria a igreja sem nenhum pastor ativo; nesse caso o anterior mantém o PASTOR e só o titular
-     * ({@code pastorPessoaId}) muda.
+     * deixaria a igreja sem nenhum pastor ativo; nesse caso o anterior mantém o PASTOR, só o titular
+     * ({@code pastorPessoaId}) muda e a resposta sai com {@code anteriorMantevePastor = true}.
      */
     @Transactional
-    public FilialCriadaResponse trocarPastor(UUID igrejaId, TrocarPastorRequest request) {
+    public PastorTrocadoResponse trocarPastor(UUID igrejaId, TrocarPastorRequest request) {
         Igreja igreja = buscarEntidade(igrejaId);
         autorizacaoService.assertPodeTrocarPastor(igreja);
 
         UUID anteriorId = igreja.getPastorPessoaId();
         if (request.pessoaId().equals(anteriorId)) {
-            return new FilialCriadaResponse(toResponse(igreja), null);
+            return new PastorTrocadoResponse(toResponse(igreja), null, false);
         }
 
         Pessoa novo = pessoaRepository.findById(request.pessoaId())
@@ -243,17 +247,21 @@ public class IgrejaService {
         Igreja salva = igrejaRepository.save(igreja);
         ContaPastor conta = garantirContaEPastor(novo, usuarioNovo, precisaConvite, igrejaId);
 
-        if (anteriorId != null) {
-            usuarioRepository.findByPessoaId(anteriorId).ifPresent(anterior -> {
-                Set<String> restantes = new HashSet<>(anterior.nomesPapeis(igrejaId));
-                if (restantes.contains(Papeis.PASTOR) && !deixariaIgrejaSemPastorAtivo(anterior, igrejaId)) {
+        boolean anteriorMantevePastor = false;
+        Usuario anterior = anteriorId == null ? null : usuarioRepository.findByPessoaId(anteriorId).orElse(null);
+        if (anterior != null) {
+            Set<String> restantes = new HashSet<>(anterior.nomesPapeis(igrejaId));
+            if (restantes.contains(Papeis.PASTOR)) {
+                if (deixariaIgrejaSemPastorAtivo(anterior, igrejaId)) {
+                    anteriorMantevePastor = true;
+                } else {
                     restantes.remove(Papeis.PASTOR);
                     usuarioService.substituirPapeis(anterior, igrejaId, restantes);
                     // Só invalida quando o papel de fato saiu; se ele ficou, os tokens atuais continuam válidos.
                     anterior.invalidarTokens();
                     usuarioRepository.save(anterior);
                 }
-            });
+            }
         }
 
         // Audita no fim: os registros são REQUIRES_NEW e não devem sobrar se algo acima falhar.
@@ -264,11 +272,14 @@ public class IgrejaService {
                 "igrejaId=" + igrejaId + " anterior=" + anteriorId + " novo=" + novo.getId()
                         + " convite=" + (conta.convite() != null)
         );
-        return new FilialCriadaResponse(toResponse(salva), conta.convite());
+        return new PastorTrocadoResponse(toResponse(salva), conta.convite(), anteriorMantevePastor);
     }
 
     /** True se, sem {@code anterior}, não restaria nenhum usuário ATIVO com o PASTOR do sistema na igreja. */
     private boolean deixariaIgrejaSemPastorAtivo(Usuario anterior, UUID igrejaId) {
+        // Flush explícito: o PASTOR do novo acabou de ser gravado via substituirPapeis e precisa entrar na contagem
+        // (não depender do auto-flush do Hibernate antes da consulta JPQL). Mesmo EntityManager dos repositórios.
+        usuarioRepository.flush();
         long ativos = usuarioRepository.countByPapelAndIgrejaId(Papeis.PASTOR, igrejaId);
         long semAnterior = anterior.isAtivo() ? ativos - 1 : ativos;
         return semAnterior < 1;

@@ -9,6 +9,7 @@ import com.example.base_api.igreja.dto.FilialCriadaResponse;
 import com.example.base_api.igreja.dto.IgrejaFilialCreateRequest;
 import com.example.base_api.igreja.dto.IgrejaResponse;
 import com.example.base_api.igreja.dto.PastorFilialRequest;
+import com.example.base_api.igreja.dto.PastorTrocadoResponse;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.entity.IgrejaTipo;
 import com.example.base_api.igreja.repository.IgrejaRepository;
@@ -46,6 +47,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -228,12 +231,13 @@ class IgrejaServiceTest {
         when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", filial.getId())).thenReturn(2L);
         when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
 
-        FilialCriadaResponse resposta = igrejaService.trocarPastor(filial.getId(), troca(novo.getId()));
+        PastorTrocadoResponse resposta = igrejaService.trocarPastor(filial.getId(), troca(novo.getId()));
 
         verify(autorizacaoService).assertPodeTrocarPastor(filial);
         assertThat(filial.getPastorPessoaId()).isEqualTo(novo.getId());
         assertThat(resposta.igreja().pastorPessoaId()).isEqualTo(novo.getId());
         assertThat(resposta.convite()).isNull();
+        assertThat(resposta.anteriorMantevePastor()).isFalse();
         verify(usuarioService).substituirPapeis(uNovo, filial.getId(), Set.of("PASTOR"));
         verify(usuarioService).substituirPapeis(uAntigo, filial.getId(), Set.of());
         verify(auditService).registrar(eq("TROCAR_PASTOR"), eq("igreja"), anyString());
@@ -254,8 +258,9 @@ class IgrejaServiceTest {
         when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", igreja.getId())).thenReturn(1L);
         when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
 
-        igrejaService.trocarPastor(igreja.getId(), troca(novo.getId()));
+        PastorTrocadoResponse resposta = igrejaService.trocarPastor(igreja.getId(), troca(novo.getId()));
 
+        assertThat(resposta.anteriorMantevePastor()).isTrue();
         assertThat(igreja.getPastorPessoaId()).isEqualTo(novo.getId());
         verify(usuarioService, never()).substituirPapeis(eq(uAntigo), any(), any());
         assertThat(uAntigo.getTokenVersion()).isZero();
@@ -276,11 +281,17 @@ class IgrejaServiceTest {
         when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", igreja.getId())).thenReturn(2L);
         when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
 
-        igrejaService.trocarPastor(igreja.getId(), troca(novo.getId()));
+        PastorTrocadoResponse resposta = igrejaService.trocarPastor(igreja.getId(), troca(novo.getId()));
 
+        assertThat(resposta.anteriorMantevePastor()).isFalse();
         verify(usuarioService).substituirPapeis(uAntigo, igreja.getId(), Set.of());
         assertThat(uAntigo.getTokenVersion()).isEqualTo(1);
         verify(usuarioRepository).save(uAntigo);
+        // O PASTOR do novo (gravado via substituirPapeis) precisa estar no banco antes da contagem.
+        var ordem = inOrder(usuarioService, usuarioRepository);
+        ordem.verify(usuarioService).substituirPapeis(uNovo, igreja.getId(), Set.of("PASTOR"));
+        ordem.verify(usuarioRepository).flush();
+        ordem.verify(usuarioRepository).countByPapelAndIgrejaId("PASTOR", igreja.getId());
     }
 
     @Test
@@ -332,9 +343,10 @@ class IgrejaServiceTest {
         Pessoa titular = pessoaDa(UUID.randomUUID());
         Igreja igreja = igrejaComPastor(titular);
 
-        FilialCriadaResponse resposta = igrejaService.trocarPastor(igreja.getId(), troca(titular.getId()));
+        PastorTrocadoResponse resposta = igrejaService.trocarPastor(igreja.getId(), troca(titular.getId()));
 
         assertThat(resposta.convite()).isNull();
+        assertThat(resposta.anteriorMantevePastor()).isFalse();
         assertThat(resposta.igreja().pastorPessoaId()).isEqualTo(titular.getId());
         verify(igrejaRepository, never()).save(any());
         verify(usuarioService, never()).substituirPapeis(any(), any(), any());
@@ -358,7 +370,7 @@ class IgrejaServiceTest {
         });
         when(igrejaRepository.save(any(Igreja.class))).thenAnswer(i -> i.getArgument(0));
 
-        FilialCriadaResponse resposta = igrejaService.trocarPastor(igreja.getId(), troca(novo.getId()));
+        PastorTrocadoResponse resposta = igrejaService.trocarPastor(igreja.getId(), troca(novo.getId()));
 
         assertThat(resposta.convite().link()).isEqualTo("https://app/convite?token=xyz");
         verify(usuarioService).substituirPapeis(convidado, igreja.getId(), Set.of("PASTOR"));
@@ -433,7 +445,25 @@ class IgrejaServiceTest {
     private Igreja stubMatriz() {
         matriz = igreja(IgrejaTipo.MATRIZ, null);
         when(igrejaRepository.findById(matriz.getId())).thenReturn(Optional.of(matriz));
+        Usuario eu = new Usuario();
+        eu.setId(UUID.randomUUID());
+        eu.setPessoaId(UUID.randomUUID());
+        lenient().when(igrejaContextoService.requireUsuario()).thenReturn(eu);
         return matriz;
+    }
+
+    @Test
+    void naoTransfereOProprioUsuarioParaANovaFilial() {
+        stubMatriz();
+        Pessoa eu = pessoaDa(matriz.getId());
+        Usuario minhaConta = usuarioDe(eu, StatusUsuario.ATIVO);
+        when(igrejaContextoService.requireUsuario()).thenReturn(minhaConta);
+
+        assertThatThrownBy(() -> igrejaService.criarFilial(matriz.getId(), pedidoExistente(eu.getId())))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Você não pode se transferir para a nova filial.");
+        verify(igrejaRepository, never()).save(any());
+        assertThat(eu.getIgrejaId()).isEqualTo(matriz.getId());
     }
 
     private void stubSaves() {
