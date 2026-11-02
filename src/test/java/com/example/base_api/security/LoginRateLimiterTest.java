@@ -58,4 +58,17 @@ class LoginRateLimiterTest {
         assertThatThrownBy(() -> limiter.assertPermitido("MARIA@BASE.COM", "10.0.0.2"))
                 .isInstanceOf(TooManyRequestsException.class);
     }
+
+    @Test
+    void escoposTemContadoresIndependentes() {
+        LoginRateLimiter limiter = new LoginRateLimiter();
+        for (int i = 0; i < LoginRateLimiter.MAX_TENTATIVAS; i++) {
+            limiter.registrarFalha("esqueci", "63999990000", "1.1.1.1");
+        }
+
+        assertThatThrownBy(() -> limiter.assertPermitido("esqueci", "63999990000", "1.1.1.1"))
+                .isInstanceOf(TooManyRequestsException.class);
+        assertThatCode(() -> limiter.assertPermitido("63999990000", "1.1.1.1")).doesNotThrowAnyException();
+        assertThatCode(() -> limiter.assertPermitido("token", "63999990000", "1.1.1.1")).doesNotThrowAnyException();
+    }
 }

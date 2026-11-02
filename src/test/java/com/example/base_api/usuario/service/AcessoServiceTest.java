@@ -70,6 +70,7 @@ class AcessoServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    private final java.util.List<Runnable> filaExecutor = new java.util.ArrayList<>();
     private LoginRateLimiter rateLimiter;
     private AcessoService service;
 
@@ -79,8 +80,12 @@ class AcessoServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AcessoService(pessoaService, usuarioRepository, igrejaRepository, tokenAcessoService,
-                canalMensagem, autorizacaoService, usuarioService, auditService, passwordEncoder, rateLimiter = new LoginRateLimiter());
+        MensagemAcesso mensagens = new MensagemAcesso(igrejaRepository, canalMensagem);
+        EnvioRedefinicaoService envioRedefinicao = new EnvioRedefinicaoService(
+                usuarioRepository, pessoaService, tokenAcessoService, mensagens);
+        service = new AcessoService(pessoaService, usuarioRepository, tokenAcessoService,
+                mensagens, envioRedefinicao, filaExecutor::add, autorizacaoService, usuarioService, auditService,
+                passwordEncoder, rateLimiter = new LoginRateLimiter());
         pessoa = new Pessoa();
         pessoa.setId(UUID.randomUUID());
         pessoa.setNome("Maria da Silva");
@@ -472,7 +477,10 @@ class AcessoServiceTest {
         when(tokenAcessoService.gerar(u.getId(), TipoTokenAcesso.REDEFINICAO, null)).thenReturn(TOKEN);
         when(tokenAcessoService.link(TOKEN)).thenReturn(LINK);
 
+        when(usuarioRepository.findById(u.getId())).thenReturn(Optional.of(u));
+
         service.solicitarRedefinicao("(63) 99999-0000", IP);
+        filaExecutor.forEach(Runnable::run);
 
         ArgumentCaptor<EnvioMensagem> envio = ArgumentCaptor.forClass(EnvioMensagem.class);
         verify(canalMensagem).enviar(envio.capture());
@@ -534,5 +542,60 @@ class AcessoServiceTest {
         }
         assertThatThrownBy(() -> service.solicitarRedefinicao("A@B.com", IP))
                 .isInstanceOf(TooManyRequestsException.class);
+    }
+
+    @Test
+    void esqueciSenhaNaoGeraTokenNaThreadDaRequisicao() {
+        Usuario u = usuarioExistente(StatusUsuario.ATIVO);
+        u.setTelefone("5563999990000");
+        when(usuarioRepository.findByIdentificador("a@b.com")).thenReturn(Optional.of(u));
+
+        service.solicitarRedefinicao("a@b.com", IP);
+
+        verify(tokenAcessoService, never()).gerar(any(), any(), any());
+        verify(canalMensagem, never()).enviar(any());
+        assertThat(filaExecutor).hasSize(1);
+    }
+
+    @Test
+    void esqueciSenhaComFalhaNoEnvioAssincronoNaoPropaga() {
+        Usuario u = usuarioExistente(StatusUsuario.ATIVO);
+        u.setTelefone("5563999990000");
+        when(usuarioRepository.findByIdentificador("a@b.com")).thenReturn(Optional.of(u));
+        when(usuarioRepository.findById(u.getId())).thenReturn(Optional.of(u));
+        when(pessoaService.buscarEntidade(pessoa.getId())).thenThrow(new IllegalStateException("boom"));
+
+        service.solicitarRedefinicao("a@b.com", IP);
+
+        org.assertj.core.api.Assertions.assertThatCode(() -> filaExecutor.forEach(Runnable::run)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void esqueciNaoCompartilhaContadorComLogin() {
+        String telefone = "(63) 99999-0000";
+        when(usuarioRepository.findByIdentificador(telefone)).thenReturn(Optional.empty());
+        for (int i = 0; i < 5; i++) {
+            service.solicitarRedefinicao(telefone, IP);
+        }
+        // contador de esqueci esgotado, mas login e token seguem livres
+        org.assertj.core.api.Assertions.assertThatCode(() -> {
+            rateLimiter.assertPermitido(telefone, IP);
+            rateLimiter.assertPermitido("token", "token", IP);
+        }).doesNotThrowAnyException();
+        for (int i = 0; i < 5; i++) {
+            rateLimiter.registrarFalha(telefone, IP);
+        }
+        assertThatThrownBy(() -> rateLimiter.assertPermitido(telefone, IP)).isInstanceOf(TooManyRequestsException.class);
+    }
+
+    @Test
+    void infoComPessoaInexistenteLanca410() {
+        Usuario u = usuarioExistente(StatusUsuario.CONVIDADO);
+        when(tokenAcessoService.validar(TOKEN)).thenReturn(tokenDe(u, TipoTokenAcesso.CONVITE));
+        when(usuarioRepository.findById(u.getId())).thenReturn(Optional.of(u));
+        when(pessoaService.buscarEntidade(pessoa.getId()))
+                .thenThrow(new com.example.base_api.common.exception.ResourceNotFoundException("Pessoa não encontrada"));
+
+        assertThatThrownBy(() -> service.info(TOKEN, IP)).isInstanceOf(LinkExpiradoException.class);
     }
 }

@@ -14,28 +14,42 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class LoginRateLimiter {
 
+    static final String ESCOPO_LOGIN = "login";
     static final int MAX_TENTATIVAS = 5;
     static final Duration JANELA = Duration.ofMinutes(15);
 
     private final Map<String, Deque<Long>> tentativas = new ConcurrentHashMap<>();
 
     public void assertPermitido(String identificador, String ip) {
-        String chave = chave(identificador, ip);
+        assertPermitido(ESCOPO_LOGIN, identificador, ip);
+    }
+
+    public void registrarFalha(String identificador, String ip) {
+        registrarFalha(ESCOPO_LOGIN, identificador, ip);
+    }
+
+    public void limpar(String identificador, String ip) {
+        limpar(ESCOPO_LOGIN, identificador, ip);
+    }
+
+    /** Contador independente por escopo (login, token, esqueci); a chave só é normalizada no escopo de login. */
+    public void assertPermitido(String escopo, String chave, String ip) {
+        String chaveCompleta = chave(escopo, chave, ip);
         long agora = System.currentTimeMillis();
         long inicioJanela = agora - JANELA.toMillis();
-        Deque<Long> fila = tentativas.computeIfAbsent(chave, k -> new ArrayDeque<>());
+        Deque<Long> fila = tentativas.computeIfAbsent(chaveCompleta, k -> new ArrayDeque<>());
         synchronized (fila) {
             while (!fila.isEmpty() && fila.peekFirst() < inicioJanela) {
                 fila.removeFirst();
             }
             if (fila.size() >= MAX_TENTATIVAS) {
-                throw new TooManyRequestsException("Muitas tentativas de login. Tente novamente em alguns minutos");
+                throw new TooManyRequestsException("Muitas tentativas. Aguarde alguns minutos e tente de novo.");
             }
         }
     }
 
-    public void registrarFalha(String identificador, String ip) {
-        String chave = chave(identificador, ip);
+    public void registrarFalha(String escopo, String chaveBruta, String ip) {
+        String chave = chave(escopo, chaveBruta, ip);
         long agora = System.currentTimeMillis();
         Deque<Long> fila = tentativas.computeIfAbsent(chave, k -> new ArrayDeque<>());
         synchronized (fila) {
@@ -43,15 +57,15 @@ public class LoginRateLimiter {
         }
     }
 
-    public void limpar(String identificador, String ip) {
-        tentativas.remove(chave(identificador, ip));
+    public void limpar(String escopo, String chave, String ip) {
+        tentativas.remove(chave(escopo, chave, ip));
     }
 
-    private String chave(String identificador, String ip) {
+    private String chave(String escopo, String identificador, String ip) {
         // Mesma chave para "(63) 99999-0000" e "63999990000": o limite não se burla trocando o formato.
-        String user = Identificador.normalizado(identificador);
+        String user = ESCOPO_LOGIN.equals(escopo) ? Identificador.normalizado(identificador) : identificador;
         String origem = ip == null || ip.isBlank() ? "unknown" : ip;
-        return user + "|" + origem;
+        return escopo + "|" + user + "|" + origem;
     }
 
     /** Remove periodicamente as chaves sem tentativas recentes, para o mapa não crescer indefinidamente. */
