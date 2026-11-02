@@ -190,7 +190,7 @@ class AcessoServiceTest {
     void conviteComEmailDeOutraContaLanca409ENaoSalva() {
         when(pessoaService.buscarEntidade(pessoa.getId())).thenReturn(pessoa);
         when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.empty());
-        when(usuarioRepository.findByEmailIgnoreCase("maria@email.com")).thenReturn(Optional.of(new Usuario()));
+        when(usuarioRepository.findByEmailIgnoreCase("maria@email.com")).thenReturn(Optional.of(usuarioExistente(StatusUsuario.ATIVO)));
 
         assertThatThrownBy(() -> service.convidar(pessoa.getId()))
                 .isInstanceOf(ConflictException.class)
@@ -203,12 +203,43 @@ class AcessoServiceTest {
         stubCaminhoFeliz();
         Usuario convidado = usuarioExistente(StatusUsuario.CONVIDADO);
         when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.of(convidado));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
         LinkAcessoResponse resposta = service.convidar(pessoa.getId());
 
         assertThat(resposta.enviadoWhatsapp()).isTrue();
-        verify(usuarioRepository, never()).save(any());
         verify(tokenAcessoService).gerar(convidado.getId(), TipoTokenAcesso.CONVITE, atorId);
+    }
+
+    @Test
+    void reenvioAtualizaTelefoneDoConvidado() {
+        stubCaminhoFeliz();
+        Usuario convidado = usuarioExistente(StatusUsuario.CONVIDADO);
+        convidado.setTelefone("5563888880000");
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.of(convidado));
+        when(usuarioRepository.findByTelefone("5563999990000")).thenReturn(Optional.empty());
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.convidar(pessoa.getId());
+
+        assertThat(convidado.getTelefone()).isEqualTo("5563999990000");
+        assertThat(convidado.getEmail()).isEqualTo("maria@email.com");
+        verify(usuarioRepository).save(convidado);
+    }
+
+    @Test
+    void reenvioComTelefoneDeOutraContaLanca409() {
+        Usuario convidado = usuarioExistente(StatusUsuario.CONVIDADO);
+        when(pessoaService.buscarEntidade(pessoa.getId())).thenReturn(pessoa);
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.of(convidado));
+        Usuario outro = new Usuario();
+        outro.setId(UUID.randomUUID());
+        when(usuarioRepository.findByTelefone("5563999990000")).thenReturn(Optional.of(outro));
+
+        assertThatThrownBy(() -> service.convidar(pessoa.getId()))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Telefone já usado por outra conta");
+        verify(usuarioRepository, never()).save(any());
     }
 
     @Test

@@ -74,19 +74,34 @@ public class AcessoService {
         }
 
         Usuario usuario = usuarioRepository.findByPessoaId(pessoaId).orElse(null);
-        if (usuario == null) {
-            email.flatMap(usuarioRepository::findByEmailIgnoreCase).ifPresent(outro -> {
-                throw new ConflictException("E-mail já usado por outra conta");
-            });
-            if (telefone.isPresent() && usuarioRepository.existsByTelefone(telefone.get())) {
-                throw new ConflictException("Telefone já usado por outra conta");
+        if (usuario == null || usuario.getStatus() == StatusUsuario.CONVIDADO) {
+            UUID propriaContaId = usuario == null ? null : usuario.getId();
+            email.flatMap(usuarioRepository::findByEmailIgnoreCase)
+                    .filter(outro -> !java.util.Objects.equals(outro.getId(), propriaContaId))
+                    .ifPresent(outro -> {
+                        throw new ConflictException("E-mail já usado por outra conta");
+                    });
+            if (telefone.isPresent()) {
+                boolean outraConta = propriaContaId == null
+                        ? usuarioRepository.existsByTelefone(telefone.get())
+                        : usuarioRepository.findByTelefone(telefone.get())
+                                .filter(outro -> !java.util.Objects.equals(outro.getId(), propriaContaId)).isPresent();
+                if (outraConta) {
+                    throw new ConflictException("Telefone já usado por outra conta");
+                }
             }
+        }
+        if (usuario == null) {
             usuario = new Usuario();
             usuario.setPessoaId(pessoaId);
             usuario.setIgrejaId(pessoa.getIgrejaId());
             usuario.setEmail(email.orElse(null));
             usuario.setTelefone(telefone.orElse(null));
             usuario.setStatus(StatusUsuario.CONVIDADO);
+            usuario = usuarioRepository.save(usuario);
+        } else if (usuario.getStatus() == StatusUsuario.CONVIDADO) {
+            usuario.setEmail(email.orElse(null));
+            usuario.setTelefone(telefone.orElse(null));
             usuario = usuarioRepository.save(usuario);
         } else if (usuario.getStatus() == StatusUsuario.ATIVO) {
             throw new ConflictException("Esta pessoa já tem acesso ao app");
