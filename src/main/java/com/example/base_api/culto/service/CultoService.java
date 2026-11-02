@@ -197,10 +197,10 @@ public class CultoService {
         autorizacaoService.assertAcesso(culto.getIgrejaId());
 
         UUID pregadorPersistido = resolverPregador(culto);
-        boolean pastorAdmin = autorizacaoService.isGestao(culto.getIgrejaId());
+        boolean gestao = autorizacaoService.isGestao(culto.getIgrejaId());
         boolean podeTexto = autorizacaoService.podeEditarTexto(culto.getIgrejaId(), pregadorPersistido);
         boolean podeLouvor = autorizacaoService.podeEditarLouvor(culto.getIgrejaId());
-        if (!podeTexto && !podeLouvor) {
+        if (!podeTexto && !podeLouvor && !gestao) {
             throw new AccessDeniedException("Sem permissão para editar o conteúdo deste culto");
         }
 
@@ -210,11 +210,11 @@ public class CultoService {
         if (podeLouvor && request.louvor() != null) {
             culto.setLouvor(request.louvor());
         }
-        if (request.tema() != null && (pastorAdmin || podeTexto || podeLouvor)) {
+        if (podeTexto && request.tema() != null) {
             culto.setTema(request.tema());
         }
         if (request.pregadorPessoaId() != null) {
-            if (!pastorAdmin) {
+            if (!gestao) {
                 throw new AccessDeniedException("Somente pastor ou secretaria pode alterar o pregador");
             }
             validarPregadorDoCulto(request.pregadorPessoaId(), culto.getIgrejaId());

@@ -635,6 +635,52 @@ class CultoServiceTest {
                 .isInstanceOf(AccessDeniedException.class);
     }
 
+    @Test
+    void secretariaTrocaPregador() {
+        UUID igrejaId = UUID.randomUUID();
+        UUID pregadorId = UUID.randomUUID();
+        UUID novoPregadorId = UUID.randomUUID();
+        Culto culto = culto(igrejaId, StatusCulto.ABERTO);
+        culto.setPregadorId(pregadorId);
+
+        when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(true);
+        when(autorizacaoService.podeEditarTexto(igrejaId, pregadorId)).thenReturn(false);
+        when(autorizacaoService.podeEditarLouvor(igrejaId)).thenReturn(false);
+        Pessoa novo = pregador(novoPregadorId, "Pr. Novo");
+        novo.setIgrejaId(igrejaId);
+        when(pessoaRepository.findById(novoPregadorId)).thenReturn(Optional.of(novo));
+        when(cultoRepository.save(any(Culto.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CultoConteudoResponse response = cultoService.salvarConteudo(culto.getId(),
+                new CultoConteudoUpdateRequest(null, null, null, novoPregadorId));
+
+        assertThat(response.pregadorId()).isEqualTo(novoPregadorId);
+        assertThat(culto.getPregadorId()).isEqualTo(novoPregadorId);
+    }
+
+    @Test
+    void secretariaNaoAlteraTema() {
+        UUID igrejaId = UUID.randomUUID();
+        UUID pregadorId = UUID.randomUUID();
+        Culto culto = culto(igrejaId, StatusCulto.ABERTO);
+        culto.setPregadorId(pregadorId);
+        culto.setTema("Tema original");
+        culto.setTextoPregacao("Texto original");
+
+        when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(true);
+        when(autorizacaoService.podeEditarTexto(igrejaId, pregadorId)).thenReturn(false);
+        when(autorizacaoService.podeEditarLouvor(igrejaId)).thenReturn(false);
+        when(cultoRepository.save(any(Culto.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        cultoService.salvarConteudo(culto.getId(),
+                new CultoConteudoUpdateRequest("Texto da secretaria", null, "Tema da secretaria", null));
+
+        assertThat(culto.getTema()).isEqualTo("Tema original");
+        assertThat(culto.getTextoPregacao()).isEqualTo("Texto original");
+    }
+
     private Pessoa pregador(UUID id, String nome) {
         Pessoa pessoa = new Pessoa();
         pessoa.setId(id);

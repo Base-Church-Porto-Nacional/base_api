@@ -252,10 +252,10 @@ public class CronogramaService {
                 ? conteudo.getPregadorPessoaId()
                 : resolverPregadorDoEvento(evento);
 
-        boolean pastorAdmin = autorizacaoService.isGestao(evento.getIgrejaId());
+        boolean gestao = autorizacaoService.isGestao(evento.getIgrejaId());
         boolean podeTexto = autorizacaoService.podeEditarTexto(evento.getIgrejaId(), pregadorPersistido);
         boolean podeLouvor = autorizacaoService.podeEditarLouvor(evento.getIgrejaId());
-        if (!podeTexto && !podeLouvor) {
+        if (!podeTexto && !podeLouvor && !gestao) {
             throw new AccessDeniedException("Sem permissão para editar o conteúdo deste culto");
         }
 
@@ -266,7 +266,7 @@ public class CronogramaService {
             conteudo.setLouvor(request.louvor());
         }
         if (request.pregadorPessoaId() != null) {
-            if (!pastorAdmin) {
+            if (!gestao) {
                 throw new AccessDeniedException("Somente pastor ou secretaria pode alterar o pregador");
             }
             Pessoa pregador = pessoaRepository.findById(request.pregadorPessoaId())
