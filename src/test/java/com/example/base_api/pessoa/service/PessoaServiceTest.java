@@ -1,6 +1,7 @@
 package com.example.base_api.pessoa.service;
 
 import com.example.base_api.common.exception.BusinessException;
+import com.example.base_api.common.exception.ConflictException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.jornada.entity.JornadaMembro;
 import com.example.base_api.jornada.service.JornadaService;
@@ -40,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -64,6 +66,9 @@ class PessoaServiceTest {
 
     @Mock
     private com.example.base_api.usuario.service.LiderService liderService;
+
+    @Mock
+    private com.example.base_api.audit.service.AuditService auditService;
 
     @InjectMocks
     private PessoaService pessoaService;
@@ -632,5 +637,197 @@ class PessoaServiceTest {
         assertThatThrownBy(() -> pessoaService.atualizar(pessoa.getId(), request))
                 .isInstanceOf(BusinessException.class);
         verify(pessoaRepository, never()).save(any());
+    }
+
+    // --- edição de contato sincroniza o login da conta (quem gere contas) ---
+
+    private Usuario contaDaPessoa(StatusUsuario status, String... papeisSistema) {
+        Usuario usuario = usuarioCom(pessoa.getId(), true, papeisSistema);
+        usuario.setStatus(status);
+        usuario.setEmail("joao@email.com");
+        when(pessoaRepository.findById(pessoa.getId())).thenReturn(Optional.of(pessoa));
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.of(usuario));
+        return usuario;
+    }
+
+    private void permissoes(boolean contasGerir, boolean papeisGestao) {
+        lenient().when(autorizacaoService.tem(igrejaId, Capacidade.CONTAS_GERIR)).thenReturn(contasGerir);
+        lenient().when(autorizacaoService.tem(igrejaId, Capacidade.PAPEIS_GESTAO_ATRIBUIR)).thenReturn(papeisGestao);
+    }
+
+    private PessoaUpdateRequest contato(String email, String telefone, String whatsapp) {
+        return new PessoaUpdateRequest(null, null, email, telefone, whatsapp, null, null, null);
+    }
+
+    @Test
+    void quemGereContasSincronizaEmailETelefoneDaConta() {
+        Usuario usuario = contaDaPessoa(StatusUsuario.ATIVO, "MEMBRO");
+        permissoes(true, false);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(usuarioRepository.findByEmailIgnoreCase("novo@email.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByTelefone("5563999990000")).thenReturn(Optional.empty());
+
+        pessoaService.atualizar(pessoa.getId(), contato(" Novo@Email.com", "11 3333-4444", "(63) 99999-0000"));
+
+        assertThat(usuario.getEmail()).isEqualTo("novo@email.com");
+        assertThat(usuario.getTelefone()).isEqualTo("5563999990000");
+        verify(usuarioRepository).save(usuario);
+    }
+
+    @Test
+    void semWhatsappUsaTelefoneNormalizadoNoLogin() {
+        Usuario usuario = contaDaPessoa(StatusUsuario.CONVIDADO);
+        permissoes(true, false);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(usuarioRepository.findByTelefone("5563988887777")).thenReturn(Optional.empty());
+
+        pessoaService.atualizar(pessoa.getId(), contato(null, "(63) 98888-7777", null));
+
+        assertThat(usuario.getTelefone()).isEqualTo("5563988887777");
+        assertThat(usuario.getEmail()).isEqualTo("joao@email.com");
+    }
+
+    @Test
+    void liderEditandoContatoNaoAlteraOLogin() {
+        Usuario usuario = contaDaPessoa(StatusUsuario.ATIVO, "MEMBRO");
+        permissoes(false, false);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PessoaResponse response = pessoaService.atualizar(pessoa.getId(),
+                contato("atacante@email.com", null, "(63) 91111-2222"));
+
+        assertThat(response.email()).isEqualTo("atacante@email.com");
+        assertThat(usuario.getEmail()).isEqualTo("joao@email.com");
+        assertThat(usuario.getTelefone()).isNull();
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void secretariaNaoSincronizaLoginDeContaDePastor() {
+        Usuario usuario = contaDaPessoa(StatusUsuario.ATIVO, "PASTOR");
+        permissoes(true, false);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        pessoaService.atualizar(pessoa.getId(), contato("outro@email.com", null, "(63) 91111-2222"));
+
+        assertThat(usuario.getEmail()).isEqualTo("joao@email.com");
+        assertThat(usuario.getTelefone()).isNull();
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void pastorSincronizaLoginDeContaDeSecretaria() {
+        Usuario usuario = contaDaPessoa(StatusUsuario.ATIVO, "SECRETARIA");
+        permissoes(true, true);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(usuarioRepository.findByTelefone("5563911112222")).thenReturn(Optional.empty());
+
+        pessoaService.atualizar(pessoa.getId(), contato(null, null, "(63) 91111-2222"));
+
+        assertThat(usuario.getTelefone()).isEqualTo("5563911112222");
+        verify(usuarioRepository).save(usuario);
+    }
+
+    @Test
+    void telefoneDeOutraContaNaSincronizacaoLanca409() {
+        contaDaPessoa(StatusUsuario.ATIVO, "MEMBRO");
+        permissoes(true, false);
+        Usuario outro = new Usuario();
+        outro.setId(UUID.randomUUID());
+        when(usuarioRepository.findByTelefone("5563911112222")).thenReturn(Optional.of(outro));
+
+        assertThatThrownBy(() -> pessoaService.atualizar(pessoa.getId(), contato(null, null, "(63) 91111-2222")))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Telefone já usado por outra conta");
+        verify(pessoaRepository, never()).save(any());
+    }
+
+    @Test
+    void emailDeOutraContaNaSincronizacaoLanca409() {
+        contaDaPessoa(StatusUsuario.ATIVO, "MEMBRO");
+        permissoes(true, false);
+        Usuario outro = new Usuario();
+        outro.setId(UUID.randomUUID());
+        when(usuarioRepository.findByEmailIgnoreCase("novo@email.com")).thenReturn(Optional.of(outro));
+
+        assertThatThrownBy(() -> pessoaService.atualizar(pessoa.getId(), contato("novo@email.com", null, null)))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("E-mail já usado por outra conta");
+        verify(pessoaRepository, never()).save(any());
+    }
+
+    @Test
+    void edicaoSemContatoNaoMexeNoLogin() {
+        Usuario usuario = contaDaPessoa(StatusUsuario.ATIVO, "MEMBRO");
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        pessoaService.atualizar(pessoa.getId(), new PessoaUpdateRequest(
+                "João Novo", null, null, null, null, null, null, null));
+
+        assertThat(usuario.getEmail()).isEqualTo("joao@email.com");
+        verify(usuarioRepository, never()).save(any());
+        verify(autorizacaoService, never()).tem(igrejaId, Capacidade.CONTAS_GERIR);
+    }
+
+    // --- excluir pessoa com conta ---
+
+    @Test
+    void excluirPessoaComContaConvidadaApagaAContaAntes() {
+        Usuario usuario = contaDaPessoa(StatusUsuario.CONVIDADO);
+
+        pessoaService.excluir(pessoa.getId());
+
+        org.mockito.InOrder ordem = org.mockito.Mockito.inOrder(usuarioRepository, pessoaRepository);
+        ordem.verify(usuarioRepository).delete(usuario);
+        ordem.verify(usuarioRepository).flush();
+        ordem.verify(pessoaRepository).delete(pessoa);
+        verify(auditService).registrar(org.mockito.ArgumentMatchers.eq("EXCLUIR_USUARIO"),
+                org.mockito.ArgumentMatchers.eq("usuario"),
+                org.mockito.ArgumentMatchers.contains(usuario.getId().toString()));
+    }
+
+    @Test
+    void excluirPessoaComContaDesativadaApagaAConta() {
+        Usuario usuario = contaDaPessoa(StatusUsuario.DESATIVADO, "MEMBRO");
+
+        pessoaService.excluir(pessoa.getId());
+
+        verify(usuarioRepository).delete(usuario);
+        verify(pessoaRepository).delete(pessoa);
+    }
+
+    @Test
+    void excluirPessoaComContaAtivaLanca409() {
+        contaDaPessoa(StatusUsuario.ATIVO, "MEMBRO");
+
+        assertThatThrownBy(() -> pessoaService.excluir(pessoa.getId()))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Esta pessoa tem acesso ativo ao app. Desative o acesso antes de excluir.");
+        verify(usuarioRepository, never()).delete(any());
+        verify(pessoaRepository, never()).delete(any());
+    }
+
+    @Test
+    void excluirPessoaComContaDesativadaDePastorExigePapeisGestao() {
+        contaDaPessoa(StatusUsuario.DESATIVADO, "PASTOR");
+        doThrow(new AccessDeniedException("Somente o pastor"))
+                .when(autorizacaoService).assertPodeAtribuirPapeisGestao(igrejaId);
+
+        assertThatThrownBy(() -> pessoaService.excluir(pessoa.getId()))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(usuarioRepository, never()).delete(any());
+        verify(pessoaRepository, never()).delete(any());
+    }
+
+    @Test
+    void excluirPessoaSemContaApagaSoAPessoa() {
+        when(pessoaRepository.findById(pessoa.getId())).thenReturn(Optional.of(pessoa));
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.empty());
+
+        pessoaService.excluir(pessoa.getId());
+
+        verify(pessoaRepository).delete(pessoa);
+        verify(usuarioRepository, never()).delete(any());
+        verify(auditService, never()).registrar(any(), any(), any());
     }
 }

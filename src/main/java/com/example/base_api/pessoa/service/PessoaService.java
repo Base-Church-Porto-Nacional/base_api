@@ -1,6 +1,8 @@
 package com.example.base_api.pessoa.service;
 
+import com.example.base_api.audit.service.AuditService;
 import com.example.base_api.common.exception.BusinessException;
+import com.example.base_api.common.exception.ConflictException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.jornada.entity.JornadaMembro;
 import com.example.base_api.jornada.service.JornadaService;
@@ -12,8 +14,10 @@ import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.security.Capacidade;
+import com.example.base_api.security.Identificador;
 import com.example.base_api.security.Papeis;
 import com.example.base_api.usuario.service.LiderService;
+import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.repository.UsuarioRepository;
 import com.example.base_api.voluntario.entity.PessoaServico;
@@ -45,6 +49,7 @@ public class PessoaService {
     private final UsuarioRepository usuarioRepository;
     private final PessoaServicoRepository pessoaServicoRepository;
     private final LiderService liderService;
+    private final AuditService auditService;
 
     private static final String FUNCAO_LIDER = "LIDER";
     private static final String FUNCAO_VOLUNTARIO = "VOLUNTARIO";
@@ -56,9 +61,11 @@ public class PessoaService {
             AutorizacaoService autorizacaoService,
             UsuarioRepository usuarioRepository,
             PessoaServicoRepository pessoaServicoRepository,
-            LiderService liderService
+            LiderService liderService,
+            AuditService auditService
     ) {
         this.liderService = liderService;
+        this.auditService = auditService;
         this.pessoaRepository = pessoaRepository;
         this.jornadaService = jornadaService;
         this.autorizacaoService = autorizacaoService;
@@ -184,15 +191,92 @@ public class PessoaService {
         if (alteraObservacoes) {
             pessoa.setObservacoes(blankToNull(request.observacoes()));
         }
+        if (request.email() != null || request.telefone() != null || request.whatsapp() != null) {
+            sincronizarLoginDaConta(pessoa);
+        }
 
         return toResponse(pessoaRepository.save(pessoa));
     }
 
+    /**
+     * Leva e-mail (minúsculo) e telefone (WhatsApp normalizado, senão o telefone) da pessoa para a conta.
+     * Só quem gere contas na igreja — e, se a conta é de pastor/secretaria, só quem atribui esses papéis.
+     * Um líder editando o contato do seu voluntário NÃO troca o login dele (seria tomada de conta).
+     */
+    private void sincronizarLoginDaConta(Pessoa pessoa) {
+        Usuario usuario = usuarioRepository.findByPessoaId(pessoa.getId()).orElse(null);
+        if (usuario == null) {
+            return;
+        }
+        UUID igrejaId = usuario.getIgrejaId() != null ? usuario.getIgrejaId() : pessoa.getIgrejaId();
+        if (!autorizacaoService.tem(igrejaId, Capacidade.CONTAS_GERIR)) {
+            return;
+        }
+        boolean contaDeGestao = usuario.nomesPapeisSistema(igrejaId).stream().anyMatch(Papeis.GESTAO::contains);
+        if (contaDeGestao && !autorizacaoService.tem(igrejaId, Capacidade.PAPEIS_GESTAO_ATRIBUIR)) {
+            return;
+        }
+
+        String email = Identificador.email(pessoa.getEmail()).orElse(null);
+        String telefone = Identificador.telefone(pessoa.getWhatsapp())
+                .or(() -> Identificador.telefone(pessoa.getTelefone()))
+                .orElse(null);
+        boolean emailMudou = !Objects.equals(email, usuario.getEmail());
+        boolean telefoneMudou = !Objects.equals(telefone, usuario.getTelefone());
+        if (!emailMudou && !telefoneMudou) {
+            return;
+        }
+        if (email == null && telefone == null) {
+            throw new BusinessException("Informe e-mail ou telefone para entrar no app");
+        }
+        if (email != null && emailMudou) {
+            usuarioRepository.findByEmailIgnoreCase(email)
+                    .filter(outro -> !outro.getId().equals(usuario.getId()))
+                    .ifPresent(outro -> {
+                        throw new ConflictException("E-mail já usado por outra conta");
+                    });
+        }
+        if (telefone != null && telefoneMudou) {
+            usuarioRepository.findByTelefone(telefone)
+                    .filter(outro -> !outro.getId().equals(usuario.getId()))
+                    .ifPresent(outro -> {
+                        throw new ConflictException("Telefone já usado por outra conta");
+                    });
+        }
+        usuario.setEmail(email);
+        usuario.setTelefone(telefone);
+        usuarioRepository.save(usuario);
+        auditService.registrar("SINCRONIZAR_LOGIN", "usuario", "usuarioId=" + usuario.getId()
+                + " email=" + emailMudou + " telefone=" + telefoneMudou);
+    }
+
+    /**
+     * Conta CONVIDADO/DESATIVADO sai junto com a pessoa (papéis e tokens caem em cascata no banco);
+     * com acesso ATIVO é preciso desativar antes.
+     */
     @Transactional
     public void excluir(UUID id) {
         Pessoa pessoa = buscarEntidade(id);
         autorizacaoService.assertTem(pessoa.getIgrejaId(), Capacidade.PESSOAS_GERIR);
+        Usuario usuario = usuarioRepository.findByPessoaId(id).orElse(null);
+        if (usuario != null) {
+            if (usuario.getStatus() == StatusUsuario.ATIVO) {
+                throw new ConflictException("Esta pessoa tem acesso ativo ao app. Desative o acesso antes de excluir.");
+            }
+            UUID igrejaConta = usuario.getIgrejaId() != null ? usuario.getIgrejaId() : pessoa.getIgrejaId();
+            if (usuario.nomesPapeisSistema(igrejaConta).stream().anyMatch(Papeis.GESTAO::contains)) {
+                autorizacaoService.assertPodeAtribuirPapeisGestao(igrejaConta);
+            }
+            usuarioRepository.delete(usuario);
+            usuarioRepository.flush();
+        }
         pessoaRepository.delete(pessoa);
+        if (usuario != null) {
+            // Audita depois do flush: o registro é REQUIRES_NEW e não deve sobrar se a exclusão falhar.
+            pessoaRepository.flush();
+            auditService.registrar("EXCLUIR_USUARIO", "usuario",
+                    "usuarioId=" + usuario.getId() + " pessoaId=" + id + " status=" + usuario.getStatus());
+        }
     }
 
     @Transactional(readOnly = true)
