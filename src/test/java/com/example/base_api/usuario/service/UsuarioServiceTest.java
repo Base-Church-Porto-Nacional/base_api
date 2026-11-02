@@ -127,7 +127,7 @@ class UsuarioServiceTest {
     @Test
     void membroNaoCriaUsuario() {
         UUID igrejaId = UUID.randomUUID();
-        doThrow(new AccessDeniedException("Somente pastor ou admin desta igreja"))
+        doThrow(new AccessDeniedException("Somente pastor ou secretaria desta igreja"))
                 .when(autorizacaoService).assertPodeCriarUsuario(igrejaId);
 
         assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
@@ -201,7 +201,7 @@ class UsuarioServiceTest {
         semPessoa.setIgrejaId(igrejaId);
 
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(true);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(true);
         when(usuarioRepository.findByIgrejaIdIn(List.of(igrejaId))).thenReturn(List.of(comPessoa, semPessoa));
         when(pessoaService.nomesPorId(any())).thenReturn(Map.of(pessoaA, "Ana"));
         when(igrejaRepository.findAllById(any())).thenReturn(List.of(igreja));

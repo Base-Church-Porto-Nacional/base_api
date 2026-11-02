@@ -78,7 +78,7 @@ public class UsuarioService {
     @Transactional(readOnly = true)
     public List<UsuarioResponse> listar(UUID igrejaId) {
         List<UUID> ids = autorizacaoService.idsParaListagem(igrejaId).stream()
-                .filter(autorizacaoService::isPastorOuAdmin)
+                .filter(autorizacaoService::isGestao)
                 .toList();
         if (ids.isEmpty()) {
             return List.of();
@@ -101,7 +101,7 @@ public class UsuarioService {
     @Transactional(readOnly = true)
     public UsuarioResponse buscarPorId(UUID id) {
         Usuario usuario = buscarEntidade(id);
-        autorizacaoService.assertPastorOuAdmin(usuario.getIgrejaId());
+        autorizacaoService.assertGestao(usuario.getIgrejaId());
         return toResponse(usuario);
     }
 
@@ -141,7 +141,7 @@ public class UsuarioService {
     @Transactional
     public UsuarioResponse atualizar(UUID id, UsuarioUpdateRequest request) {
         Usuario usuario = buscarEntidade(id);
-        autorizacaoService.assertPastorOuAdmin(usuario.getIgrejaId());
+        autorizacaoService.assertGestao(usuario.getIgrejaId());
 
         usuarioRepository.findByEmailIgnoreCase(request.email()).ifPresent(outro -> {
             if (!outro.getId().equals(id)) {
@@ -188,7 +188,7 @@ public class UsuarioService {
         for (String nome : request.papeis()) {
             String papel = nome.toUpperCase();
             if (!AutorizacaoService.PAPEIS_GESTAO.contains(papel)) {
-                throw new AccessDeniedException("Somente ADMIN ou PASTOR podem ser promovidos neste endpoint");
+                throw new AccessDeniedException("Somente PASTOR ou SECRETARIA podem ser promovidos neste endpoint");
             }
             atuais.add(papel);
         }
@@ -206,7 +206,7 @@ public class UsuarioService {
     @Transactional
     public void excluir(UUID id) {
         Usuario usuario = buscarEntidade(id);
-        autorizacaoService.assertPastorOuAdmin(usuario.getIgrejaId());
+        autorizacaoService.assertGestao(usuario.getIgrejaId());
         usuarioRepository.excluirDireto(id);
     }
 

@@ -175,7 +175,7 @@ class AniversarioServiceTest {
 
         String resumo = aniversarioService.enviarAniversariantesDoDiaManual(igrejaId);
 
-        verify(autorizacaoService).assertPastorOuAdmin(igrejaId);
+        verify(autorizacaoService).assertGestao(igrejaId);
         verify(auditService).registrar(eq("ENVIAR_ANIVERSARIO"), eq("pessoa"), contains("data="));
         assertThat(resumo).isNotBlank();
     }

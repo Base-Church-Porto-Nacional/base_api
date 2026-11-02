@@ -218,7 +218,7 @@ class CategoriaCultoServiceTest {
     void naoDeveCriarCategoriaParaIgrejaForaDoAcessoDoUsuario() {
         UUID igrejaId = UUID.randomUUID();
         doThrow(new BusinessException("Sem permissão para gerenciar esta igreja"))
-                .when(autorizacaoService).assertPastorOuAdmin(igrejaId);
+                .when(autorizacaoService).assertGestao(igrejaId);
 
         assertThatThrownBy(() -> categoriaService.criar(new CategoriaCultoCreateRequest(
                 "Domingo inesquecível", null, DiaSemana.DOMINGO, null, null, null, igrejaId)))
@@ -308,7 +308,7 @@ class CategoriaCultoServiceTest {
 
         when(categoriaRepository.findById(id)).thenReturn(Optional.of(categoria));
         doThrow(new BusinessException("Sem permissão para gerenciar esta igreja"))
-                .when(autorizacaoService).assertPastorOuAdmin(igrejaId);
+                .when(autorizacaoService).assertGestao(igrejaId);
 
         assertThatThrownBy(() -> categoriaService.atualizar(id, new CategoriaCultoUpdateRequest(
                 "Culto da Família", null, DiaSemana.DOMINGO, null, null, null, true)))

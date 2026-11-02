@@ -425,8 +425,8 @@ class EscalaAutomacaoServiceTest {
 
     @Test
     void gerarProximoMesManualDeveExigirPermissaoDeMatriz() {
-        doThrow(new AccessDeniedException("Apenas matriz/pastor/administrador"))
-                .when(autorizacaoService).assertMatrizPastorOuAdmin();
+        doThrow(new AccessDeniedException("Apenas matriz/pastor/secretariaistrador"))
+                .when(autorizacaoService).assertMatrizGestao();
 
         assertThatThrownBy(() -> escalaAutomacaoService.gerarProximoMesManual())
                 .isInstanceOf(AccessDeniedException.class)
@@ -443,7 +443,7 @@ class EscalaAutomacaoServiceTest {
 
         assertThat(resumo).contains(YearMonth.now().plusMonths(1).toString());
         assertThat(resumo).contains("0 criadas, 0 atualizadas");
-        verify(autorizacaoService, never()).assertMatrizPastorOuAdmin();
+        verify(autorizacaoService, never()).assertMatrizGestao();
     }
 
     private Ministerio ministerio() {

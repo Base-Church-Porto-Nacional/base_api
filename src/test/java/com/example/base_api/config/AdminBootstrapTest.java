@@ -140,6 +140,6 @@ class AdminBootstrapTest {
         ArgumentCaptor<UsuarioPapel> vinculos = ArgumentCaptor.forClass(UsuarioPapel.class);
         verify(usuarioPapelRepository, times(2)).save(vinculos.capture());
         assertThat(vinculos.getAllValues()).extracting(v -> v.getPapel().getNome())
-                .containsExactlyInAnyOrder("ADMIN", "PASTOR");
+                .containsExactlyInAnyOrder("PASTOR", "SECRETARIA");
     }
 }

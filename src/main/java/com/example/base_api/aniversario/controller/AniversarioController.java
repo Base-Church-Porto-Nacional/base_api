@@ -101,7 +101,7 @@ public class AniversarioController {
             return List.of();
         }
         for (UUID id : ids) {
-            autorizacaoService.assertPastorOuAdmin(id);
+            autorizacaoService.assertGestao(id);
         }
         LocalDate inicio = de != null ? de : LocalDate.now().minusMonths(1);
         LocalDate fim = ate != null ? ate : LocalDate.now();

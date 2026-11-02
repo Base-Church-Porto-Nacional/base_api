@@ -3,6 +3,7 @@ package com.example.base_api.config;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.entity.IgrejaTipo;
 import com.example.base_api.igreja.repository.IgrejaRepository;
+import com.example.base_api.security.Papeis;
 import com.example.base_api.jornada.service.JornadaService;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
@@ -37,7 +38,7 @@ public class AdminBootstrap implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(AdminBootstrap.class);
 
     static final int SENHA_MIN = 8;
-    static final List<String> PAPEIS_ADMIN = List.of("ADMIN", "PASTOR");
+    static final List<String> PAPEIS_ADMIN = List.of(Papeis.PASTOR, Papeis.SECRETARIA);
 
     private final Environment environment;
     private final IgrejaRepository igrejaRepository;

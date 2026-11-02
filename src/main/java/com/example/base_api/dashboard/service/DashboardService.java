@@ -53,7 +53,7 @@ public class DashboardService {
 
     @Transactional(readOnly = true)
     public DashboardResponse obterResumo() {
-        autorizacaoService.assertPastorOuAdmin(autorizacaoService.igrejaAtualId());
+        autorizacaoService.assertGestao(autorizacaoService.igrejaAtualId());
         List<UUID> ids = autorizacaoService.idsParaListagem(null);
         if (ids.isEmpty()) {
             return new DashboardResponse(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);

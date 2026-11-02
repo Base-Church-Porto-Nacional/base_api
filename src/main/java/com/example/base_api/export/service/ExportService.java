@@ -112,7 +112,7 @@ public class ExportService {
 
     @Transactional(readOnly = true)
     public ExportFile exportar(String recurso, FormatoExportacao formato) {
-        autorizacaoService.assertPastorOuAdmin(autorizacaoService.igrejaAtualId());
+        autorizacaoService.assertGestao(autorizacaoService.igrejaAtualId());
         Escopo escopo = carregarEscopo();
         ExportDocument document = switch (recurso.toLowerCase()) {
             case "pessoas" -> documento("pessoas", sheetPessoas(escopo));

@@ -72,27 +72,27 @@ class AutorizacaoServiceTest {
 
     @Test
     void membroNaoCriaFilial() {
-        doThrow(new AccessDeniedException("Somente pastor ou admin da matriz"))
-                .when(igrejaContextoService).assertMatrizPastorOuAdmin();
+        doThrow(new AccessDeniedException("Somente pastor ou secretaria da matriz"))
+                .when(igrejaContextoService).assertMatrizGestao();
 
-        assertThatThrownBy(() -> autorizacaoService.assertMatrizPastorOuAdmin())
+        assertThatThrownBy(() -> autorizacaoService.assertMatrizGestao())
                 .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
     void membroNaoCriaUsuario() {
-        doThrow(new AccessDeniedException("Somente pastor ou admin desta igreja"))
-                .when(igrejaContextoService).assertPastorOuAdmin(igrejaId);
+        doThrow(new AccessDeniedException("Somente pastor ou secretaria desta igreja"))
+                .when(igrejaContextoService).assertGestao(igrejaId);
 
         assertThatThrownBy(() -> autorizacaoService.assertPodeCriarUsuario(igrejaId))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
-    void atalhoRejeitaPapeisAdminPastor() {
-        assertThatThrownBy(() -> autorizacaoService.validarPapeisAtalho(Set.of("ADMIN")))
+    void atalhoRejeitaPapeisDeGestao() {
+        assertThatThrownBy(() -> autorizacaoService.validarPapeisAtalho(Set.of("SECRETARIA")))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("ADMIN/PASTOR");
+                .hasMessageContaining("PASTOR/SECRETARIA");
         assertThatThrownBy(() -> autorizacaoService.validarPapeisAtalho(Set.of("PASTOR")))
                 .isInstanceOf(AccessDeniedException.class);
     }
@@ -100,7 +100,7 @@ class AutorizacaoServiceTest {
     @Test
     void membroNaoCriaEscalaSupervisor() {
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
 
         assertThatThrownBy(() -> autorizacaoService.assertPodeCriarEscala(
                 TipoEscala.SUPERVISOR, igrejaId, "2026-08", null
@@ -111,7 +111,7 @@ class AutorizacaoServiceTest {
     @Test
     void membroNaoEditaTextoDoCulto() {
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
 
         boolean pode = autorizacaoService.podeEditarTexto(igrejaId, UUID.randomUUID());
 
@@ -125,7 +125,7 @@ class AutorizacaoServiceTest {
         outra.setIgrejaId(igrejaId);
 
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
 
         assertThatThrownBy(() -> autorizacaoService.assertPodeAcessarDisponibilidade(outra))
                 .isInstanceOf(AccessDeniedException.class)
@@ -148,7 +148,7 @@ class AutorizacaoServiceTest {
         alheio.setLiderPessoaId(UUID.randomUUID());
 
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
         when(escalaRepository.findByIgrejaIdAndCompetenciaAndTipo(igrejaId, "2026-08", TipoEscala.SUPERVISOR))
                 .thenReturn(java.util.List.of());
         when(ministerioRepository.findById(ministerioProprio)).thenReturn(Optional.of(proprio));
@@ -169,7 +169,7 @@ class AutorizacaoServiceTest {
         outra.setIgrejaId(igrejaId);
 
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
         when(ministerioRepository.findByIgrejaIdOrderByNomeAsc(igrejaId)).thenReturn(java.util.List.of());
 
         assertThatThrownBy(() -> autorizacaoService.assertPodeVerPessoa(outra))
@@ -190,7 +190,7 @@ class AutorizacaoServiceTest {
     @Test
     void papelCustomizadoComPermissaoLancaContagem() {
         membro.getPapeisIgreja().add(vinculo(papelCustomizado("CONTADOR", true), igrejaId));
-        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
 
         assertThat(autorizacaoService.podeLancarContagem(igrejaId)).isTrue();
@@ -199,7 +199,7 @@ class AutorizacaoServiceTest {
     @Test
     void papelCustomizadoSemPermissaoNaoLancaContagem() {
         membro.getPapeisIgreja().add(vinculo(papelCustomizado("RECEPCAO", false), igrejaId));
-        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
 
         assertThatThrownBy(() -> autorizacaoService.assertPodeLancarContagem(igrejaId))
@@ -210,7 +210,7 @@ class AutorizacaoServiceTest {
     @Test
     void permissaoDeContagemDeOutraIgrejaNaoVale() {
         membro.getPapeisIgreja().add(vinculo(papelCustomizado("CONTADOR", true), UUID.randomUUID()));
-        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
 
         assertThat(autorizacaoService.podeLancarContagem(igrejaId)).isFalse();
@@ -218,7 +218,7 @@ class AutorizacaoServiceTest {
 
     @Test
     void pastorOuAdminLancaContagemSemPapelEspecial() {
-        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(true);
+        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(true);
 
         assertThat(autorizacaoService.podeLancarContagem(igrejaId)).isTrue();
     }
@@ -245,10 +245,10 @@ class AutorizacaoServiceTest {
     void pastorVeTodasAsPessoasDaIgrejaConsultandoOPapelUmaVezPorIgreja() {
         List<Pessoa> pessoas = List.of(pessoaDaIgreja(), pessoaDaIgreja(), pessoaDaIgreja());
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(true);
+        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(true);
 
         assertThat(autorizacaoService.filtrarVisiveisNaListagem(pessoas)).containsExactlyElementsOf(pessoas);
-        verify(igrejaContextoService, times(1)).isPastorOuAdmin(igrejaId);
+        verify(igrejaContextoService, times(1)).isGestao(igrejaId);
         verify(ministerioRepository, never()).findByIgrejaIdOrderByNomeAsc(any());
     }
 
@@ -278,7 +278,7 @@ class AutorizacaoServiceTest {
         vinculo.setAtivo(true);
 
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
         when(ministerioRepository.findByIgrejaIdOrderByNomeAsc(igrejaId)).thenReturn(List.of(meu, alheio));
         when(servicoRepository.findByMinisterioIdInOrderByNomeAsc(List.of(meu.getId()))).thenReturn(List.of(servicoMeu));
         when(pessoaServicoRepository.findByServicoIdInAndAtivoTrue(List.of(servicoMeu.getId()))).thenReturn(List.of(vinculo));
@@ -297,7 +297,7 @@ class AutorizacaoServiceTest {
         eu.setId(pessoaId);
         Pessoa outra = pessoaDaIgreja();
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
-        when(igrejaContextoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(igrejaContextoService.isGestao(igrejaId)).thenReturn(false);
         when(ministerioRepository.findByIgrejaIdOrderByNomeAsc(igrejaId)).thenReturn(List.of());
 
         assertThat(autorizacaoService.filtrarVisiveisNaListagem(List.of(outra, eu))).containsExactly(eu);

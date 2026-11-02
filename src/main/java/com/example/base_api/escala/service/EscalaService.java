@@ -120,7 +120,7 @@ public class EscalaService {
         UUID pessoaFiltro = pessoaId;
         if (pessoaFiltro != null
                 && !pessoaFiltro.equals(usuario.getPessoaId())
-                && ids.stream().noneMatch(autorizacaoService::isPastorOuAdmin)) {
+                && ids.stream().noneMatch(autorizacaoService::isGestao)) {
             throw new AccessDeniedException("Sem permissão para ver escalas de outra pessoa");
         }
 
@@ -173,7 +173,7 @@ public class EscalaService {
                     .filter(m -> m.getId().equals(ministerioId))
                     .findFirst()
                     .orElseThrow(() -> new AccessDeniedException("Ministério não encontrado ou fora do seu acesso"));
-            if (!autorizacaoService.isPastorOuAdmin(alvo.getIgrejaId())
+            if (!autorizacaoService.isGestao(alvo.getIgrejaId())
                     && (pessoaLogada == null || (!pessoaLogada.equals(alvo.getLiderPessoaId())
                             && !pessoaLogada.equals(alvo.getCoordenadorPessoaId())))) {
                 throw new AccessDeniedException("Sem permissão para ver a escala deste ministério");
@@ -181,7 +181,7 @@ public class EscalaService {
             selecionados = List.of(alvo);
         } else {
             selecionados = visiveis.stream()
-                    .filter(m -> autorizacaoService.isPastorOuAdmin(m.getIgrejaId())
+                    .filter(m -> autorizacaoService.isGestao(m.getIgrejaId())
                             || (pessoaLogada != null && (pessoaLogada.equals(m.getLiderPessoaId())
                                     || pessoaLogada.equals(m.getCoordenadorPessoaId()))))
                     .toList();

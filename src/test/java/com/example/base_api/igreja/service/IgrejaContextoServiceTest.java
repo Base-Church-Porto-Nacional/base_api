@@ -119,23 +119,23 @@ class IgrejaContextoServiceTest {
     }
 
     @Test
-    void assertPastorOuAdminResolveOUsuarioUmaUnicaVez() {
+    void assertGestaoResolveOUsuarioUmaUnicaVez() {
         usuario.getPapeisIgreja().add(vinculo("PASTOR", filial.getId()));
         autenticarComId();
 
-        igrejaContextoService.assertPastorOuAdmin(filial.getId());
+        igrejaContextoService.assertGestao(filial.getId());
 
         verify(usuarioRepository, times(1)).findById(usuario.getId());
     }
 
     @Test
-    void assertPastorOuAdminNegaMembroComum() {
+    void assertGestaoNegaMembroComum() {
         usuario.getPapeisIgreja().add(vinculo("MEMBRO", filial.getId()));
         autenticarComId();
 
-        assertThatThrownBy(() -> igrejaContextoService.assertPastorOuAdmin(filial.getId()))
+        assertThatThrownBy(() -> igrejaContextoService.assertGestao(filial.getId()))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("Somente pastor ou admin");
+                .hasMessageContaining("Somente pastor ou secretaria");
     }
 
     @Test
@@ -151,9 +151,34 @@ class IgrejaContextoServiceTest {
         when(igrejaRepository.findById(matriz.getId())).thenReturn(Optional.of(matriz));
         when(igrejaRepository.findByIgrejaMatrizIdOrderByNomeAsc(matriz.getId())).thenReturn(List.of(filial));
 
-        igrejaContextoService.assertPastorOuAdmin(filial.getId());
+        igrejaContextoService.assertGestao(filial.getId());
 
         assertThat(igrejaContextoService.idsParaListagem(null)).containsExactly(matriz.getId(), filial.getId());
+    }
+
+    @Test
+    void secretariaDaMatrizEhGestaoNaFilial() {
+        Igreja matriz = new Igreja();
+        matriz.setId(UUID.randomUUID());
+        matriz.setTipo(IgrejaTipo.MATRIZ);
+        matriz.setAtivo(true);
+        filial.setIgrejaMatrizId(matriz.getId());
+        usuario.setIgrejaId(matriz.getId());
+        usuario.getPapeisIgreja().add(vinculo("SECRETARIA", matriz.getId()));
+        autenticarComId();
+
+        assertThat(igrejaContextoService.isGestao(filial.getId())).isTrue();
+    }
+
+    @Test
+    void secretariaDaFilialNaoAcessaMatriz() {
+        UUID matrizId = UUID.randomUUID();
+        filial.setIgrejaMatrizId(matrizId);
+        usuario.getPapeisIgreja().add(vinculo("SECRETARIA", filial.getId()));
+        autenticarComId();
+
+        assertThatThrownBy(() -> igrejaContextoService.assertAcesso(matrizId))
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     private UsuarioPapel vinculo(String nomePapel, UUID igrejaId) {

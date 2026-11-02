@@ -4,6 +4,7 @@ import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.common.exception.UnauthorizedException;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.repository.IgrejaRepository;
+import com.example.base_api.security.Papeis;
 import com.example.base_api.security.UsuarioAutenticado;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.repository.UsuarioRepository;
@@ -85,33 +86,33 @@ public class IgrejaContextoService {
         Igreja alvo = igrejaRepository.findById(igrejaId).orElse(null);
         if (alvo != null && !alvo.isMatriz() && alvo.getIgrejaMatrizId() != null) {
             usuario.nomesPapeis(alvo.getIgrejaMatrizId()).stream()
-                    .filter(nome -> "ADMIN".equals(nome) || "PASTOR".equals(nome))
+                    .filter(Papeis.GESTAO::contains)
                     .forEach(papeis::add);
         }
         return papeis;
     }
 
-    public boolean isPastorOuAdmin(UUID igrejaId) {
-        return isPastorOuAdmin(requireUsuario(), igrejaId);
+    public boolean isGestao(UUID igrejaId) {
+        return isGestao(requireUsuario(), igrejaId);
     }
 
     public boolean isMatriz() {
         return igrejaAtual().isMatriz();
     }
 
-    public void assertPastorOuAdmin(UUID igrejaId) {
+    public void assertGestao(UUID igrejaId) {
         Usuario usuario = requireUsuario();
         assertAcesso(usuario, igrejaId);
-        if (!isPastorOuAdmin(usuario, igrejaId)) {
-            throw new AccessDeniedException("Somente pastor ou admin desta igreja");
+        if (!isGestao(usuario, igrejaId)) {
+            throw new AccessDeniedException("Somente pastor ou secretaria desta igreja");
         }
     }
 
-    public void assertMatrizPastorOuAdmin() {
+    public void assertMatrizGestao() {
         Usuario usuario = requireUsuario();
         Igreja atual = igrejaAtual(usuario);
-        if (!atual.isMatriz() || !isPastorOuAdmin(usuario, atual.getId())) {
-            throw new AccessDeniedException("Somente pastor ou admin da matriz");
+        if (!atual.isMatriz() || !isGestao(usuario, atual.getId())) {
+            throw new AccessDeniedException("Somente pastor ou secretaria da matriz");
         }
     }
 
@@ -141,9 +142,9 @@ public class IgrejaContextoService {
         }
     }
 
-    private boolean isPastorOuAdmin(Usuario usuario, UUID igrejaId) {
+    private boolean isGestao(Usuario usuario, UUID igrejaId) {
         Set<String> papeis = papeisNaIgreja(usuario, igrejaId);
-        return papeis.contains("ADMIN") || papeis.contains("PASTOR");
+        return papeis.stream().anyMatch(Papeis.GESTAO::contains);
     }
 
     private static List<UUID> ids(List<Igreja> igrejas) {

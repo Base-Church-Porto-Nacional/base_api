@@ -268,7 +268,7 @@ class EscalaServiceTest {
 
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
         when(autorizacaoService.requireUsuario()).thenReturn(usuarioLogado(pessoaId));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
         when(ministerioRepository.findByIgrejaIdInOrderByNomeAsc(anyList())).thenReturn(List.of(ministerioLiderado));
         when(escalaRepository.findByMinisterioIdAndCompetenciaAndAtivoTrueOrderByDataEventoAsc(
                 ministerioId, "2026-08")).thenReturn(List.of(escalaMensal()));
@@ -316,7 +316,7 @@ class EscalaServiceTest {
 
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
         when(autorizacaoService.requireUsuario()).thenReturn(usuarioLogado(pessoaId));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
         when(ministerioRepository.findByIgrejaIdInOrderByNomeAsc(anyList())).thenReturn(List.of(alheio));
 
         assertThatThrownBy(() -> escalaService.visaoMensal(igrejaId, "2026-08", ministerioId))
@@ -785,7 +785,7 @@ class EscalaServiceTest {
     void naoDeveListarEscalasDeOutraPessoaParaVoluntarioComum() {
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
         when(autorizacaoService.requireUsuario()).thenReturn(usuarioLogado(pessoaId));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
 
         assertThatThrownBy(() -> escalaService.listar(igrejaId, null, UUID.randomUUID()))
                 .isInstanceOf(AccessDeniedException.class)
@@ -799,7 +799,7 @@ class EscalaServiceTest {
 
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
         when(autorizacaoService.requireUsuario()).thenReturn(usuarioLogado(pessoaId));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(true);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(true);
         when(escalaRepository.findByIgrejaIdInAndCompetenciaOrderByTipoAscTituloAsc(List.of(igrejaId), "2026-08"))
                 .thenReturn(List.of(escalaVisivel));
         when(autorizacaoService.podeVerEscala(escalaVisivel)).thenReturn(true);
@@ -1294,7 +1294,7 @@ class EscalaServiceTest {
 
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
         when(autorizacaoService.requireUsuario()).thenReturn(usuarioLogado(pessoaId));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
         when(ministerioRepository.findByIgrejaIdInOrderByNomeAsc(anyList())).thenReturn(List.of(alheio));
 
         assertThatThrownBy(() -> escalaService.visaoMensal(igrejaId, "2026-08", null))
@@ -1309,7 +1309,7 @@ class EscalaServiceTest {
 
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
         when(autorizacaoService.requireUsuario()).thenReturn(usuarioLogado(pessoaId));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
         when(ministerioRepository.findByIgrejaIdInOrderByNomeAsc(anyList())).thenReturn(List.of(departamento));
         when(escalaRepository.findByMinisterioIdAndCompetenciaAndAtivoTrueOrderByDataEventoAsc(ministerioId, "2026-08"))
                 .thenReturn(List.of());
@@ -1347,7 +1347,7 @@ class EscalaServiceTest {
 
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
         when(autorizacaoService.requireUsuario()).thenReturn(usuarioLogado(pessoaId));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
         when(ministerioRepository.findByIgrejaIdInOrderByNomeAsc(anyList())).thenReturn(List.of(ministerioLiderado));
         when(escalaRepository.findByMinisterioIdAndCompetenciaAndAtivoTrueOrderByDataEventoAsc(ministerioId, "2026-08"))
                 .thenReturn(List.of(escalaMensal()));

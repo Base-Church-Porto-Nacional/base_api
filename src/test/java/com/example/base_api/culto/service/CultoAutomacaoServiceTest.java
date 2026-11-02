@@ -203,11 +203,11 @@ class CultoAutomacaoServiceTest {
     }
 
     @Test
-    void naoDeveGerarCultosDeIgrejaSemPermissaoDePastorOuAdmin() {
+    void naoDeveGerarCultosDeIgrejaSemPermissaoDeGestao() {
         UUID igrejaId = UUID.randomUUID();
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
         doThrow(new BusinessException("Sem permissão para gerar cultos nesta igreja"))
-                .when(autorizacaoService).assertPastorOuAdmin(igrejaId);
+                .when(autorizacaoService).assertGestao(igrejaId);
 
         assertThatThrownBy(() -> automacaoService.gerarMesManual("2026-09", igrejaId))
                 .isInstanceOf(BusinessException.class);
@@ -293,7 +293,7 @@ class CultoAutomacaoServiceTest {
         CategoriaCulto categoria = categoriaDomingo(igrejaId);
         when(categoriaRepository.findById(categoria.getId())).thenReturn(Optional.of(categoria));
         doThrow(new BusinessException("Sem permissão nesta igreja"))
-                .when(autorizacaoService).assertPastorOuAdmin(igrejaId);
+                .when(autorizacaoService).assertGestao(igrejaId);
 
         assertThatThrownBy(() -> automacaoService.gerarMesDaCategoria(categoria.getId(), "2026-09"))
                 .isInstanceOf(BusinessException.class);

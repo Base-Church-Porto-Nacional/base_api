@@ -11,6 +11,7 @@ import com.example.base_api.igreja.repository.IgrejaRepository;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
+import com.example.base_api.security.Papeis;
 import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.entity.UsuarioPapel;
@@ -74,7 +75,7 @@ public class IgrejaService {
 
     @Transactional
     public IgrejaResponse criarFilial(UUID matrizId, IgrejaFilialCreateRequest request) {
-        autorizacaoService.assertMatrizPastorOuAdmin();
+        autorizacaoService.assertMatrizGestao();
         Igreja matriz = buscarEntidade(matrizId);
         if (!matriz.isMatriz()) {
             throw new BusinessException("A igreja informada não é matriz");
@@ -99,8 +100,8 @@ public class IgrejaService {
         filial.setAtivo(true);
         Igreja salva = igrejaRepository.save(filial);
 
-        Papel adminRole = papelRepository.findByNomeAndIgrejaIdIsNull("ADMIN")
-                .orElseThrow(() -> new IllegalStateException("Papel ADMIN não encontrado"));
+        Papel adminRole = papelRepository.findByNomeAndIgrejaIdIsNull(Papeis.SECRETARIA)
+                .orElseThrow(() -> new IllegalStateException("Papel SECRETARIA não encontrado"));
 
         String senha = request.adminSenha().trim();
 
@@ -125,7 +126,7 @@ public class IgrejaService {
 
     @Transactional
     public IgrejaResponse atualizar(UUID id, IgrejaUpdateRequest request) {
-        autorizacaoService.assertPastorOuAdmin(id);
+        autorizacaoService.assertGestao(id);
         Igreja igreja = buscarEntidade(id);
 
         Pessoa pastor = pessoaRepository.findById(request.pastorPessoaId())

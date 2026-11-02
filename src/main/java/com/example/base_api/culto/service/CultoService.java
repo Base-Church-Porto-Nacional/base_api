@@ -112,7 +112,7 @@ public class CultoService {
     @Transactional
     public CultoResponse criar(CultoCreateRequest request) {
         CategoriaCulto categoria = buscarCategoria(request.categoriaCultoId());
-        autorizacaoService.assertPastorOuAdmin(categoria.getIgrejaId());
+        autorizacaoService.assertGestao(categoria.getIgrejaId());
         validarPregadorDoCulto(request.pregadorId(), categoria.getIgrejaId());
 
         if (cultoRepository.findByCategoriaCultoIdAndData(categoria.getId(), request.data()).isPresent()) {
@@ -146,7 +146,7 @@ public class CultoService {
     @Transactional
     public CultoResponse atualizar(UUID id, CultoUpdateRequest request) {
         Culto culto = buscarEntidade(id);
-        autorizacaoService.assertPastorOuAdmin(culto.getIgrejaId());
+        autorizacaoService.assertGestao(culto.getIgrejaId());
         validarTransicaoStatus(culto.getStatus(), request.status());
         validarPregadorDoCulto(request.pregadorId(), culto.getIgrejaId());
         Horarios.validarFimAposInicio(request.horaInicio(), request.horaFim());
@@ -175,7 +175,7 @@ public class CultoService {
     @Transactional
     public void excluir(UUID id) {
         Culto culto = buscarEntidade(id);
-        autorizacaoService.assertPastorOuAdmin(culto.getIgrejaId());
+        autorizacaoService.assertGestao(culto.getIgrejaId());
         if (relatorioRepository.existsByCultoId(id)) {
             throw new BusinessException("Não é possível excluir um culto que já possui relatório");
         }
@@ -197,7 +197,7 @@ public class CultoService {
         autorizacaoService.assertAcesso(culto.getIgrejaId());
 
         UUID pregadorPersistido = resolverPregador(culto);
-        boolean pastorAdmin = autorizacaoService.isPastorOuAdmin(culto.getIgrejaId());
+        boolean pastorAdmin = autorizacaoService.isGestao(culto.getIgrejaId());
         boolean podeTexto = autorizacaoService.podeEditarTexto(culto.getIgrejaId(), pregadorPersistido);
         boolean podeLouvor = autorizacaoService.podeEditarLouvor(culto.getIgrejaId());
         if (!podeTexto && !podeLouvor) {
@@ -215,7 +215,7 @@ public class CultoService {
         }
         if (request.pregadorPessoaId() != null) {
             if (!pastorAdmin) {
-                throw new AccessDeniedException("Somente pastor ou admin pode alterar o pregador");
+                throw new AccessDeniedException("Somente pastor ou secretaria pode alterar o pregador");
             }
             validarPregadorDoCulto(request.pregadorPessoaId(), culto.getIgrejaId());
             culto.setPregadorId(request.pregadorPessoaId());

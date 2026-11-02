@@ -23,6 +23,7 @@ import com.example.base_api.escala.repository.EscalaVoluntarioRepository;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.entity.IgrejaTipo;
 import com.example.base_api.igreja.repository.IgrejaRepository;
+import com.example.base_api.security.Papeis;
 import com.example.base_api.jornada.service.JornadaService;
 import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.entity.MinisterioTipo;
@@ -97,11 +98,8 @@ public class DataInitializer {
                     () -> new IllegalStateException("Igreja matriz não encontrada. Verifique a migration V5.")
             );
 
-            Papel adminRole = papel(papelRepository, "ADMIN");
-            Papel pastorRole = papel(papelRepository, "PASTOR");
-            Papel liderRole = papel(papelRepository, "LIDER");
-            Papel voluntarioRole = papel(papelRepository, "VOLUNTARIO");
-            Papel membroRole = papel(papelRepository, "MEMBRO");
+            Papel secretariaRole = papel(papelRepository, Papeis.SECRETARIA);
+            Papel pastorRole = papel(papelRepository, Papeis.PASTOR);
 
             Pessoa ana = pessoa(pessoaRepository, jornadaService, "Ana Costa", "ana.costa@base.church", "(11) 98888-1001", MATRIZ_ID, LocalDate.of(2022, 3, 12));
             Pessoa joao = pessoa(pessoaRepository, jornadaService, "João da Silva", "joao.silva@email.com", "(11) 97777-2002", MATRIZ_ID, LocalDate.of(2023, 1, 20));
@@ -138,16 +136,16 @@ public class DataInitializer {
 
             Usuario admin = usuario(
                     usuarioRepository, usuarioPapelRepository, "admin", "ana.costa@base.church", senha,
-                    ana.getId(), MATRIZ_ID, Set.of(adminRole, pastorRole)
+                    ana.getId(), MATRIZ_ID, Set.of(secretariaRole, pastorRole)
             );
             Usuario uFilial = usuario(
                     usuarioRepository, usuarioPapelRepository, "filial", "luciana.rocha@base.church", senha,
-                    luciana.getId(), filial.getId(), Set.of(adminRole)
+                    luciana.getId(), filial.getId(), Set.of(secretariaRole)
             );
-            usuario(usuarioRepository, usuarioPapelRepository, "joao", "joao.silva@email.com", senha, joao.getId(), MATRIZ_ID, Set.of(liderRole, voluntarioRole, membroRole));
-            usuario(usuarioRepository, usuarioPapelRepository, "maria", "maria.oliveira@email.com", senha, maria.getId(), MATRIZ_ID, Set.of(voluntarioRole, membroRole));
-            usuario(usuarioRepository, usuarioPapelRepository, "midia", "carlos.lima@email.com", senha, carlos.getId(), MATRIZ_ID, Set.of(liderRole, voluntarioRole, membroRole));
-            usuario(usuarioRepository, usuarioPapelRepository, "membro", "fernanda.dias@email.com", senha, fernanda.getId(), MATRIZ_ID, Set.of(voluntarioRole, membroRole));
+            usuario(usuarioRepository, usuarioPapelRepository, "joao", "joao.silva@email.com", senha, joao.getId(), MATRIZ_ID, Set.of());
+            usuario(usuarioRepository, usuarioPapelRepository, "maria", "maria.oliveira@email.com", senha, maria.getId(), MATRIZ_ID, Set.of());
+            usuario(usuarioRepository, usuarioPapelRepository, "midia", "carlos.lima@email.com", senha, carlos.getId(), MATRIZ_ID, Set.of());
+            usuario(usuarioRepository, usuarioPapelRepository, "membro", "fernanda.dias@email.com", senha, fernanda.getId(), MATRIZ_ID, Set.of());
             usuario(usuarioRepository, usuarioPapelRepository, "pedro", "pedro.alves@base.church", senha, pedro.getId(), filial.getId(), Set.of(pastorRole));
 
             matriz.setNome("Base Church");

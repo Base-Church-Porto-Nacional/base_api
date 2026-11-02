@@ -312,7 +312,7 @@ class CultoServiceTest {
 
         when(categoriaRepository.findById(categoria.getId())).thenReturn(Optional.of(categoria));
         doThrow(new BusinessException("Sem permissão para criar cultos nesta igreja"))
-                .when(autorizacaoService).assertPastorOuAdmin(igrejaId);
+                .when(autorizacaoService).assertGestao(igrejaId);
 
         assertThatThrownBy(() -> cultoService.criar(new CultoCreateRequest(
                 categoria.getId(), igrejaId, null, null,
@@ -578,7 +578,7 @@ class CultoServiceTest {
     }
 
     @Test
-    void naoDeveAlterarPregadorPorQuemNaoEPastorOuAdmin() {
+    void naoDeveAlterarPregadorPorQuemNaoEGestao() {
         UUID igrejaId = UUID.randomUUID();
         UUID pregadorId = UUID.randomUUID();
         UUID novoPregadorId = UUID.randomUUID();
@@ -586,13 +586,13 @@ class CultoServiceTest {
         culto.setPregadorId(pregadorId);
 
         when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
         when(autorizacaoService.podeEditarTexto(igrejaId, pregadorId)).thenReturn(true);
 
         assertThatThrownBy(() -> cultoService.salvarConteudo(culto.getId(),
                 new CultoConteudoUpdateRequest(null, null, null, novoPregadorId)))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("Somente pastor ou admin pode alterar o pregador");
+                .hasMessageContaining("Somente pastor ou secretaria pode alterar o pregador");
         verify(cultoRepository, never()).save(any(Culto.class));
     }
 
@@ -605,7 +605,7 @@ class CultoServiceTest {
         categoria.setPregadorPadraoId(pregadorPadraoId);
 
         when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(true);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(true);
         when(autorizacaoService.podeEditarTexto(igrejaId, pregadorPadraoId)).thenReturn(true);
         when(categoriaRepository.findById(culto.getCategoriaCultoId())).thenReturn(Optional.of(categoria));
         when(cultoRepository.save(any(Culto.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -626,7 +626,7 @@ class CultoServiceTest {
         culto.setPregadorId(pregadorId);
 
         when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
         when(autorizacaoService.podeEditarTexto(igrejaId, pregadorId)).thenReturn(false);
         when(autorizacaoService.podeEditarLouvor(igrejaId)).thenReturn(false);
 
@@ -712,7 +712,7 @@ class CultoServiceTest {
         UUID igrejaId = UUID.randomUUID();
         Culto culto = culto(igrejaId, StatusCulto.ABERTO);
         when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
-        doThrow(new AccessDeniedException("Somente pastor, admin ou papel com permissão de contagem desta igreja"))
+        doThrow(new AccessDeniedException("Somente pastor, secretaria ou papel com permissão de contagem desta igreja"))
                 .when(autorizacaoService).assertPodeLancarContagem(igrejaId);
 
         assertThatThrownBy(() -> cultoService.salvarRelatorio(culto.getId(),

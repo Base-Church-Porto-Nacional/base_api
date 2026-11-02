@@ -43,7 +43,7 @@ public class JornadaEtapaCatalogoService {
 
     @Transactional
     public JornadaEtapaCatalogoResponse criar(JornadaEtapaCatalogoRequest request) {
-        autorizacaoService.assertPastorOuAdmin(autorizacaoService.igrejaAtualId());
+        autorizacaoService.assertGestao(autorizacaoService.igrejaAtualId());
         String codigo = request.codigo().trim().toUpperCase();
         repository.findByCodigo(codigo).ifPresent(e -> {
             throw new BusinessException("Já existe uma etapa com este código");
@@ -61,7 +61,7 @@ public class JornadaEtapaCatalogoService {
 
     @Transactional
     public JornadaEtapaCatalogoResponse atualizar(UUID id, JornadaEtapaCatalogoRequest request) {
-        autorizacaoService.assertPastorOuAdmin(autorizacaoService.igrejaAtualId());
+        autorizacaoService.assertGestao(autorizacaoService.igrejaAtualId());
         JornadaEtapaCatalogo etapa = buscarEntidade(id);
         String codigo = request.codigo().trim().toUpperCase();
 
@@ -82,7 +82,7 @@ public class JornadaEtapaCatalogoService {
 
     @Transactional
     public void excluir(UUID id) {
-        autorizacaoService.assertPastorOuAdmin(autorizacaoService.igrejaAtualId());
+        autorizacaoService.assertGestao(autorizacaoService.igrejaAtualId());
         JornadaEtapaCatalogo etapa = buscarEntidade(id);
         repository.delete(etapa);
     }

@@ -69,7 +69,7 @@ public class UsuarioController {
 
     @PostMapping("/{id}/gestao")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Promover ADMIN/PASTOR na igreja alvo (somente pastor/admin da igreja ou da matriz)")
+    @Operation(summary = "Promover ADMIN/PASTOR na igreja alvo (somente pastor/secretaria da igreja ou da matriz)")
     public UsuarioResponse promoverGestao(
             @PathVariable UUID id,
             @Valid @RequestBody UsuarioGestaoRequest request

@@ -32,7 +32,7 @@ import java.util.function.Predicate;
 @Service
 public class AutorizacaoService {
 
-    public static final Set<String> PAPEIS_GESTAO = Set.of("ADMIN", "PASTOR");
+    public static final Set<String> PAPEIS_GESTAO = Papeis.GESTAO;
     public static final Set<String> PAPEIS_ATALHO = Set.of("MEMBRO", "VOLUNTARIO", "LIDER");
 
     private final IgrejaContextoService igrejaContextoService;
@@ -77,24 +77,24 @@ public class AutorizacaoService {
         return igrejaContextoService.igrejaAtualId();
     }
 
-    public void assertPastorOuAdmin(UUID igrejaId) {
-        igrejaContextoService.assertPastorOuAdmin(igrejaId);
+    public void assertGestao(UUID igrejaId) {
+        igrejaContextoService.assertGestao(igrejaId);
     }
 
-    public void assertMatrizPastorOuAdmin() {
-        igrejaContextoService.assertMatrizPastorOuAdmin();
+    public void assertMatrizGestao() {
+        igrejaContextoService.assertMatrizGestao();
     }
 
-    public boolean isPastorOuAdmin(UUID igrejaId) {
-        return igrejaContextoService.isPastorOuAdmin(igrejaId);
+    public boolean isGestao(UUID igrejaId) {
+        return igrejaContextoService.isGestao(igrejaId);
     }
 
     /**
-     * Contagem do culto: pastor/admin (inclusive da matriz) ou quem tem, nesta
+     * Contagem do culto: pastor/secretaria (inclusive da matriz) ou quem tem, nesta
      * igreja, um papel customizado com permissão de contagem (ex.: CONTADOR).
      */
     public boolean podeLancarContagem(UUID igrejaId) {
-        if (isPastorOuAdmin(igrejaId)) {
+        if (isGestao(igrejaId)) {
             return true;
         }
         Usuario usuario = requireUsuario();
@@ -107,12 +107,12 @@ public class AutorizacaoService {
     public void assertPodeLancarContagem(UUID igrejaId) {
         assertAcesso(igrejaId);
         if (!podeLancarContagem(igrejaId)) {
-            throw new AccessDeniedException("Somente pastor, admin ou papel com permissão de contagem desta igreja");
+            throw new AccessDeniedException("Somente pastor, secretaria ou papel com permissão de contagem desta igreja");
         }
     }
 
     public void assertPodeMutarPessoas(UUID igrejaId) {
-        assertPastorOuAdmin(igrejaId);
+        assertGestao(igrejaId);
     }
 
     public void assertPodeVerPessoa(Pessoa pessoa) {
@@ -128,7 +128,7 @@ public class AutorizacaoService {
 
     /**
      * Filtra as pessoas que o usuário pode ver numa listagem. A regra é calculada uma vez por igreja:
-     * pastor/admin vê todas; os demais veem a si mesmos e as pessoas dos ministérios que lideram ou
+     * pastor/secretaria vê todas; os demais veem a si mesmos e as pessoas dos ministérios que lideram ou
      * coordenam (líder, coordenador e voluntários com vínculo ativo).
      */
     public List<Pessoa> filtrarVisiveisNaListagem(List<Pessoa> pessoas) {
@@ -145,7 +145,7 @@ public class AutorizacaoService {
     }
 
     private Predicate<Pessoa> regraDeVisibilidade(UUID igrejaId, UUID minhaPessoaId) {
-        if (isPastorOuAdmin(igrejaId)) {
+        if (isGestao(igrejaId)) {
             return p -> true;
         }
         Set<UUID> visiveis = pessoasDosMeusMinisterios(igrejaId, minhaPessoaId);
@@ -192,7 +192,7 @@ public class AutorizacaoService {
 
     public void assertPodeGerenciarMinisterio(Ministerio ministerio) {
         assertAcesso(ministerio.getIgrejaId());
-        if (isPastorOuAdmin(ministerio.getIgrejaId())) {
+        if (isGestao(ministerio.getIgrejaId())) {
             return;
         }
         UUID pessoaId = requireUsuario().getPessoaId();
@@ -212,12 +212,12 @@ public class AutorizacaoService {
     }
 
     public void assertPodeCriarMinisterio(UUID igrejaId) {
-        assertPastorOuAdmin(igrejaId);
+        assertGestao(igrejaId);
     }
 
     public void assertPodeGerenciarBaseMinisterial(BaseMinisterial base) {
         assertAcesso(base.getIgrejaId());
-        if (isPastorOuAdmin(base.getIgrejaId())) {
+        if (isGestao(base.getIgrejaId())) {
             return;
         }
         UUID pessoaId = requireUsuario().getPessoaId();
@@ -229,16 +229,16 @@ public class AutorizacaoService {
     }
 
     public void assertPodeCriarBaseMinisterial(UUID igrejaId) {
-        assertPastorOuAdmin(igrejaId);
+        assertGestao(igrejaId);
     }
 
     public void assertPodeCriarSmallGroup(UUID igrejaId) {
-        assertPastorOuAdmin(igrejaId);
+        assertGestao(igrejaId);
     }
 
     public void assertPodeGerenciarSmallGroup(SmallGroup grupo) {
         assertAcesso(grupo.getIgrejaId());
-        if (isPastorOuAdmin(grupo.getIgrejaId())) {
+        if (isGestao(grupo.getIgrejaId())) {
             return;
         }
         UUID pessoaId = requireUsuario().getPessoaId();
@@ -272,7 +272,7 @@ public class AutorizacaoService {
     public void assertPodeCriarEscala(TipoEscala tipo, UUID igrejaId, String competencia, UUID ministerioId) {
         igrejaContextoService.requireUsuario();
         assertAcesso(igrejaId);
-        if (isPastorOuAdmin(igrejaId)) {
+        if (isGestao(igrejaId)) {
             return;
         }
         boolean supervisor = isSupervisorNoMes(igrejaId, competencia);
@@ -280,7 +280,7 @@ public class AutorizacaoService {
 
         switch (tipo) {
             case SUPERVISOR, PREGADOR ->
-                    throw new AccessDeniedException("Somente pastor ou admin podem criar escala de supervisor/pregador");
+                    throw new AccessDeniedException("Somente pastor ou secretaria podem criar escala de supervisor/pregador");
             case CULTO -> {
                 if (!supervisor) {
                     throw new AccessDeniedException("Somente o supervisor do mês pode criar escala de culto");
@@ -319,7 +319,7 @@ public class AutorizacaoService {
     }
 
     public boolean podeVerEscala(Escala escala) {
-        if (isPastorOuAdmin(escala.getIgrejaId())) {
+        if (isGestao(escala.getIgrejaId())) {
             return true;
         }
         UUID pessoaId = requireUsuario().getPessoaId();
@@ -346,7 +346,7 @@ public class AutorizacaoService {
 
     public void assertPodeVerConteudo(UUID igrejaId, UUID pregadorPessoaId) {
         assertAcesso(igrejaId);
-        if (isPastorOuAdmin(igrejaId) || podeEditarTexto(igrejaId, pregadorPessoaId) || podeEditarLouvor(igrejaId)
+        if (isGestao(igrejaId) || podeEditarTexto(igrejaId, pregadorPessoaId) || podeEditarLouvor(igrejaId)
                 || pertenceAMidia(igrejaId)) {
             return;
         }
@@ -355,14 +355,14 @@ public class AutorizacaoService {
 
     public boolean podeEditarTexto(UUID igrejaId, UUID pregadorPessoaId) {
         Usuario usuario = requireUsuario();
-        if (isPastorOuAdmin(igrejaId)) {
+        if (isGestao(igrejaId)) {
             return true;
         }
         return usuario.getPessoaId() != null && usuario.getPessoaId().equals(pregadorPessoaId);
     }
 
     public boolean podeEditarLouvor(UUID igrejaId) {
-        if (isPastorOuAdmin(igrejaId)) {
+        if (isGestao(igrejaId)) {
             return true;
         }
         UUID pessoaId = requireUsuario().getPessoaId();
@@ -402,7 +402,7 @@ public class AutorizacaoService {
     public void assertPodeAcessarDisponibilidade(Pessoa pessoa) {
         assertAcesso(pessoa.getIgrejaId());
         Usuario usuario = requireUsuario();
-        if (isPastorOuAdmin(pessoa.getIgrejaId())) {
+        if (isGestao(pessoa.getIgrejaId())) {
             return;
         }
         if (usuario.getPessoaId() == null || !usuario.getPessoaId().equals(pessoa.getId())) {
@@ -411,7 +411,7 @@ public class AutorizacaoService {
     }
 
     public void assertPodeCriarUsuario(UUID igrejaId) {
-        assertPastorOuAdmin(igrejaId);
+        assertGestao(igrejaId);
     }
 
     public Set<String> validarPapeisAtalho(Set<String> papeis) {
@@ -423,7 +423,7 @@ public class AutorizacaoService {
             String papel = nome.toUpperCase();
             if (PAPEIS_GESTAO.contains(papel)) {
                 throw new AccessDeniedException(
-                        "Não é permitido atribuir ADMIN/PASTOR neste atalho. Use o endpoint de promoção."
+                        "Não é permitido atribuir PASTOR/SECRETARIA neste atalho. Use o endpoint de promoção."
                 );
             }
             if (!PAPEIS_ATALHO.contains(papel)) {
@@ -435,10 +435,10 @@ public class AutorizacaoService {
     }
 
     public void assertPodePromoverGestao(UUID igrejaAlvoId) {
-        assertPastorOuAdmin(igrejaAlvoId);
+        assertGestao(igrejaAlvoId);
         IgrejaContextoService ctx = igrejaContextoService;
         if (!ctx.isMatriz() && !ctx.igrejaAtualId().equals(igrejaAlvoId)) {
-            throw new AccessDeniedException("Somente pastor/admin da igreja alvo ou da matriz podem promover gestão");
+            throw new AccessDeniedException("Somente pastor/secretaria da igreja alvo ou da matriz podem promover gestão");
         }
     }
 
