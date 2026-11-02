@@ -97,6 +97,10 @@ public class PessoaService {
             throw new BusinessException("igrejaId é obrigatório");
         }
         autorizacaoService.assertPodeCadastrarPessoa(igrejaId, request.servicoId());
+        boolean podeEditarPastoral = autorizacaoService.tem(igrejaId, Capacidade.DADOS_PASTORAIS_EDITAR);
+        if (!podeEditarPastoral && blankToNull(request.observacoes()) != null) {
+            throw new AccessDeniedException("Somente pastor ou secretaria alteram dados pastorais");
+        }
 
         Pessoa pessoa = new Pessoa();
         pessoa.setNome(request.nome().trim());

@@ -256,6 +256,18 @@ class PessoaServiceTest {
     }
 
     @Test
+    void liderNaoCadastraComObservacoes() {
+        PessoaCreateRequest request = new PessoaCreateRequest(
+                "Maria", null, null, null, null, null, "nota", igrejaId, UUID.randomUUID());
+
+        assertThatThrownBy(() -> pessoaService.criar(request))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Somente pastor ou secretaria alteram dados pastorais");
+        verify(pessoaRepository, never()).save(any());
+        verify(pessoaServicoRepository, never()).save(any());
+    }
+
+    @Test
     void liderSemServicoNaoCadastra() {
         doThrow(new AccessDeniedException("Sem permissão para esta ação"))
                 .when(autorizacaoService).assertPodeCadastrarPessoa(igrejaId, null);

@@ -3,7 +3,6 @@ package com.example.base_api.security;
 import com.example.base_api.baseministerial.entity.BaseMinisterial;
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ConflictException;
-import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.TipoEscala;
 import com.example.base_api.escala.repository.EscalaRepository;
@@ -148,20 +147,39 @@ public class AutorizacaoService {
                 "Somente pastor, secretaria ou papel com permissão de contagem desta igreja");
     }
 
-    /** Pastor/secretaria cadastram livremente; o líder só cadastra vinculando a pessoa a um serviço do seu ministério. */
+    /**
+     * Pastor/secretaria cadastram livremente; o líder só cadastra vinculando a pessoa a um serviço do seu ministério.
+     * Qualquer servicoId informado deve ser de um serviço real (não fictício) de um ministério da própria igreja.
+     */
     public void assertPodeCadastrarPessoa(UUID igrejaId, UUID servicoId) {
         assertAcesso(igrejaId);
-        if (tem(igrejaId, Capacidade.PESSOAS_GERIR)) {
-            return;
-        }
-        if (servicoId != null) {
-            Servico servico = servicoRepository.findById(servicoId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Serviço não encontrado"));
-            if (permissaoService.ministeriosLideradosEm(igrejaId).contains(servico.getMinisterioId())) {
+        boolean gestao = tem(igrejaId, Capacidade.PESSOAS_GERIR);
+        if (servicoId == null) {
+            if (gestao) {
                 return;
             }
+            throw new AccessDeniedException("Sem permissão para cadastrar pessoa neste serviço");
         }
-        throw new AccessDeniedException("Sem permissão para cadastrar pessoa neste serviço");
+        Servico servico = servicoRepository.findById(servicoId).orElse(null);
+        if (servico == null) {
+            if (gestao) {
+                throw new BusinessException("Serviço não encontrado");
+            }
+            throw new AccessDeniedException("Sem permissão para cadastrar pessoa neste serviço");
+        }
+        if (gestao) {
+            boolean daIgreja = ministerioRepository.findById(servico.getMinisterioId())
+                    .map(m -> igrejaId.equals(m.getIgrejaId()))
+                    .orElse(false);
+            if (!daIgreja) {
+                throw new BusinessException("O serviço não pertence a esta igreja");
+            }
+        } else if (!permissaoService.ministeriosLideradosEm(igrejaId).contains(servico.getMinisterioId())) {
+            throw new AccessDeniedException("Sem permissão para cadastrar pessoa neste serviço");
+        }
+        if (Boolean.TRUE.equals(servico.getFiccao())) {
+            throw new BusinessException("Não é possível vincular pessoa a um serviço fictício");
+        }
     }
 
     /** Contato: gestão, a própria pessoa, ou quem está no escopo de liderança (vínculo ativo). */

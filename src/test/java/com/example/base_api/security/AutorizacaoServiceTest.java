@@ -500,6 +500,56 @@ class AutorizacaoServiceTest {
     }
 
     @Test
+    void gestaoNaoVinculaServicoDeOutraIgreja() {
+        Ministerio deOutra = new Ministerio();
+        deOutra.setId(UUID.randomUUID());
+        deOutra.setIgrejaId(UUID.randomUUID());
+        Servico servico = servicoDoMinisterio(deOutra.getId());
+        capacidades(PASTOR);
+        when(servicoRepository.findById(servico.getId())).thenReturn(java.util.Optional.of(servico));
+        when(ministerioRepository.findById(deOutra.getId())).thenReturn(java.util.Optional.of(deOutra));
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeCadastrarPessoa(igrejaId, servico.getId()))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void gestaoNaoVinculaServicoInexistente() {
+        capacidades(PASTOR);
+        UUID id = UUID.randomUUID();
+        when(servicoRepository.findById(id)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeCadastrarPessoa(igrejaId, id))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void liderComServicoInexistenteRecebe403() {
+        capacidades(NENHUMA);
+        UUID id = UUID.randomUUID();
+        when(servicoRepository.findById(id)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeCadastrarPessoa(igrejaId, id))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void naoVinculaServicoFiccao() {
+        UUID ministerioId = UUID.randomUUID();
+        Servico servico = servicoDoMinisterio(ministerioId);
+        servico.setFiccao(true);
+        Ministerio ministerio = new Ministerio();
+        ministerio.setId(ministerioId);
+        ministerio.setIgrejaId(igrejaId);
+        capacidades(PASTOR);
+        when(servicoRepository.findById(servico.getId())).thenReturn(java.util.Optional.of(servico));
+        when(ministerioRepository.findById(ministerioId)).thenReturn(java.util.Optional.of(ministerio));
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeCadastrarPessoa(igrejaId, servico.getId()))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
     void liderCadastraPessoaNoServicoDoSeuMinisterio() {
         UUID ministerioId = UUID.randomUUID();
         Servico servico = servicoDoMinisterio(ministerioId);
