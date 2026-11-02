@@ -89,11 +89,26 @@ public class TransferenciaPessoaService {
                 .ifPresent(usuarioService::assertRestaPastorAtivoSemEle);
     }
 
+    /** Transfere e audita. Para fluxos maiores que ainda podem falhar, use {@link #mover} e audite ao final. */
     @Transactional
     public void transferir(Pessoa pessoa, UUID igrejaDestinoId) {
+        UUID origemId = mover(pessoa, igrejaDestinoId);
+        if (origemId != null) {
+            // Audita depois do flush: o registro é REQUIRES_NEW e não deve sobrar se a transferência falhar.
+            pessoaRepository.flush();
+            auditar(pessoa.getId(), origemId, igrejaDestinoId);
+        }
+    }
+
+    /**
+     * Valida e move, sem auditar. Retorna a igreja de origem, ou {@code null} se a pessoa já estava no destino.
+     * Quem chama registra {@link #auditar} depois de tudo concluído (a auditoria sobrevive a rollback).
+     */
+    @Transactional
+    public UUID mover(Pessoa pessoa, UUID igrejaDestinoId) {
         UUID origemId = pessoa.getIgrejaId();
         if (igrejaDestinoId.equals(origemId)) {
-            return;
+            return null;
         }
         validar(pessoa);
 
@@ -113,11 +128,14 @@ public class TransferenciaPessoaService {
             vinculos.forEach(vinculo -> vinculo.setAtivo(false));
             pessoaServicoRepository.saveAll(vinculos);
         }
+        return origemId;
+    }
 
+    public void auditar(UUID pessoaId, UUID origemId, UUID destinoId) {
         auditService.registrar(
                 "TRANSFERIR_PESSOA",
                 "pessoa",
-                "pessoaId=" + pessoa.getId() + " origem=" + origemId + " destino=" + igrejaDestinoId
+                "pessoaId=" + pessoaId + " origem=" + origemId + " destino=" + destinoId
         );
     }
 }

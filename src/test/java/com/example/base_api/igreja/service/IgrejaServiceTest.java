@@ -447,4 +447,74 @@ class IgrejaServiceTest {
                 .isInstanceOf(AccessDeniedException.class);
         verify(igrejaRepository, never()).save(any());
     }
+
+    @Test
+    void conflitoDeTelefoneLanca409SemCriarFilial() {
+        stubMatriz();
+        Usuario outro = new Usuario();
+        outro.setId(UUID.randomUUID());
+        when(usuarioRepository.findByTelefone("5511988887777")).thenReturn(Optional.of(outro));
+
+        assertThatThrownBy(() -> igrejaService.criarFilial(matriz.getId(), new IgrejaFilialCreateRequest(
+                "Filial Norte", new PastorFilialRequest(null, "Pr. Novo", null, "(11) 98888-7777"))))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Telefone já usado por outra conta");
+        verify(igrejaRepository, never()).save(any());
+        verify(pessoaRepository, never()).save(any());
+    }
+
+    @Test
+    void conflitoDeEmailLanca409SemCriarFilial() {
+        stubMatriz();
+        Usuario outro = new Usuario();
+        outro.setId(UUID.randomUUID());
+        when(usuarioRepository.findByEmailIgnoreCase("novo@base.church")).thenReturn(Optional.of(outro));
+
+        assertThatThrownBy(() -> igrejaService.criarFilial(matriz.getId(), new IgrejaFilialCreateRequest(
+                "Filial Norte", new PastorFilialRequest(null, "Pr. Novo", "Novo@Base.church", null))))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("E-mail já usado por outra conta");
+        verify(igrejaRepository, never()).save(any());
+    }
+
+    @Test
+    void contaConvidadaDaPropriaPessoaNaoContaComoConflito() {
+        stubMatriz();
+        stubSaves();
+        Pessoa pessoa = pessoaExistente(matriz.getId());
+        Usuario usuario = usuarioDe(pessoa, StatusUsuario.CONVIDADO);
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByTelefone("5511988887777")).thenReturn(Optional.of(usuario));
+        when(acessoService.convidar(pessoa.getId())).thenReturn(new LinkAcessoResponse("https://app/c", false));
+
+        FilialCriadaResponse resposta = igrejaService.criarFilial(matriz.getId(), pedidoExistente(pessoa.getId()));
+
+        assertThat(resposta.convite()).isNotNull();
+    }
+
+    @Test
+    void convidarFalhandoNaoAuditaTransferencia() {
+        stubMatriz();
+        stubSaves();
+        Pessoa pessoa = pessoaExistente(matriz.getId());
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.empty());
+        when(acessoService.convidar(pessoa.getId())).thenThrow(new ConflictException("E-mail já usado por outra conta"));
+
+        assertThatThrownBy(() -> igrejaService.criarFilial(matriz.getId(), pedidoExistente(pessoa.getId())))
+                .isInstanceOf(ConflictException.class);
+        verify(auditService, never()).registrar(eq("TRANSFERIR_PESSOA"), any(), any());
+        verify(auditService, never()).registrar(eq("CRIAR_FILIAL"), any(), any());
+    }
+
+    @Test
+    void pessoaInativaNaoViraPastor() {
+        stubMatriz();
+        Pessoa pessoa = pessoaExistente(matriz.getId());
+        pessoa.setAtivo(false);
+
+        assertThatThrownBy(() -> igrejaService.criarFilial(matriz.getId(), pedidoExistente(pessoa.getId())))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Esta pessoa está inativa.");
+        verify(igrejaRepository, never()).save(any());
+    }
 }

@@ -34,6 +34,7 @@ import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -42,6 +43,7 @@ public class IgrejaService {
 
     static final String MSG_MODO_PASTOR = "Informe uma pessoa existente ou os dados de uma nova pessoa";
     static final String MSG_SEM_CONTATO = "Cadastre e-mail ou WhatsApp antes de convidar";
+    static final String MSG_PESSOA_INATIVA = "Esta pessoa está inativa.";
     static final String MSG_CONTA_DESATIVADA = "A conta desta pessoa está desativada. Reative antes de torná-la pastor.";
 
     private final IgrejaRepository igrejaRepository;
@@ -116,6 +118,9 @@ public class IgrejaService {
         if (existente) {
             pastor = pessoaRepository.findById(dados.pessoaId())
                     .orElseThrow(() -> new ResourceNotFoundException("Pessoa não encontrada"));
+            if (Boolean.FALSE.equals(pastor.getAtivo())) {
+                throw new BusinessException(MSG_PESSOA_INATIVA);
+            }
             usuario = usuarioRepository.findByPessoaId(pastor.getId()).orElse(null);
         } else {
             pastor = new Pessoa();
@@ -130,6 +135,9 @@ public class IgrejaService {
         boolean precisaConvite = usuario == null || usuario.getStatus() == StatusUsuario.CONVIDADO;
         if (precisaConvite && !temContato(pastor)) {
             throw new EntidadeNaoProcessavelException(MSG_SEM_CONTATO);
+        }
+        if (precisaConvite) {
+            assertIdentificadoresLivres(pastor, usuario);
         }
         if (usuario != null && usuario.getStatus() == StatusUsuario.DESATIVADO) {
             throw new ConflictException(MSG_CONTA_DESATIVADA);
@@ -147,8 +155,9 @@ public class IgrejaService {
         Igreja salva = igrejaRepository.save(filial);
         UUID filialId = salva.getId();
 
+        UUID origemId = null;
         if (existente) {
-            transferenciaPessoaService.transferir(pastor, filialId);
+            origemId = transferenciaPessoaService.mover(pastor, filialId);
         } else {
             pastor.setIgrejaId(filialId);
             pastor = pessoaRepository.save(pastor);
@@ -170,6 +179,11 @@ public class IgrejaService {
         papeis.add(Papeis.PASTOR);
         usuarioService.substituirPapeis(usuario, filialId, papeis);
 
+        // Audita depois do flush: os registros são REQUIRES_NEW e não devem sobrar se a criação falhar.
+        igrejaRepository.flush();
+        if (origemId != null) {
+            transferenciaPessoaService.auditar(pastor.getId(), origemId, filialId);
+        }
         auditService.registrar(
                 "CRIAR_FILIAL",
                 "igreja",
@@ -177,6 +191,27 @@ public class IgrejaService {
                         + " convite=" + (convite != null)
         );
         return new FilialCriadaResponse(toResponse(salva), convite);
+    }
+
+    /**
+     * Mesma regra do convite (Fase 2): e-mail/telefone da pessoa já usados por OUTRA conta → 409. Checado antes
+     * de salvar para que {@code convidar} não falhe depois da filial criada.
+     */
+    private void assertIdentificadoresLivres(Pessoa pessoa, Usuario propria) {
+        UUID propriaContaId = propria == null ? null : propria.getId();
+        Identificador.email(pessoa.getEmail())
+                .flatMap(usuarioRepository::findByEmailIgnoreCase)
+                .filter(outro -> !Objects.equals(outro.getId(), propriaContaId))
+                .ifPresent(outro -> {
+                    throw new ConflictException("E-mail já usado por outra conta");
+                });
+        Identificador.telefone(pessoa.getWhatsapp())
+                .or(() -> Identificador.telefone(pessoa.getTelefone()))
+                .flatMap(usuarioRepository::findByTelefone)
+                .filter(outro -> !Objects.equals(outro.getId(), propriaContaId))
+                .ifPresent(outro -> {
+                    throw new ConflictException("Telefone já usado por outra conta");
+                });
     }
 
     /** Mesmo critério do convite (Fase 2): e-mail, WhatsApp ou telefone válidos. */

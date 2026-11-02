@@ -212,4 +212,15 @@ class TransferenciaPessoaServiceTest {
         assertThat(usuario.getIgrejaId()).isEqualTo(origem);
         verify(usuarioService, never()).substituirPapeis(any(), any(), any());
     }
+
+    @Test
+    void moverNaoAuditaERetornaOrigem() {
+        Pessoa pessoa = pessoa();
+
+        UUID retorno = transferencia.mover(pessoa, destino);
+
+        assertThat(retorno).isEqualTo(origem);
+        assertThat(pessoa.getIgrejaId()).isEqualTo(destino);
+        verify(auditService, never()).registrar(any(), any(), any());
+    }
 }
