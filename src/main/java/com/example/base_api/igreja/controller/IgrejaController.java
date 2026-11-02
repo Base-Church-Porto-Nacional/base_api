@@ -1,5 +1,6 @@
 package com.example.base_api.igreja.controller;
 
+import com.example.base_api.igreja.dto.FilialCriadaResponse;
 import com.example.base_api.igreja.dto.IgrejaFilialCreateRequest;
 import com.example.base_api.igreja.dto.IgrejaResponse;
 import com.example.base_api.igreja.dto.IgrejaUpdateRequest;
@@ -49,8 +50,8 @@ public class IgrejaController {
     @PostMapping("/{matrizId}/filiais")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Criar filial da matriz, com pastor e admin")
-    public IgrejaResponse criarFilial(
+    @Operation(summary = "Criar filial da matriz com seu pastor (pessoa existente transferida ou nova, com convite)")
+    public FilialCriadaResponse criarFilial(
             @PathVariable UUID matrizId,
             @Valid @RequestBody IgrejaFilialCreateRequest request
     ) {
