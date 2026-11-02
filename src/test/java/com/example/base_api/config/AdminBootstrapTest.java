@@ -7,6 +7,7 @@ import com.example.base_api.jornada.service.JornadaService;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.usuario.entity.Papel;
+import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.entity.UsuarioPapel;
 import com.example.base_api.usuario.repository.PapelRepository;
@@ -56,15 +57,14 @@ class AdminBootstrapTest {
                 usuarioPapelRepository, papelRepository, jornadaService, passwordEncoder);
     }
 
-    private void configurar(String username, String email, String senha) {
-        environment.setProperty("app.bootstrap.admin.username", username);
+    private void configurar(String email, String senha) {
         environment.setProperty("app.bootstrap.admin.email", email);
         environment.setProperty("app.bootstrap.admin.senha", senha);
     }
 
     @Test
     void naoFazNadaQuandoJaExistemUsuarios() {
-        configurar("admin", "admin@igreja.com", "senhaForte123");
+        configurar("admin@igreja.com", "senhaForte123");
         when(usuarioRepository.count()).thenReturn(3L);
 
         bootstrap().run(null);
@@ -83,7 +83,7 @@ class AdminBootstrapTest {
 
     @Test
     void falhaQuandoConfiguracaoIncompleta() {
-        environment.setProperty("app.bootstrap.admin.username", "admin");
+        environment.setProperty("app.bootstrap.admin.email", "admin@igreja.com");
         when(usuarioRepository.count()).thenReturn(0L);
 
         assertThatThrownBy(() -> bootstrap().run(null))
@@ -93,7 +93,7 @@ class AdminBootstrapTest {
 
     @Test
     void falhaQuandoSenhaCurta() {
-        configurar("admin", "admin@igreja.com", "123");
+        configurar("admin@igreja.com", "123");
         when(usuarioRepository.count()).thenReturn(0L);
 
         assertThatThrownBy(() -> bootstrap().run(null))
@@ -102,8 +102,8 @@ class AdminBootstrapTest {
     }
 
     @Test
-    void criaAdminEPastorNaMatrizQuandoBancoVazio() {
-        configurar("admin", "Admin@Igreja.com", "senhaForte123");
+    void loginPeloEmail() {
+        configurar("Admin@Igreja.com", "senhaForte123");
         when(usuarioRepository.count()).thenReturn(0L);
 
         Igreja matriz = new Igreja();
@@ -130,7 +130,8 @@ class AdminBootstrapTest {
 
         ArgumentCaptor<Usuario> usuario = ArgumentCaptor.forClass(Usuario.class);
         verify(usuarioRepository).save(usuario.capture());
-        assertThat(usuario.getValue().getUsername()).isEqualTo("admin");
+        assertThat(usuario.getValue().getStatus()).isEqualTo(StatusUsuario.ATIVO);
+        assertThat(usuario.getValue().isAtivo()).isTrue();
         assertThat(usuario.getValue().getEmail()).isEqualTo("admin@igreja.com");
         assertThat(usuario.getValue().getSenhaHash()).isEqualTo("hash");
         assertThat(usuario.getValue().getIgrejaId()).isEqualTo(matriz.getId());

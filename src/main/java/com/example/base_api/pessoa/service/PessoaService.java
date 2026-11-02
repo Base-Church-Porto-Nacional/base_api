@@ -252,7 +252,7 @@ public class PessoaService {
                 usuario.nomesPapeisSistema(p.getIgrejaId()).stream()
                         .filter(Papeis.GESTAO::contains)
                         .forEach(funcoes::add);
-                if (Boolean.TRUE.equals(usuario.getAtivo())) {
+                if (usuario.isAtivo()) {
                     funcoes.add(FUNCAO_MEMBRO);
                 }
             }

@@ -5,7 +5,6 @@ import java.util.UUID;
 
 public record LiderResponse(
         UUID usuarioId,
-        String username,
         String email,
         UUID pessoaId,
         String pessoaNome,

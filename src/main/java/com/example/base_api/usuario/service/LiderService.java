@@ -93,7 +93,6 @@ public class LiderService {
     private LiderResponse toResponse(Usuario usuario, Pessoa pessoa) {
         return new LiderResponse(
                 usuario != null ? usuario.getId() : null,
-                usuario != null ? usuario.getUsername() : null,
                 usuario != null ? usuario.getEmail() : null,
                 pessoa.getId(),
                 pessoa.getNome(),

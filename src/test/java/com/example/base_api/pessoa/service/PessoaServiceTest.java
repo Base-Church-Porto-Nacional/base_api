@@ -16,6 +16,7 @@ import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import com.example.base_api.pessoa.dto.PessoaResumoResponse;
 import org.mockito.ArgumentCaptor;
 import com.example.base_api.usuario.entity.Papel;
+import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.entity.UsuarioPapel;
 import com.example.base_api.usuario.repository.UsuarioRepository;
@@ -412,7 +413,6 @@ class PessoaServiceTest {
         usuario.setId(UUID.randomUUID());
         usuario.setPessoaId(pessoa.getId());
         usuario.setIgrejaId(igrejaId);
-        usuario.setUsername("pessoa");
         usuario.setEmail("pessoa@email.com");
         usuario.setSenhaHash("hash");
 
@@ -490,9 +490,8 @@ class PessoaServiceTest {
         usuario.setId(UUID.randomUUID());
         usuario.setPessoaId(pessoaId);
         usuario.setIgrejaId(igrejaId);
-        usuario.setUsername("u" + pessoaId);
         usuario.setSenhaHash("hash");
-        usuario.setAtivo(ativo);
+        usuario.setStatus(ativo ? StatusUsuario.ATIVO : StatusUsuario.DESATIVADO);
         for (String nome : papeisSistema) {
             Papel papel = new Papel();
             papel.setId(UUID.randomUUID());

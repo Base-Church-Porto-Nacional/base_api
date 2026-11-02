@@ -48,16 +48,16 @@ class MeServiceTest {
     @InjectMocks
     private MeService meService;
 
-    private final Authentication auth = new UsernamePasswordAuthenticationToken("joao", null);
+    private static final UUID USUARIO_ID = UUID.randomUUID();
+    private final Authentication auth = new UsernamePasswordAuthenticationToken(USUARIO_ID.toString(), null);
 
     private Usuario usuario() {
         Usuario u = new Usuario();
-        u.setId(UUID.randomUUID());
-        u.setUsername("joao");
+        u.setId(USUARIO_ID);
         u.setEmail("joao@igreja.com");
         u.setSenhaHash("hash-antigo");
         u.setTokenVersion(0);
-        when(usuarioRepository.findByUsername("joao")).thenReturn(Optional.of(u));
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(u));
         lenient().when(usuarioRepository.findByEmailIgnoreCase("joao@igreja.com")).thenReturn(Optional.of(u));
         return u;
     }

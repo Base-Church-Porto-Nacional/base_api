@@ -16,20 +16,33 @@ class JwtServiceTest {
 
     private final JwtService jwtService = new JwtService(new JwtProperties(SEGREDO, 60_000));
 
+    private static final UUID USUARIO_ID = UUID.randomUUID();
+
     @Test
-    void validarDevolveUsernameEVersaoDoToken() {
-        String token = jwtService.gerarToken("joao", null, null, null, 3);
+    void validarDevolveIdDoUsuarioEVersaoDoToken() {
+        String token = jwtService.gerarToken(USUARIO_ID, null, null, null, 3);
 
         JwtService.TokenValidado validado = jwtService.validar(token);
 
-        assertThat(validado.username()).isEqualTo("joao");
+        assertThat(validado.usuarioId()).isEqualTo(USUARIO_ID);
         assertThat(validado.tokenVersion()).isEqualTo(3);
+    }
+
+    @Test
+    void subEhIdDoUsuario() {
+        String token = jwtService.gerarToken(USUARIO_ID, UUID.randomUUID(), UUID.randomUUID(), "MATRIZ", 0);
+
+        io.jsonwebtoken.Claims claims = io.jsonwebtoken.Jwts.parser()
+                .verifyWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(SEGREDO.getBytes(StandardCharsets.UTF_8)))
+                .build().parseSignedClaims(token).getPayload();
+
+        assertThat(claims.getSubject()).isEqualTo(USUARIO_ID.toString());
     }
 
     @Test
     void validarRejeitaTokenExpirado() {
         JwtService emissorExpirado = new JwtService(new JwtProperties(SEGREDO, -1_000));
-        String token = emissorExpirado.gerarToken("joao", null, null, null, 0);
+        String token = emissorExpirado.gerarToken(USUARIO_ID, null, null, null, 0);
 
         assertThatThrownBy(() -> jwtService.validar(token)).isInstanceOf(JwtException.class);
     }
@@ -38,7 +51,7 @@ class JwtServiceTest {
     void validarRejeitaTokenAssinadoComOutraChave() {
         JwtService outroEmissor = new JwtService(
                 new JwtProperties("outro-segredo-tambem-com-mais-de-32-caracteres", 60_000));
-        String token = outroEmissor.gerarToken("joao", null, null, null, 0);
+        String token = outroEmissor.gerarToken(USUARIO_ID, null, null, null, 0);
 
         assertThatThrownBy(() -> jwtService.validar(token)).isInstanceOf(JwtException.class);
     }
@@ -50,7 +63,7 @@ class JwtServiceTest {
 
     @Test
     void tokenNaoContemPapeis() {
-        String token = jwtService.gerarToken("joao", UUID.randomUUID(), UUID.randomUUID(), "MATRIZ", 1);
+        String token = jwtService.gerarToken(USUARIO_ID, UUID.randomUUID(), UUID.randomUUID(), "MATRIZ", 1);
 
         io.jsonwebtoken.Claims claims = io.jsonwebtoken.Jwts.parser()
                 .verifyWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(SEGREDO.getBytes(StandardCharsets.UTF_8)))

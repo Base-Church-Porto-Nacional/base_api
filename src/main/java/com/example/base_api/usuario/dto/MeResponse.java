@@ -11,7 +11,6 @@ import java.util.UUID;
 public record MeResponse(
         UUID id,
         UUID usuarioId,
-        String username,
         String email,
         Boolean ativo,
         Set<String> papeis,

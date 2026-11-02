@@ -10,6 +10,7 @@ import com.example.base_api.igreja.service.IgrejaService;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.PermissaoService;
+import com.example.base_api.security.UsuarioAutenticado;
 import com.example.base_api.usuario.dto.MeResponse;
 import com.example.base_api.usuario.dto.MeUpdateRequest;
 import com.example.base_api.usuario.dto.PermissoesResponse;
@@ -97,7 +98,7 @@ public class MeService {
         if (authentication == null || authentication.getName() == null) {
             throw new BusinessException("Usuário não autenticado");
         }
-        return usuarioRepository.findByUsername(authentication.getName())
+        return UsuarioAutenticado.idDe(authentication).flatMap(usuarioRepository::findById)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário autenticado não encontrado"));
     }
 
@@ -122,9 +123,8 @@ public class MeService {
         return new MeResponse(
                 usuario.getId(),
                 usuario.getId(),
-                usuario.getUsername(),
                 usuario.getEmail(),
-                usuario.getAtivo(),
+                usuario.isAtivo(),
                 papeis,
                 pessoa != null ? pessoa.getId() : usuario.getPessoaId(),
                 pessoa != null ? pessoa.getNome() : null,

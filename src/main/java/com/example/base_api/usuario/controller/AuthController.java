@@ -30,13 +30,13 @@ public class AuthController {
     @Operation(summary = "Autenticar e obter token JWT")
     public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         String ip = ipCliente(httpRequest);
-        loginRateLimiter.assertPermitido(request.username(), ip);
+        loginRateLimiter.assertPermitido(request.identificador(), ip);
         try {
             LoginResponse response = usuarioService.autenticar(request);
-            loginRateLimiter.limpar(request.username(), ip);
+            loginRateLimiter.limpar(request.identificador(), ip);
             return response;
         } catch (RuntimeException ex) {
-            loginRateLimiter.registrarFalha(request.username(), ip);
+            loginRateLimiter.registrarFalha(request.identificador(), ip);
             throw ex;
         }
     }

@@ -3,6 +3,8 @@ package com.example.base_api.usuario.entity;
 import com.example.base_api.common.entity.AuditableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -27,29 +29,35 @@ public class Usuario extends AuditableEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "pessoa_id", unique = true)
+    @Column(name = "pessoa_id", nullable = false, unique = true)
     private UUID pessoaId;
 
     @Column(name = "igreja_id")
     private UUID igrejaId;
 
-    @Column(nullable = false, unique = true, length = 100)
-    private String username;
-
-    @Column(nullable = false, unique = true, length = 255)
+    @Column(unique = true, length = 255)
     private String email;
 
-    @Column(name = "senha_hash", nullable = false)
+    /** Telefone normalizado (DDI 55 + DDD + número, só dígitos). */
+    @Column(unique = true, length = 30)
+    private String telefone;
+
+    @Column(name = "senha_hash")
     private String senhaHash;
 
-    @Column(nullable = false)
-    private Boolean ativo = true;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private StatusUsuario status = StatusUsuario.ATIVO;
 
     @Column(name = "token_version", nullable = false)
     private Integer tokenVersion = 0;
 
     @OneToMany(mappedBy = "usuario", fetch = FetchType.EAGER)
     private Set<UsuarioPapel> papeisIgreja = new HashSet<>();
+
+    public boolean isAtivo() {
+        return status == StatusUsuario.ATIVO;
+    }
 
     public void invalidarTokens() {
         int atual = tokenVersion == null ? 0 : tokenVersion;

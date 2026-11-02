@@ -53,7 +53,6 @@ class LiderServiceTest {
         Pessoa semConta = pessoa("Gil", null);
         Usuario usuario = new Usuario();
         usuario.setId(UUID.randomUUID());
-        usuario.setUsername("lia");
         usuario.setPessoaId(comConta.getId());
 
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(ids);
@@ -67,9 +66,9 @@ class LiderServiceTest {
         assertThat(lideres).extracting(LiderResponse::pessoaNome).containsExactlyInAnyOrder("Lia", "Gil");
         LiderResponse gil = lideres.stream().filter(l -> "Gil".equals(l.pessoaNome())).findFirst().orElseThrow();
         assertThat(gil.usuarioId()).isNull();
-        assertThat(gil.username()).isNull();
+        assertThat(gil.email()).isNull();
         LiderResponse lia = lideres.stream().filter(l -> "Lia".equals(l.pessoaNome())).findFirst().orElseThrow();
-        assertThat(lia.username()).isEqualTo("lia");
+        assertThat(lia.usuarioId()).isEqualTo(usuario.getId());
         assertThat(lia.telefone()).isEqualTo("11999990000");
         verify(pessoaRepository, never()).findById(any());
     }

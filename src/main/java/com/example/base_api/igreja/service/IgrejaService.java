@@ -8,12 +8,14 @@ import com.example.base_api.igreja.dto.IgrejaUpdateRequest;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.entity.IgrejaTipo;
 import com.example.base_api.igreja.repository.IgrejaRepository;
+import com.example.base_api.jornada.service.JornadaService;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.security.Capacidade;
 import com.example.base_api.security.Papeis;
 import com.example.base_api.usuario.entity.Papel;
+import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.entity.UsuarioPapel;
 import com.example.base_api.usuario.repository.PapelRepository;
@@ -23,6 +25,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -42,6 +45,7 @@ public class IgrejaService {
     private final PasswordEncoder passwordEncoder;
     private final IgrejaContextoService igrejaContextoService;
     private final AutorizacaoService autorizacaoService;
+    private final JornadaService jornadaService;
 
     public IgrejaService(
             IgrejaRepository igrejaRepository,
@@ -51,7 +55,8 @@ public class IgrejaService {
             PapelRepository papelRepository,
             PasswordEncoder passwordEncoder,
             IgrejaContextoService igrejaContextoService,
-            AutorizacaoService autorizacaoService
+            AutorizacaoService autorizacaoService,
+            JornadaService jornadaService
     ) {
         this.igrejaRepository = igrejaRepository;
         this.pessoaRepository = pessoaRepository;
@@ -61,6 +66,7 @@ public class IgrejaService {
         this.passwordEncoder = passwordEncoder;
         this.igrejaContextoService = igrejaContextoService;
         this.autorizacaoService = autorizacaoService;
+        this.jornadaService = jornadaService;
     }
 
     @Transactional(readOnly = true)
@@ -86,10 +92,8 @@ public class IgrejaService {
         Pessoa pastor = pessoaRepository.findById(request.pastorPessoaId())
                 .orElseThrow(() -> new ResourceNotFoundException("Pastor não encontrado"));
 
-        if (usuarioRepository.existsByUsername(request.adminUsername())) {
-            throw new BusinessException("Username já está em uso");
-        }
-        if (usuarioRepository.existsByEmailIgnoreCase(request.adminEmail())) {
+        String adminEmail = request.adminEmail().trim().toLowerCase();
+        if (usuarioRepository.existsByEmailIgnoreCase(adminEmail)) {
             throw new BusinessException("E-mail já está em uso");
         }
 
@@ -106,11 +110,22 @@ public class IgrejaService {
 
         String senha = request.adminSenha().trim();
 
+        // Toda conta tem pessoa: o admin da filial é cadastrado como pessoa da própria filial.
+        Pessoa pessoaAdmin = new Pessoa();
+        pessoaAdmin.setNome(request.adminNome().trim());
+        pessoaAdmin.setEmail(adminEmail);
+        pessoaAdmin.setIgrejaId(salva.getId());
+        pessoaAdmin.setDataCadastro(LocalDate.now());
+        pessoaAdmin.setAtivo(true);
+        Pessoa pessoaAdminSalva = pessoaRepository.save(pessoaAdmin);
+        jornadaService.criarJornadaInicial(pessoaAdminSalva.getId());
+
+        // Provisório até a Fase 3 (convite): conta já ATIVA, login pelo e-mail.
         Usuario admin = new Usuario();
-        admin.setUsername(request.adminUsername().trim());
-        admin.setEmail(request.adminEmail().trim().toLowerCase());
+        admin.setPessoaId(pessoaAdminSalva.getId());
+        admin.setEmail(adminEmail);
         admin.setSenhaHash(passwordEncoder.encode(senha));
-        admin.setAtivo(true);
+        admin.setStatus(StatusUsuario.ATIVO);
         admin.setIgrejaId(salva.getId());
         Usuario adminSalvo = usuarioRepository.save(admin);
 
@@ -174,7 +189,7 @@ public class IgrejaService {
                     ? null
                     : Objects.requireNonNullElse(
                             admin.getPessoaId() == null ? null : nomes.get(admin.getPessoaId()),
-                            admin.getUsername());
+                            Objects.requireNonNullElse(admin.getEmail(), ""));
             return new IgrejaResponse(
                     igreja.getId(),
                     igreja.getNome(),

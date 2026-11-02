@@ -369,7 +369,7 @@ public class ExportService {
 
     private ExportSheet sheetUsuarios(Escopo escopo) {
         ExportSheet sheet = new ExportSheet("Usuarios", List.of(
-                "ID", "Username", "Email", "Pessoa ID", "Igreja ID", "Ativo", "Papéis"
+                "ID", "Email", "Telefone", "Pessoa ID", "Igreja ID", "Status", "Papéis"
         ));
         for (Usuario u : escopo.usuarios()) {
             String papeis = u.nomesPapeisDaIgrejaAtual().stream()
@@ -377,11 +377,11 @@ public class ExportService {
                     .collect(Collectors.joining(", "));
             sheet.adicionarLinha(List.of(
                     str(u.getId()),
-                    str(u.getUsername()),
                     str(u.getEmail()),
+                    str(u.getTelefone()),
                     str(u.getPessoaId()),
                     str(u.getIgrejaId()),
-                    str(u.getAtivo()),
+                    str(u.getStatus()),
                     papeis
             ));
         }

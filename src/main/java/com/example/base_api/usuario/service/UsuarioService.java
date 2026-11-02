@@ -11,6 +11,7 @@ import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.security.Capacidade;
 import com.example.base_api.security.JwtService;
 import com.example.base_api.security.Papeis;
+import com.example.base_api.security.UsuarioAutenticado;
 import com.example.base_api.usuario.dto.LoginRequest;
 import com.example.base_api.usuario.dto.LoginResponse;
 import com.example.base_api.usuario.dto.PessoaUsuarioCreateRequest;
@@ -19,6 +20,7 @@ import com.example.base_api.usuario.dto.UsuarioPapeisRequest;
 import com.example.base_api.usuario.dto.UsuarioResponse;
 import com.example.base_api.usuario.dto.UsuarioUpdateRequest;
 import com.example.base_api.usuario.entity.Papel;
+import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.entity.UsuarioPapel;
 import com.example.base_api.usuario.repository.PapelRepository;
@@ -26,7 +28,9 @@ import com.example.base_api.usuario.repository.UsuarioPapelRepository;
 import com.example.base_api.usuario.repository.UsuarioRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -119,7 +123,6 @@ public class UsuarioService {
         autorizacaoService.assertPodeCriarUsuario(igrejaId);
         return persistir(
                 request.pessoaId(),
-                request.username(),
                 request.email(),
                 request.senha(),
                 igrejaId
@@ -135,7 +138,7 @@ public class UsuarioService {
         }
         autorizacaoService.assertPodeCriarUsuario(igrejaId);
         autorizacaoService.assertAcesso(pessoa.getIgrejaId());
-        return persistir(pessoaId, request.username(), request.email(), request.senha(), igrejaId);
+        return persistir(pessoaId, request.email(), request.senha(), igrejaId);
     }
 
     @Transactional
@@ -143,7 +146,7 @@ public class UsuarioService {
         Usuario usuario = buscarEntidade(id);
         autorizacaoService.assertGestao(usuario.getIgrejaId());
         boolean trocaSenha = request.novaSenha() != null && !request.novaSenha().isBlank();
-        boolean trocaAtivo = request.ativo() != null && !request.ativo().equals(usuario.getAtivo());
+        boolean trocaAtivo = request.ativo() != null && request.ativo() != usuario.isAtivo();
         if (trocaSenha || trocaAtivo) {
             assertPodeAlterarContaDeGestao(usuario);
         }
@@ -159,10 +162,10 @@ public class UsuarioService {
 
         usuario.setEmail(request.email().trim().toLowerCase());
         boolean invalidaToken = false;
-        if (request.ativo() != null && !request.ativo().equals(usuario.getAtivo())) {
+        if (trocaAtivo) {
+            usuario.setStatus(request.ativo() ? StatusUsuario.ATIVO : StatusUsuario.DESATIVADO);
             invalidaToken = true;
         }
-        usuario.setAtivo(request.ativo());
 
         if (request.novaSenha() != null && !request.novaSenha().isBlank()) {
             usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
@@ -239,7 +242,7 @@ public class UsuarioService {
     /** Impede que a igreja fique sem pastor ATIVO ao remover o papel, desativar ou excluir este usuário. */
     private void assertRestaPastorAtivoSemEle(Usuario usuario) {
         UUID igrejaId = usuario.getIgrejaId();
-        if (igrejaId == null || !Boolean.TRUE.equals(usuario.getAtivo())
+        if (igrejaId == null || !usuario.isAtivo()
                 || !usuario.nomesPapeisSistema(igrejaId).contains(Papeis.PASTOR)) {
             return;
         }
@@ -250,16 +253,15 @@ public class UsuarioService {
 
     @Transactional(readOnly = true)
     public LoginResponse autenticar(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.username(), request.senha())
+        Authentication autenticacao = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.identificador(), request.senha())
         );
 
-        Usuario usuario = usuarioRepository.findByUsername(request.username())
-                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
-
-        if (!Boolean.TRUE.equals(usuario.getAtivo())) {
-            throw new BusinessException("Usuário inativo");
-        }
+        // O provider já recusou conta inexistente, CONVIDADO ou DESATIVADO (401 "Credenciais inválidas").
+        Usuario usuario = UsuarioAutenticado.idDe(autenticacao)
+                .flatMap(usuarioRepository::findById)
+                .filter(Usuario::isAtivo)
+                .orElseThrow(() -> new BadCredentialsException("Credenciais inválidas"));
 
         Igreja igreja = usuario.getIgrejaId() == null
                 ? null
@@ -267,7 +269,7 @@ public class UsuarioService {
         String igrejaTipo = igreja == null ? null : igreja.getTipo().name();
 
         String token = jwtService.gerarToken(
-                usuario.getUsername(),
+                usuario.getId(),
                 usuario.getPessoaId(),
                 usuario.getIgrejaId(),
                 igrejaTipo,
@@ -278,7 +280,6 @@ public class UsuarioService {
                 token,
                 "Bearer",
                 usuario.getId(),
-                usuario.getUsername(),
                 usuario.getPessoaId(),
                 usuario.getIgrejaId(),
                 igrejaTipo
@@ -293,29 +294,26 @@ public class UsuarioService {
 
     private UsuarioResponse persistir(
             UUID pessoaId,
-            String username,
             String email,
             String senha,
             UUID igrejaId
     ) {
-        if (usuarioRepository.existsByUsername(username)) {
-            throw new BusinessException("Username já está em uso");
+        if (pessoaId == null) {
+            throw new BusinessException("Pessoa é obrigatória");
         }
-        if (usuarioRepository.existsByEmailIgnoreCase(email)) {
+        String emailNormalizado = email.trim().toLowerCase();
+        if (usuarioRepository.existsByEmailIgnoreCase(emailNormalizado)) {
             throw new BusinessException("E-mail já está em uso");
         }
-        if (pessoaId != null) {
-            pessoaService.buscarEntidade(pessoaId);
-            autorizacaoService.assertPessoaSemUsuario(usuarioRepository.existsByPessoaId(pessoaId));
-        }
+        pessoaService.buscarEntidade(pessoaId);
+        autorizacaoService.assertPessoaSemUsuario(usuarioRepository.existsByPessoaId(pessoaId));
 
         Usuario usuario = new Usuario();
         usuario.setPessoaId(pessoaId);
         usuario.setIgrejaId(igrejaId);
-        usuario.setUsername(username.trim());
-        usuario.setEmail(email.trim().toLowerCase());
+        usuario.setEmail(emailNormalizado);
         usuario.setSenhaHash(passwordEncoder.encode(senha));
-        usuario.setAtivo(true);
+        usuario.setStatus(StatusUsuario.ATIVO);
 
         return toResponse(usuarioRepository.save(usuario));
     }
@@ -368,11 +366,11 @@ public class UsuarioService {
                 usuario.getId(),
                 usuario.getPessoaId(),
                 pessoaNome,
-                usuario.getUsername(),
                 usuario.getEmail(),
+                usuario.getTelefone(),
                 usuario.getIgrejaId(),
                 igrejaNome,
-                usuario.getAtivo(),
+                usuario.getStatus(),
                 usuario.nomesPapeisDaIgrejaAtual(),
                 usuario.getCreatedAt(),
                 usuario.getUpdatedAt()

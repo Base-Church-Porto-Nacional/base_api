@@ -127,19 +127,21 @@ Swagger: http://localhost:8080/swagger-ui.html
 
 Com o perfil `dev`, na primeira execução são criados (senha `admin123`):
 
-| Username | Perfil |
-|----------|--------|
-| `admin` | Pastor/admin da matriz (Ana Costa) — vê a rede |
-| `filial` | Admin da filial Zona Sul |
-| `joao` | Líder do Louvor |
-| `maria` | Coordenadora do Louvor |
-| `midia` | Líder de Mídia |
-| `membro` | Voluntária |
-| `pedro` | Pastor da filial |
+| Login (e-mail) | Perfil |
+|----------------|--------|
+| `pastor@base.local` | Pastor + secretaria da matriz (Ana Costa) — vê a rede |
+| `secretaria@base.local` | Secretaria da filial Zona Sul (Luciana Rocha) |
+| `lider@base.local` | Líder do Louvor (João da Silva) |
+| `maria@base.local` | Coordenadora do Louvor |
+| `midia@base.local` | Líder de Mídia |
+| `membro@base.local` | Voluntária |
+| `pastor.filial@base.local` | Pastor da filial |
+
+O login aceita e-mail ou telefone (`identificador`); o telefone é comparado já normalizado.
 
 ### Produção: primeiro administrador
 
-Fora do perfil `dev` não há seed. Na primeira subida com banco vazio, defina `ADMIN_USERNAME`, `ADMIN_EMAIL` e `ADMIN_SENHA` (mín. 8 caracteres; `ADMIN_NOME` é opcional): a API cria esse usuário com os papéis `ADMIN` + `PASTOR` na igreja matriz. Se já existir qualquer usuário, as variáveis são ignoradas — remova `ADMIN_SENHA` do ambiente após o primeiro login.
+Fora do perfil `dev` não há seed. Na primeira subida com banco vazio, defina `ADMIN_EMAIL` e `ADMIN_SENHA` (mín. 8 caracteres; `ADMIN_NOME` é opcional): a API cria esse usuário (login pelo e-mail) com os papéis `PASTOR` + `SECRETARIA` na igreja matriz. `ADMIN_USERNAME` não é mais usado. Se já existir qualquer usuário, as variáveis são ignoradas — remova `ADMIN_SENHA` do ambiente após o primeiro login.
 
 Health check para o orquestrador: `GET /actuator/health` (também `/actuator/health/liveness` e `/readiness`). Atrás de proxy reverso mantenha `FORWARD_HEADERS_STRATEGY=NATIVE`; sem proxy, use `NONE`.
 
@@ -150,7 +152,7 @@ Health check para o orquestrador: `GET /actuator/health` (também `/actuator/hea
 ```bash
 curl -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","senha":"admin123"}'
+  -d '{"identificador":"pastor@base.local","senha":"admin123"}'
 ```
 
 Use o token: `Authorization: Bearer <token>`.

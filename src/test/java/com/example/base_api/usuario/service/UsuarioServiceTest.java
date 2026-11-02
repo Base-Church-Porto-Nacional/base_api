@@ -4,7 +4,12 @@ import com.example.base_api.audit.service.AuditService;
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.repository.IgrejaRepository;
+import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.service.PessoaService;
+import com.example.base_api.security.UsuarioAutenticado;
+import com.example.base_api.usuario.dto.LoginRequest;
+import com.example.base_api.usuario.dto.LoginResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.security.Capacidade;
 import com.example.base_api.security.JwtService;
@@ -13,6 +18,7 @@ import com.example.base_api.usuario.dto.UsuarioPapeisRequest;
 import com.example.base_api.usuario.dto.UsuarioResponse;
 import com.example.base_api.usuario.dto.UsuarioUpdateRequest;
 import com.example.base_api.usuario.entity.Papel;
+import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.entity.UsuarioPapel;
 import com.example.base_api.usuario.repository.PapelRepository;
@@ -73,9 +79,8 @@ class UsuarioServiceTest {
     private Usuario usuarioComPapeis(UUID igrejaId, String... nomes) {
         Usuario u = new Usuario();
         u.setId(UUID.randomUUID());
-        u.setUsername("alvo");
         u.setIgrejaId(igrejaId);
-        u.setAtivo(true);
+        u.setStatus(StatusUsuario.ATIVO);
         for (String nome : nomes) {
             Papel papel = new Papel();
             papel.setId(UUID.randomUUID());
@@ -107,7 +112,11 @@ class UsuarioServiceTest {
     @Test
     void usuarioCriadoSemPapeis() {
         UUID igrejaId = UUID.randomUUID();
-        when(usuarioRepository.existsByUsername("joao")).thenReturn(false);
+        UUID pessoaId = UUID.randomUUID();
+        Pessoa pessoa = new Pessoa();
+        pessoa.setId(pessoaId);
+        pessoa.setNome("João");
+        when(pessoaService.buscarEntidade(pessoaId)).thenReturn(pessoa);
         when(usuarioRepository.existsByEmailIgnoreCase("joao@email.com")).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn("hash");
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> {
@@ -118,23 +127,58 @@ class UsuarioServiceTest {
         when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
 
         UsuarioResponse response = usuarioService.criar(new UsuarioCreateRequest(
-                null, "joao", "joao@email.com", "senha123", igrejaId
+                pessoaId, "Joao@Email.com", "senha123", igrejaId
         ));
 
-        assertThat(response.username()).isEqualTo("joao");
+        assertThat(response.email()).isEqualTo("joao@email.com");
+        assertThat(response.pessoaId()).isEqualTo(pessoaId);
+        assertThat(response.pessoaNome()).isEqualTo("João");
+        assertThat(response.status()).isEqualTo(StatusUsuario.ATIVO);
         assertThat(response.papeis()).isEmpty();
         verify(usuarioPapelRepository, never()).save(any());
     }
 
     @Test
-    void naoDeveCriarUsuarioComUsernameDuplicado() {
+    void naoDeveCriarUsuarioComEmailDuplicado() {
         UUID igrejaId = UUID.randomUUID();
-        when(usuarioRepository.existsByUsername("joao")).thenReturn(true);
+        when(usuarioRepository.existsByEmailIgnoreCase("joao@email.com")).thenReturn(true);
 
         assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
-                null, "joao", "joao@email.com", "senha123", igrejaId
+                UUID.randomUUID(), "joao@email.com", "senha123", igrejaId
         ))).isInstanceOf(BusinessException.class)
-                .hasMessageContaining("Username");
+                .hasMessageContaining("E-mail");
+    }
+
+    @Test
+    void naoDeveCriarUsuarioSemPessoa() {
+        UUID igrejaId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
+                null, "joao@email.com", "senha123", igrejaId
+        ))).isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Pessoa");
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void autenticarGeraTokenComIdDoUsuario() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario usuario = usuarioComPapeis(igrejaId);
+        usuario.setPessoaId(UUID.randomUUID());
+        usuario.setSenhaHash("hash");
+        usuario.setTokenVersion(2);
+        UsuarioAutenticado principal = UsuarioAutenticado.de(usuario);
+        when(authenticationManager.authenticate(any()))
+                .thenReturn(new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
+        when(jwtService.gerarToken(usuario.getId(), usuario.getPessoaId(), igrejaId, null, 2)).thenReturn("jwt");
+
+        LoginResponse response = usuarioService.autenticar(new LoginRequest("(63) 99999-0000", "senha"));
+
+        assertThat(response.token()).isEqualTo("jwt");
+        assertThat(response.usuarioId()).isEqualTo(usuario.getId());
+        assertThat(response.pessoaId()).isEqualTo(usuario.getPessoaId());
     }
 
     @Test
@@ -144,7 +188,7 @@ class UsuarioServiceTest {
                 .when(autorizacaoService).assertPodeCriarUsuario(igrejaId);
 
         assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
-                null, "joao", "joao@email.com", "senha123", igrejaId
+                UUID.randomUUID(), "joao@email.com", "senha123", igrejaId
         ))).isInstanceOf(AccessDeniedException.class);
     }
 
@@ -246,12 +290,10 @@ class UsuarioServiceTest {
         UUID pessoaA = UUID.randomUUID();
         Usuario comPessoa = new Usuario();
         comPessoa.setId(UUID.randomUUID());
-        comPessoa.setUsername("ana");
         comPessoa.setPessoaId(pessoaA);
         comPessoa.setIgrejaId(igrejaId);
         Usuario semPessoa = new Usuario();
         semPessoa.setId(UUID.randomUUID());
-        semPessoa.setUsername("sistema");
         semPessoa.setIgrejaId(igrejaId);
 
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
@@ -378,7 +420,7 @@ class UsuarioServiceTest {
     void pastorExcluiPastorInativoMesmoComUmUnicoAtivo() {
         UUID igrejaId = UUID.randomUUID();
         Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
-        alvo.setAtivo(false);
+        alvo.setStatus(StatusUsuario.DESATIVADO);
         when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
 
         usuarioService.excluir(alvo.getId());

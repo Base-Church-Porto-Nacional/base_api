@@ -648,7 +648,6 @@ class EscalaServiceTest {
         Usuario usuario = new Usuario();
         usuario.setId(UUID.randomUUID());
         usuario.setPessoaId(pessoaLogadaId);
-        usuario.setUsername("voluntario");
         usuario.setEmail("voluntario@igreja.com");
         usuario.setSenhaHash("hash");
         return usuario;

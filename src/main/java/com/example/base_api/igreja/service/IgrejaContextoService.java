@@ -40,9 +40,7 @@ public class IgrejaContextoService {
             throw new UnauthorizedException("Usuário não autenticado");
         }
         // Por id, a consulta é servida pelo cache da sessão JPA dentro da mesma transação.
-        Optional<Usuario> usuario = authentication.getPrincipal() instanceof UsuarioAutenticado principal
-                ? usuarioRepository.findById(principal.getUsuarioId())
-                : usuarioRepository.findByUsername(authentication.getName());
+        Optional<Usuario> usuario = UsuarioAutenticado.idDe(authentication).flatMap(usuarioRepository::findById);
         return usuario.orElseThrow(() -> new UnauthorizedException("Usuário autenticado não encontrado"));
     }
 

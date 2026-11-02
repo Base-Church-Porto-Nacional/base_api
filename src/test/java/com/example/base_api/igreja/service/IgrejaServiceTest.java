@@ -83,7 +83,6 @@ class IgrejaServiceTest {
         pastor.setNome("Ana Costa");
         Usuario admin = new Usuario();
         admin.setId(adminId);
-        admin.setUsername("admin");
         admin.setPessoaId(pastorId);
 
         when(usuarioRepository.findAllById(List.of(adminId))).thenReturn(List.of(admin));
@@ -106,7 +105,6 @@ class IgrejaServiceTest {
                 UUID.randomUUID(),
                 "Admin Filial",
                 "admin.filial@base.church",
-                "adminfilial",
                 "admin123"
         );
 
@@ -136,11 +134,10 @@ class IgrejaServiceTest {
         adminPessoa.setNome("Bruno");
         Usuario admin = new Usuario();
         admin.setId(UUID.randomUUID());
-        admin.setUsername("bruno");
         admin.setPessoaId(adminPessoa.getId());
         Usuario adminSemPessoa = new Usuario();
         adminSemPessoa.setId(UUID.randomUUID());
-        adminSemPessoa.setUsername("sistema");
+        adminSemPessoa.setEmail("sistema@base.church");
         Igreja sede = igrejaDeTeste("Sede");
         sede.setPastorPessoaId(pastora.getId());
         sede.setAdminUsuarioId(admin.getId());
@@ -155,7 +152,7 @@ class IgrejaServiceTest {
         List<IgrejaResponse> igrejas = igrejaService.listarVisiveis();
 
         assertThat(igrejas).extracting(IgrejaResponse::pastorNome).containsExactly("Pra. Ana", null);
-        assertThat(igrejas).extracting(IgrejaResponse::adminNome).containsExactly("Bruno", "sistema");
+        assertThat(igrejas).extracting(IgrejaResponse::adminNome).containsExactly("Bruno", "sistema@base.church");
         verify(pessoaRepository, never()).findById(any());
         verify(usuarioRepository, never()).findById(any());
     }

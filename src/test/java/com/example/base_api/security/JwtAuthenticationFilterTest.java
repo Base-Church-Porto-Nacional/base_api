@@ -1,5 +1,6 @@
 package com.example.base_api.security;
 
+import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.repository.UsuarioRepository;
 import jakarta.servlet.FilterChain;
@@ -36,6 +37,8 @@ class JwtAuthenticationFilterTest {
     @InjectMocks
     private JwtAuthenticationFilter filter;
 
+    private static final UUID ID = UUID.randomUUID();
+
     @AfterEach
     void limparContexto() {
         SecurityContextHolder.clearContext();
@@ -61,8 +64,8 @@ class JwtAuthenticationFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         Usuario usuario = usuario(true, 2);
 
-        when(jwtService.validar("token-velho")).thenReturn(new JwtService.TokenValidado("joao", 0));
-        when(usuarioRepository.findByUsername("joao")).thenReturn(Optional.of(usuario));
+        when(jwtService.validar("token-velho")).thenReturn(new JwtService.TokenValidado(ID, 0));
+        when(usuarioRepository.findById(ID)).thenReturn(Optional.of(usuario));
 
         filter.doFilter(request, response, filterChain);
 
@@ -75,8 +78,8 @@ class JwtAuthenticationFilterTest {
         MockHttpServletRequest request = requisicao("token-ok");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        when(jwtService.validar("token-ok")).thenReturn(new JwtService.TokenValidado("joao", 0));
-        when(usuarioRepository.findByUsername("joao")).thenReturn(Optional.of(usuario(false, 0)));
+        when(jwtService.validar("token-ok")).thenReturn(new JwtService.TokenValidado(ID, 0));
+        when(usuarioRepository.findById(ID)).thenReturn(Optional.of(usuario(false, 0)));
 
         filter.doFilter(request, response, filterChain);
 
@@ -89,8 +92,8 @@ class JwtAuthenticationFilterTest {
         MockHttpServletRequest request = requisicao("token-ok");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        when(jwtService.validar("token-ok")).thenReturn(new JwtService.TokenValidado("joao", 0));
-        when(usuarioRepository.findByUsername("joao")).thenReturn(Optional.empty());
+        when(jwtService.validar("token-ok")).thenReturn(new JwtService.TokenValidado(ID, 0));
+        when(usuarioRepository.findById(ID)).thenReturn(Optional.empty());
 
         filter.doFilter(request, response, filterChain);
 
@@ -104,17 +107,48 @@ class JwtAuthenticationFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         Usuario usuario = usuario(true, 1);
 
-        when(jwtService.validar("token-ok")).thenReturn(new JwtService.TokenValidado("joao", 1));
-        when(usuarioRepository.findByUsername("joao")).thenReturn(Optional.of(usuario));
+        when(jwtService.validar("token-ok")).thenReturn(new JwtService.TokenValidado(ID, 1));
+        when(usuarioRepository.findById(ID)).thenReturn(Optional.of(usuario));
 
         filter.doFilter(request, response, filterChain);
 
         verify(filterChain).doFilter(request, response);
-        verify(usuarioRepository, times(1)).findByUsername("joao");
+        verify(usuarioRepository, times(1)).findById(ID);
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        assertThat(auth.getName()).isEqualTo("joao");
+        assertThat(auth.getName()).isEqualTo(ID.toString());
         assertThat(auth.getPrincipal()).isInstanceOf(UsuarioAutenticado.class);
         assertThat(((UsuarioAutenticado) auth.getPrincipal()).getUsuarioId()).isEqualTo(usuario.getId());
+    }
+
+    @Test
+    void carregaUsuarioPorIdDoToken() throws Exception {
+        MockHttpServletRequest request = requisicao("token-ok");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtService.validar("token-ok")).thenReturn(new JwtService.TokenValidado(ID, 0));
+        when(usuarioRepository.findById(ID)).thenReturn(Optional.of(usuario(StatusUsuario.ATIVO, 0)));
+
+        filter.doFilter(request, response, filterChain);
+
+        verify(filterChain).doFilter(request, response);
+        verify(usuarioRepository).findById(ID);
+        assertThat(((UsuarioAutenticado) SecurityContextHolder.getContext().getAuthentication().getPrincipal())
+                .getUsuarioId()).isEqualTo(ID);
+    }
+
+    @Test
+    void recusaUsuarioNaoAtivo() throws Exception {
+        for (StatusUsuario status : new StatusUsuario[]{StatusUsuario.CONVIDADO, StatusUsuario.DESATIVADO}) {
+            MockHttpServletRequest request = requisicao("token-ok");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            when(jwtService.validar("token-ok")).thenReturn(new JwtService.TokenValidado(ID, 0));
+            when(usuarioRepository.findById(ID)).thenReturn(Optional.of(usuario(status, 0)));
+
+            filter.doFilter(request, response, filterChain);
+
+            assertThat(response.getStatus()).isEqualTo(401);
+            verify(filterChain, never()).doFilter(request, response);
+        }
     }
 
     private MockHttpServletRequest requisicao(String token) {
@@ -125,11 +159,16 @@ class JwtAuthenticationFilterTest {
     }
 
     private Usuario usuario(boolean ativo, int tokenVersion) {
+        return usuario(ativo ? StatusUsuario.ATIVO : StatusUsuario.DESATIVADO, tokenVersion);
+    }
+
+    private Usuario usuario(StatusUsuario status, int tokenVersion) {
         Usuario usuario = new Usuario();
-        usuario.setId(UUID.randomUUID());
-        usuario.setUsername("joao");
+        usuario.setId(ID);
+        usuario.setPessoaId(UUID.randomUUID());
+        usuario.setEmail("joao@base.com");
         usuario.setSenhaHash("hash");
-        usuario.setAtivo(ativo);
+        usuario.setStatus(status);
         usuario.setTokenVersion(tokenVersion);
         return usuario;
     }

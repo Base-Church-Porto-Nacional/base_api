@@ -2,16 +2,14 @@ package com.example.base_api.usuario.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.util.UUID;
 
 public record UsuarioCreateRequest(
+        @NotNull(message = "Pessoa é obrigatória")
         UUID pessoaId,
-
-        @NotBlank(message = "Username é obrigatório")
-        @Size(min = 3, max = 100, message = "Username deve ter entre 3 e 100 caracteres")
-        String username,
 
         @NotBlank(message = "E-mail é obrigatório")
         @Email(message = "E-mail inválido")

@@ -6,7 +6,6 @@ public record LoginResponse(
         String token,
         String tipo,
         UUID usuarioId,
-        String username,
         UUID pessoaId,
         UUID igrejaId,
         String igrejaTipo

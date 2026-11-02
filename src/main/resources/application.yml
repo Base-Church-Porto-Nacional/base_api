@@ -56,7 +56,6 @@ app:
   # Primeiro administrador (só é criado quando não há nenhum usuário; ignorado no perfil dev).
   bootstrap:
     admin:
-      username: ${ADMIN_USERNAME:}
       email: ${ADMIN_EMAIL:}
       senha: ${ADMIN_SENHA:}
       nome: ${ADMIN_NOME:}

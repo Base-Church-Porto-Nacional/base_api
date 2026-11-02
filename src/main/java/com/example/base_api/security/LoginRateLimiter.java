@@ -19,8 +19,8 @@ public class LoginRateLimiter {
 
     private final Map<String, Deque<Long>> tentativas = new ConcurrentHashMap<>();
 
-    public void assertPermitido(String username, String ip) {
-        String chave = chave(username, ip);
+    public void assertPermitido(String identificador, String ip) {
+        String chave = chave(identificador, ip);
         long agora = System.currentTimeMillis();
         long inicioJanela = agora - JANELA.toMillis();
         Deque<Long> fila = tentativas.computeIfAbsent(chave, k -> new ArrayDeque<>());
@@ -34,8 +34,8 @@ public class LoginRateLimiter {
         }
     }
 
-    public void registrarFalha(String username, String ip) {
-        String chave = chave(username, ip);
+    public void registrarFalha(String identificador, String ip) {
+        String chave = chave(identificador, ip);
         long agora = System.currentTimeMillis();
         Deque<Long> fila = tentativas.computeIfAbsent(chave, k -> new ArrayDeque<>());
         synchronized (fila) {
@@ -43,12 +43,13 @@ public class LoginRateLimiter {
         }
     }
 
-    public void limpar(String username, String ip) {
-        tentativas.remove(chave(username, ip));
+    public void limpar(String identificador, String ip) {
+        tentativas.remove(chave(identificador, ip));
     }
 
-    private String chave(String username, String ip) {
-        String user = username == null ? "" : username.trim().toLowerCase();
+    private String chave(String identificador, String ip) {
+        // Mesma chave para "(63) 99999-0000" e "63999990000": o limite não se burla trocando o formato.
+        String user = Identificador.normalizado(identificador);
         String origem = ip == null || ip.isBlank() ? "unknown" : ip;
         return user + "|" + origem;
     }

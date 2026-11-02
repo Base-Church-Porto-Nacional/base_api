@@ -6,6 +6,7 @@ import com.example.base_api.igreja.entity.IgrejaTipo;
 import com.example.base_api.igreja.repository.IgrejaRepository;
 import com.example.base_api.security.UsuarioAutenticado;
 import com.example.base_api.usuario.entity.Papel;
+import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.entity.UsuarioPapel;
 import com.example.base_api.usuario.repository.UsuarioRepository;
@@ -54,7 +55,6 @@ class IgrejaContextoServiceTest {
 
         usuario = new Usuario();
         usuario.setId(UUID.randomUUID());
-        usuario.setUsername("membro");
         usuario.setIgrejaId(igrejaId);
 
         filial = new Igreja();
@@ -115,7 +115,7 @@ class IgrejaContextoServiceTest {
         autenticarComId();
 
         assertThat(igrejaContextoService.requireUsuario()).isSameAs(usuario);
-        verify(usuarioRepository, never()).findByUsername(any());
+        verify(usuarioRepository, times(1)).findById(usuario.getId());
     }
 
     @Test
@@ -205,7 +205,7 @@ class IgrejaContextoServiceTest {
 
     private void autenticarComId() {
         usuario.setSenhaHash("hash");
-        usuario.setAtivo(true);
+        usuario.setStatus(StatusUsuario.ATIVO);
         UsuarioAutenticado principal = UsuarioAutenticado.de(usuario);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities())
@@ -216,9 +216,9 @@ class IgrejaContextoServiceTest {
 
     private void autenticar() {
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("membro", "n/a", List.of())
+                new UsernamePasswordAuthenticationToken(usuario.getId().toString(), "n/a", List.of())
         );
-        when(usuarioRepository.findByUsername("membro")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
         org.mockito.Mockito.lenient().when(igrejaRepository.findById(filial.getId())).thenReturn(Optional.of(filial));
     }
 }
