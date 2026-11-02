@@ -143,4 +143,54 @@ class AdminBootstrapTest {
         assertThat(vinculos.getAllValues()).extracting(v -> v.getPapel().getNome())
                 .containsExactlyInAnyOrder("PASTOR", "SECRETARIA");
     }
+
+    private Igreja matrizComBootstrapMockado() {
+        Igreja matriz = new Igreja();
+        matriz.setId(UUID.randomUUID());
+        matriz.setNome("Base Church");
+        matriz.setTipo(IgrejaTipo.MATRIZ);
+        when(usuarioRepository.count()).thenReturn(0L);
+        when(igrejaRepository.findAll()).thenReturn(List.of(matriz));
+        when(pessoaRepository.findByEmailIgnoreCase("admin@igreja.com")).thenReturn(Optional.empty());
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(inv -> {
+            Pessoa p = inv.getArgument(0);
+            if (p.getId() == null) p.setId(UUID.randomUUID());
+            return p;
+        });
+        when(passwordEncoder.encode(any())).thenReturn("hash");
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(papelRepository.findByNomeAndIgrejaIdIsNull(any())).thenAnswer(inv -> {
+            Papel papel = new Papel();
+            papel.setId(UUID.randomUUID());
+            papel.setNome(inv.getArgument(0));
+            return Optional.of(papel);
+        });
+        return matriz;
+    }
+
+    @Test
+    void bootstrapDefinePastorTitularDaMatriz() {
+        configurar("admin@igreja.com", "senhaForte123");
+        Igreja matriz = matrizComBootstrapMockado();
+
+        bootstrap().run(null);
+
+        ArgumentCaptor<Usuario> usuario = ArgumentCaptor.forClass(Usuario.class);
+        verify(usuarioRepository).save(usuario.capture());
+        assertThat(matriz.getPastorPessoaId()).isEqualTo(usuario.getValue().getPessoaId()).isNotNull();
+        verify(igrejaRepository).save(matriz);
+    }
+
+    @Test
+    void bootstrapNaoSobrescrevePastorExistente() {
+        configurar("admin@igreja.com", "senhaForte123");
+        Igreja matriz = matrizComBootstrapMockado();
+        UUID pastorExistente = UUID.randomUUID();
+        matriz.setPastorPessoaId(pastorExistente);
+
+        bootstrap().run(null);
+
+        assertThat(matriz.getPastorPessoaId()).isEqualTo(pastorExistente);
+        verify(igrejaRepository, never()).save(any());
+    }
 }

@@ -71,27 +71,24 @@ class IgrejaServiceTest {
     }
 
     @Test
-    void deveMontarResponseComPastorEAdmin() {
+    void deveMontarResponseComPastor() {
         UUID pastorId = UUID.randomUUID();
-        UUID adminId = UUID.randomUUID();
         Igreja igreja = igreja(IgrejaTipo.MATRIZ, null);
         igreja.setPastorPessoaId(pastorId);
-        igreja.setAdminUsuarioId(adminId);
-
-        Pessoa pastor = new Pessoa();
-        pastor.setId(pastorId);
-        pastor.setNome("Ana Costa");
-        Usuario admin = new Usuario();
-        admin.setId(adminId);
-        admin.setPessoaId(pastorId);
-
-        when(usuarioRepository.findAllById(List.of(adminId))).thenReturn(List.of(admin));
-        when(pessoaRepository.nomesPorId(any())).thenReturn(Map.of(pastorId, pastor.getNome()));
+        when(pessoaRepository.nomesPorId(any())).thenReturn(Map.of(pastorId, "Ana Costa"));
 
         IgrejaResponse response = igrejaService.toResponse(igreja);
 
+        assertThat(response.pastorPessoaId()).isEqualTo(pastorId);
         assertThat(response.pastorNome()).isEqualTo("Ana Costa");
-        assertThat(response.adminNome()).isEqualTo("Ana Costa");
+    }
+
+    @Test
+    void respostaDaIgrejaNaoTemAdmin() {
+        assertThat(java.util.Arrays.stream(IgrejaResponse.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName))
+                .containsExactly("id", "nome", "tipo", "igrejaMatrizId", "pastorPessoaId", "pastorNome",
+                        "ativo", "createdAt", "updatedAt");
     }
 
     @Test
@@ -125,36 +122,21 @@ class IgrejaServiceTest {
     }
 
     @Test
-    void listarVisiveisBuscaPastoresEAdminsEmLote() {
+    void listarVisiveisBuscaPastoresEmLote() {
         Pessoa pastora = new Pessoa();
         pastora.setId(UUID.randomUUID());
         pastora.setNome("Pra. Ana");
-        Pessoa adminPessoa = new Pessoa();
-        adminPessoa.setId(UUID.randomUUID());
-        adminPessoa.setNome("Bruno");
-        Usuario admin = new Usuario();
-        admin.setId(UUID.randomUUID());
-        admin.setPessoaId(adminPessoa.getId());
-        Usuario adminSemPessoa = new Usuario();
-        adminSemPessoa.setId(UUID.randomUUID());
-        adminSemPessoa.setEmail("sistema@base.church");
         Igreja sede = igrejaDeTeste("Sede");
         sede.setPastorPessoaId(pastora.getId());
-        sede.setAdminUsuarioId(admin.getId());
         Igreja filial = igrejaDeTeste("Filial");
-        filial.setAdminUsuarioId(adminSemPessoa.getId());
 
         when(igrejaContextoService.igrejasVisiveis()).thenReturn(List.of(sede, filial));
-        when(usuarioRepository.findAllById(any())).thenReturn(List.of(admin, adminSemPessoa));
-        when(pessoaRepository.nomesPorId(any()))
-                .thenReturn(Map.of(pastora.getId(), "Pra. Ana", adminPessoa.getId(), "Bruno"));
+        when(pessoaRepository.nomesPorId(any())).thenReturn(Map.of(pastora.getId(), "Pra. Ana"));
 
         List<IgrejaResponse> igrejas = igrejaService.listarVisiveis();
 
         assertThat(igrejas).extracting(IgrejaResponse::pastorNome).containsExactly("Pra. Ana", null);
-        assertThat(igrejas).extracting(IgrejaResponse::adminNome).containsExactly("Bruno", "sistema@base.church");
         verify(pessoaRepository, never()).findById(any());
-        verify(usuarioRepository, never()).findById(any());
     }
 
     private Igreja igrejaDeTeste(String nome) {

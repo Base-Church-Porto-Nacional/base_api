@@ -132,6 +132,11 @@ public class AdminBootstrap implements ApplicationRunner {
         usuario.setStatus(StatusUsuario.ATIVO);
         Usuario salvo = usuarioRepository.save(usuario);
 
+        if (matriz.getPastorPessoaId() == null) {
+            matriz.setPastorPessoaId(pessoa.getId());
+            igrejaRepository.save(matriz);
+        }
+
         for (String nomePapel : PAPEIS_ADMIN) {
             Papel papel = papelRepository.findByNomeAndIgrejaIdIsNull(nomePapel)
                     .orElseThrow(() -> new IllegalStateException("Papel " + nomePapel + " não encontrado"));

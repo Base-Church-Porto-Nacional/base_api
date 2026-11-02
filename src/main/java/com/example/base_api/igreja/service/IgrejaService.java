@@ -28,11 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 public class IgrejaService {
@@ -136,7 +132,6 @@ public class IgrejaService {
         vinculo.setPapel(adminRole);
         usuarioPapelRepository.save(vinculo);
 
-        salva.setAdminUsuarioId(adminSalvo.getId());
         return toResponse(igrejaRepository.save(salva));
     }
 
@@ -171,25 +166,12 @@ public class IgrejaService {
         return toResponses(List.of(igreja)).get(0);
     }
 
-    /** Monta as respostas carregando pastores e administradores em lote. */
+    /** Monta as respostas carregando pastores em lote. */
     public List<IgrejaResponse> toResponses(List<Igreja> igrejas) {
-        List<UUID> adminIds = igrejas.stream()
-                .map(Igreja::getAdminUsuarioId).filter(Objects::nonNull).distinct().toList();
-        Map<UUID, Usuario> admins = adminIds.isEmpty()
-                ? Map.of()
-                : usuarioRepository.findAllById(adminIds).stream()
-                .collect(Collectors.toMap(Usuario::getId, Function.identity()));
-        Map<UUID, String> nomes = pessoaRepository.nomesPorId(Stream.concat(
-                igrejas.stream().map(Igreja::getPastorPessoaId),
-                admins.values().stream().map(Usuario::getPessoaId)).toList());
+        Map<UUID, String> nomes = pessoaRepository.nomesPorId(
+                igrejas.stream().map(Igreja::getPastorPessoaId).toList());
 
         return igrejas.stream().map(igreja -> {
-            Usuario admin = igreja.getAdminUsuarioId() == null ? null : admins.get(igreja.getAdminUsuarioId());
-            String adminNome = admin == null
-                    ? null
-                    : Objects.requireNonNullElse(
-                            admin.getPessoaId() == null ? null : nomes.get(admin.getPessoaId()),
-                            Objects.requireNonNullElse(admin.getEmail(), ""));
             return new IgrejaResponse(
                     igreja.getId(),
                     igreja.getNome(),
@@ -197,8 +179,6 @@ public class IgrejaService {
                     igreja.getIgrejaMatrizId(),
                     igreja.getPastorPessoaId(),
                     igreja.getPastorPessoaId() == null ? null : nomes.get(igreja.getPastorPessoaId()),
-                    igreja.getAdminUsuarioId(),
-                    adminNome,
                     igreja.getAtivo(),
                     igreja.getCreatedAt(),
                     igreja.getUpdatedAt()

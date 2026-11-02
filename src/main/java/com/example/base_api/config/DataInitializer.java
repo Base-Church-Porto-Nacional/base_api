@@ -135,11 +135,11 @@ public class DataInitializer {
 
             String senha = passwordEncoder.encode("admin123");
 
-            Usuario admin = usuario(
+            usuario(
                     usuarioRepository, usuarioPapelRepository, "pastor@base.local", senha,
                     ana.getId(), MATRIZ_ID, Set.of(secretariaRole, pastorRole)
             );
-            Usuario uFilial = usuario(
+            usuario(
                     usuarioRepository, usuarioPapelRepository, "secretaria@base.local", senha,
                     luciana.getId(), filial.getId(), Set.of(secretariaRole)
             );
@@ -151,11 +151,9 @@ public class DataInitializer {
 
             matriz.setNome("Base Church");
             matriz.setPastorPessoaId(ana.getId());
-            matriz.setAdminUsuarioId(admin.getId());
             igrejaRepository.save(matriz);
 
             filial.setPastorPessoaId(pedro.getId());
-            filial.setAdminUsuarioId(uFilial.getId());
             igrejaRepository.save(filial);
 
             Ministerio louvor = ministerio(ministerioRepository, servicoRepository, pessoaServicoRepository,
