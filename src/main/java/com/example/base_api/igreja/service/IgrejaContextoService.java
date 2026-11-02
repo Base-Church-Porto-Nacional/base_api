@@ -92,6 +92,24 @@ public class IgrejaContextoService {
         return papeis;
     }
 
+    /**
+     * Só papéis de sistema do usuário na igreja, com a cascata de gestão da matriz para as filiais.
+     * Papéis customizados (mesmo com nome igual ao de um de sistema) nunca entram aqui.
+     */
+    public Set<String> papeisSistemaNaIgreja(Usuario usuario, UUID igrejaId) {
+        if (igrejaId == null) {
+            return Set.of();
+        }
+        Set<String> papeis = new HashSet<>(usuario.nomesPapeisSistema(igrejaId));
+        Igreja alvo = igrejaRepository.findById(igrejaId).orElse(null);
+        if (alvo != null && !alvo.isMatriz() && alvo.getIgrejaMatrizId() != null) {
+            usuario.nomesPapeisSistema(alvo.getIgrejaMatrizId()).stream()
+                    .filter(Papeis.GESTAO::contains)
+                    .forEach(papeis::add);
+        }
+        return papeis;
+    }
+
     public boolean isGestao(UUID igrejaId) {
         return isGestao(requireUsuario(), igrejaId);
     }

@@ -14,4 +14,11 @@ public interface BaseMinisterialRepository extends JpaRepository<BaseMinisterial
     boolean existsByIgrejaIdAndNomeIgnoreCaseAndIdNot(UUID igrejaId, String nome, UUID id);
 
     List<BaseMinisterial> findByIgrejaIdInOrderByNomeAsc(List<UUID> igrejaIds);
+
+    @org.springframework.data.jpa.repository.Query("""
+            select b from BaseMinisterial b
+            where b.igrejaId = :igrejaId and (b.liderPessoaId = :pessoaId or b.coordenadorPessoaId = :pessoaId)
+            """)
+    List<BaseMinisterial> findLideradasOuCoordenadas(@org.springframework.data.repository.query.Param("igrejaId") UUID igrejaId,
+                                                     @org.springframework.data.repository.query.Param("pessoaId") UUID pessoaId);
 }

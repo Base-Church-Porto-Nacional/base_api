@@ -20,4 +20,13 @@ public interface MinisterioRepository extends JpaRepository<Ministerio, UUID> {
     long countByIgrejaIdIn(List<UUID> igrejaIds);
 
     List<Ministerio> findByBaseMinisterialId(UUID baseMinisterialId);
+
+    @org.springframework.data.jpa.repository.Query("""
+            select m from Ministerio m
+            where m.igrejaId = :igrejaId and (m.liderPessoaId = :pessoaId or m.coordenadorPessoaId = :pessoaId)
+            """)
+    List<Ministerio> findLideradosOuCoordenados(@org.springframework.data.repository.query.Param("igrejaId") UUID igrejaId,
+                                                @org.springframework.data.repository.query.Param("pessoaId") UUID pessoaId);
+
+    List<Ministerio> findByBaseMinisterialIdIn(java.util.Collection<UUID> baseMinisterialIds);
 }

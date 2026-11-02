@@ -15,4 +15,5 @@ public interface SmallGroupRepository extends JpaRepository<SmallGroup, UUID> {
 
     List<SmallGroup> findByIgrejaIdInOrderByNomeAsc(List<UUID> igrejaIds);
 
+    List<SmallGroup> findByIgrejaIdAndLiderPessoaId(UUID igrejaId, UUID liderPessoaId);
 }

@@ -77,6 +77,17 @@ public class Usuario extends AuditableEntity {
                 .collect(Collectors.toSet());
     }
 
+    /** Possui, nesta igreja, um papel customizado que permite lançar a contagem do culto. */
+    public boolean temPapelComContagem(UUID igrejaAlvoId) {
+        if (papeisIgreja == null || igrejaAlvoId == null) {
+            return false;
+        }
+        return papeisIgreja.stream()
+                .anyMatch(up -> igrejaAlvoId.equals(up.getIgrejaId()) && up.getPapel() != null
+                        && !up.getPapel().isSistema() && igrejaAlvoId.equals(up.getPapel().getIgrejaId())
+                        && up.getPapel().isPodeLancarContagem());
+    }
+
     public Set<String> nomesPapeisDaIgrejaAtual() {
         return nomesPapeis(igrejaId);
     }
