@@ -3,7 +3,9 @@ package com.example.base_api.security;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Set;
 
 @Component
@@ -20,6 +22,7 @@ public class StartupSecretsValidator {
         }
         validarJwt(environment.getProperty("app.jwt.secret", ""));
         validarSenhaBanco(environment.getProperty("spring.datasource.password", ""));
+        validarUrlFrontend(environment.getProperty("app.frontend.url-base", ""));
     }
 
     static void validarJwt(String secret) {
@@ -35,6 +38,26 @@ public class StartupSecretsValidator {
         if (password == null || password.isBlank() || DB_PASSWORD_DEFAULT.equals(password)) {
             throw new IllegalStateException(
                     "DB_PASSWORD não pode ser o valor padrão fora dos perfis dev/test"
+            );
+        }
+    }
+
+    /** Os links de convite/redefinição usam esta base: fora de dev precisa ser o domínio público em https. */
+    static void validarUrlFrontend(String url) {
+        String valor = url == null ? "" : url.strip().toLowerCase(Locale.ROOT);
+        String host = null;
+        if (valor.startsWith("https://")) {
+            try {
+                host = URI.create(valor).getHost();
+            } catch (IllegalArgumentException e) {
+                host = null;
+            }
+        }
+        if (host == null || host.isBlank() || host.equals("localhost") || host.endsWith(".localhost")
+                || host.startsWith("127.") || host.equals("0.0.0.0") || host.equals("[::1]")) {
+            throw new IllegalStateException(
+                    "FRONTEND_URL_BASE obrigatório fora dos perfis dev/test: use a URL pública do app em https"
+                            + " (ex.: https://base.veigagustavo.com.br), sem localhost"
             );
         }
     }
