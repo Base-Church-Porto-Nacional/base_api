@@ -263,6 +263,11 @@ public class UsuarioService {
                 .filter(Usuario::isAtivo)
                 .orElseThrow(() -> new BadCredentialsException("Credenciais inválidas"));
 
+        return emitirLogin(usuario);
+    }
+
+    /** Gera o JWT e a resposta de login para uma conta já autenticada. */
+    public LoginResponse emitirLogin(Usuario usuario) {
         Igreja igreja = usuario.getIgrejaId() == null
                 ? null
                 : igrejaRepository.findById(usuario.getIgrejaId()).orElse(null);

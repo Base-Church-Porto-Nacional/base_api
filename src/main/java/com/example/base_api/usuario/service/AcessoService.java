@@ -13,7 +13,14 @@ import com.example.base_api.pessoa.service.PessoaService;
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.security.Capacidade;
 import com.example.base_api.security.Identificador;
+import com.example.base_api.common.exception.LinkExpiradoException;
+import com.example.base_api.security.LoginRateLimiter;
+import com.example.base_api.usuario.dto.DefinirSenhaRequest;
 import com.example.base_api.usuario.dto.LinkAcessoResponse;
+import com.example.base_api.usuario.dto.LoginResponse;
+import com.example.base_api.usuario.dto.TokenInfoResponse;
+import com.example.base_api.usuario.entity.TokenAcesso;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.TipoTokenAcesso;
 import com.example.base_api.usuario.entity.Usuario;
@@ -32,6 +39,9 @@ public class AcessoService {
 
     private static final Logger log = LoggerFactory.getLogger(AcessoService.class);
 
+    private static final String CHAVE_TOKEN = "token";
+    private static final String MENSAGEM_LINK_EXPIRADO = TokenAcessoService.MENSAGEM_LINK_EXPIRADO;
+
     private final PessoaService pessoaService;
     private final UsuarioRepository usuarioRepository;
     private final IgrejaRepository igrejaRepository;
@@ -40,6 +50,8 @@ public class AcessoService {
     private final AutorizacaoService autorizacaoService;
     private final UsuarioService usuarioService;
     private final AuditService auditService;
+    private final PasswordEncoder passwordEncoder;
+    private final LoginRateLimiter loginRateLimiter;
 
     public AcessoService(
             PessoaService pessoaService,
@@ -49,7 +61,9 @@ public class AcessoService {
             CanalMensagem canalMensagem,
             AutorizacaoService autorizacaoService,
             UsuarioService usuarioService,
-            AuditService auditService
+            AuditService auditService,
+            PasswordEncoder passwordEncoder,
+            LoginRateLimiter loginRateLimiter
     ) {
         this.pessoaService = pessoaService;
         this.usuarioRepository = usuarioRepository;
@@ -59,6 +73,8 @@ public class AcessoService {
         this.autorizacaoService = autorizacaoService;
         this.usuarioService = usuarioService;
         this.auditService = auditService;
+        this.passwordEncoder = passwordEncoder;
+        this.loginRateLimiter = loginRateLimiter;
     }
 
     @Transactional
@@ -132,12 +148,86 @@ public class AcessoService {
         Pessoa pessoa = pessoaService.buscarEntidade(usuario.getPessoaId());
         UUID atorId = autorizacaoService.requireUsuario().getId();
         String link = tokenAcessoService.link(tokenAcessoService.gerar(usuarioId, TipoTokenAcesso.REDEFINICAO, atorId));
-        String mensagem = "Olá, " + primeiroNome(pessoa) + "! Para criar uma nova senha do app da "
-                + nomeIgreja(pessoa.getIgrejaId()) + ", use este link (vale por 1 hora): " + link;
+        String mensagem = mensagemRedefinicao(pessoa, link);
         boolean enviado = enviarWhatsapp(pessoa, usuario.getTelefone(), mensagem);
 
         auditService.registrar("GERAR_REDEFINICAO", "usuario", "usuarioId=" + usuarioId);
         return new LinkAcessoResponse(link, enviado);
+    }
+
+
+    private String mensagemRedefinicao(Pessoa pessoa, String link) {
+        return "Olá, " + primeiroNome(pessoa) + "! Para criar uma nova senha do app da "
+                + nomeIgreja(pessoa.getIgrejaId()) + ", use este link (vale por 1 hora): " + link;
+    }
+
+    /** Informa tipo e primeiro nome de um link válido; link inválido conta como falha no rate limit. */
+    @Transactional(readOnly = true)
+    public TokenInfoResponse info(String token, String ip) {
+        loginRateLimiter.assertPermitido(CHAVE_TOKEN, ip);
+        try {
+            TokenAcesso t = tokenAcessoService.validar(token);
+            Usuario usuario = usuarioRepository.findById(t.getUsuarioId())
+                    .filter(u -> u.getStatus() != StatusUsuario.DESATIVADO)
+                    .orElseThrow(() -> new LinkExpiradoException(MENSAGEM_LINK_EXPIRADO));
+            Pessoa pessoa = pessoaService.buscarEntidade(usuario.getPessoaId());
+            return new TokenInfoResponse(t.getTipo(), primeiroNome(pessoa));
+        } catch (LinkExpiradoException e) {
+            loginRateLimiter.registrarFalha(CHAVE_TOKEN, ip);
+            throw e;
+        }
+    }
+
+    @Transactional
+    public LoginResponse definirSenha(DefinirSenhaRequest request, String ip) {
+        loginRateLimiter.assertPermitido(CHAVE_TOKEN, ip);
+        try {
+            TokenAcesso t = tokenAcessoService.validar(request.token());
+            Usuario usuario = usuarioRepository.findById(t.getUsuarioId())
+                    .filter(u -> u.getStatus() != StatusUsuario.DESATIVADO)
+                    .orElseThrow(() -> new LinkExpiradoException(MENSAGEM_LINK_EXPIRADO));
+            tokenAcessoService.consumir(t);
+
+            usuario.setSenhaHash(passwordEncoder.encode(request.senha()));
+            usuario.setStatus(StatusUsuario.ATIVO);
+            usuario.invalidarTokens();
+            tokenAcessoService.revogarPendentes(usuario.getId());
+            usuario = usuarioRepository.save(usuario);
+
+            auditService.registrar("DEFINIR_SENHA", "usuario", "usuarioId=" + usuario.getId() + " tipo=" + t.getTipo());
+            return usuarioService.emitirLogin(usuario);
+        } catch (LinkExpiradoException e) {
+            loginRateLimiter.registrarFalha(CHAVE_TOKEN, ip);
+            throw e;
+        }
+    }
+
+    /**
+     * Esqueci a senha: nunca revela se a conta existe. Só o rate limit pode falhar a chamada;
+     * conta inexistente, convidada, desativada ou sem telefone resulta em silêncio.
+     */
+    @Transactional
+    public void solicitarRedefinicao(String identificador, String ip) {
+        String normalizado = Identificador.normalizado(identificador);
+        String chave = "esqueci:" + (normalizado == null || normalizado.isBlank()
+                ? (identificador == null ? "" : identificador.trim())
+                : normalizado);
+        loginRateLimiter.assertPermitido(chave, ip);
+        loginRateLimiter.registrarFalha(chave, ip);
+
+        Usuario usuario = usuarioRepository.findByIdentificador(identificador).orElse(null);
+        if (usuario == null || usuario.getStatus() != StatusUsuario.ATIVO
+                || usuario.getTelefone() == null || usuario.getPessoaId() == null) {
+            return;
+        }
+        try {
+            Pessoa pessoa = pessoaService.buscarEntidade(usuario.getPessoaId());
+            String link = tokenAcessoService.link(
+                    tokenAcessoService.gerar(usuario.getId(), TipoTokenAcesso.REDEFINICAO, null));
+            enviarWhatsapp(pessoa, usuario.getTelefone(), mensagemRedefinicao(pessoa, link));
+        } catch (Exception e) {
+            log.warn("Falha ao processar esqueci a senha (usuarioId={}): {}", usuario.getId(), e.getMessage());
+        }
     }
 
     /** Falha do canal nunca propaga: o link continua válido e é devolvido a quem administra. */

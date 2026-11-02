@@ -3,6 +3,15 @@ package com.example.base_api.usuario.service;
 import com.example.base_api.audit.service.AuditService;
 import com.example.base_api.common.exception.ConflictException;
 import com.example.base_api.common.exception.EntidadeNaoProcessavelException;
+import com.example.base_api.common.exception.LinkExpiradoException;
+import com.example.base_api.common.exception.TooManyRequestsException;
+import com.example.base_api.security.LoginRateLimiter;
+import com.example.base_api.usuario.dto.DefinirSenhaRequest;
+import com.example.base_api.usuario.dto.LoginResponse;
+import com.example.base_api.usuario.dto.TokenInfoResponse;
+import com.example.base_api.usuario.entity.TokenAcesso;
+import jakarta.validation.Validation;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.repository.IgrejaRepository;
 import com.example.base_api.notificacao.CanalMensagem;
@@ -58,6 +67,10 @@ class AcessoServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    private LoginRateLimiter rateLimiter;
     private AcessoService service;
 
     private final UUID igrejaId = UUID.randomUUID();
@@ -67,7 +80,7 @@ class AcessoServiceTest {
     @BeforeEach
     void setUp() {
         service = new AcessoService(pessoaService, usuarioRepository, igrejaRepository, tokenAcessoService,
-                canalMensagem, autorizacaoService, usuarioService, auditService);
+                canalMensagem, autorizacaoService, usuarioService, auditService, passwordEncoder, rateLimiter = new LoginRateLimiter());
         pessoa = new Pessoa();
         pessoa.setId(UUID.randomUUID());
         pessoa.setNome("Maria da Silva");
@@ -313,5 +326,213 @@ class AcessoServiceTest {
                 .isInstanceOf(ConflictException.class)
                 .hasMessage("Só é possível redefinir a senha de uma conta ativa");
         verify(tokenAcessoService, never()).gerar(any(), any(), any());
+    }
+
+    private static final String IP = "10.0.0.1";
+
+    private TokenAcesso tokenDe(Usuario u, TipoTokenAcesso tipo) {
+        TokenAcesso t = new TokenAcesso();
+        t.setId(UUID.randomUUID());
+        t.setUsuarioId(u.getId());
+        t.setTipo(tipo);
+        return t;
+    }
+
+    private void stubIgrejaEPessoa() {
+        Igreja igreja = new Igreja();
+        igreja.setId(igrejaId);
+        igreja.setNome("Igreja Central");
+        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.of(igreja));
+        when(pessoaService.buscarEntidade(pessoa.getId())).thenReturn(pessoa);
+    }
+
+    @Test
+    void definirSenhaAtivaContaConvidadaEDevolveLogin() {
+        Usuario u = usuarioExistente(StatusUsuario.CONVIDADO);
+        u.setTokenVersion(0);
+        TokenAcesso t = tokenDe(u, TipoTokenAcesso.CONVITE);
+        when(tokenAcessoService.validar(TOKEN)).thenReturn(t);
+        when(usuarioRepository.findById(u.getId())).thenReturn(Optional.of(u));
+        when(passwordEncoder.encode("senhaforte1")).thenReturn("HASH");
+        when(usuarioRepository.save(u)).thenReturn(u);
+        LoginResponse login = new LoginResponse("jwt", "Bearer", u.getId(), u.getPessoaId(), igrejaId, null);
+        when(usuarioService.emitirLogin(u)).thenReturn(login);
+
+        LoginResponse r = service.definirSenha(new DefinirSenhaRequest(TOKEN, "senhaforte1"), IP);
+
+        assertThat(r.token()).isNotBlank();
+        assertThat(u.getStatus()).isEqualTo(StatusUsuario.ATIVO);
+        assertThat(u.getSenhaHash()).isEqualTo("HASH");
+        assertThat(u.getTokenVersion()).isEqualTo(1);
+        verify(tokenAcessoService).consumir(t);
+        verify(tokenAcessoService).revogarPendentes(u.getId());
+        verify(auditService).registrar(eq("DEFINIR_SENHA"), eq("usuario"), any());
+    }
+
+    @Test
+    void redefinicaoInvalidaSessoesAnteriores() {
+        Usuario u = usuarioExistente(StatusUsuario.ATIVO);
+        u.setTokenVersion(3);
+        when(tokenAcessoService.validar(TOKEN)).thenReturn(tokenDe(u, TipoTokenAcesso.REDEFINICAO));
+        when(usuarioRepository.findById(u.getId())).thenReturn(Optional.of(u));
+        when(passwordEncoder.encode(any())).thenReturn("HASH");
+        when(usuarioRepository.save(u)).thenReturn(u);
+
+        service.definirSenha(new DefinirSenhaRequest(TOKEN, "senhaforte1"), IP);
+
+        assertThat(u.getTokenVersion()).isEqualTo(4);
+        assertThat(u.getStatus()).isEqualTo(StatusUsuario.ATIVO);
+    }
+
+    @Test
+    void definirSenhaComTokenJaUsadoLanca410() {
+        when(tokenAcessoService.validar(TOKEN)).thenThrow(new LinkExpiradoException("Link expirado"));
+
+        assertThatThrownBy(() -> service.definirSenha(new DefinirSenhaRequest(TOKEN, "senhaforte1"), IP))
+                .isInstanceOf(LinkExpiradoException.class);
+        verify(usuarioRepository, never()).save(any());
+        verify(usuarioService, never()).emitirLogin(any());
+    }
+
+    @Test
+    void definirSenhaComConsumoPerdidoNaoGravaSenha() {
+        Usuario u = usuarioExistente(StatusUsuario.CONVIDADO);
+        TokenAcesso t = tokenDe(u, TipoTokenAcesso.CONVITE);
+        when(tokenAcessoService.validar(TOKEN)).thenReturn(t);
+        when(usuarioRepository.findById(u.getId())).thenReturn(Optional.of(u));
+        doThrow(new LinkExpiradoException("Link expirado")).when(tokenAcessoService).consumir(t);
+
+        assertThatThrownBy(() -> service.definirSenha(new DefinirSenhaRequest(TOKEN, "senhaforte1"), IP))
+                .isInstanceOf(LinkExpiradoException.class);
+        verify(usuarioRepository, never()).save(any());
+        assertThat(u.getSenhaHash()).isNull();
+    }
+
+    @Test
+    void definirSenhaDeContaDesativadaLanca410SemConsumir() {
+        Usuario u = usuarioExistente(StatusUsuario.DESATIVADO);
+        TokenAcesso t = tokenDe(u, TipoTokenAcesso.REDEFINICAO);
+        when(tokenAcessoService.validar(TOKEN)).thenReturn(t);
+        when(usuarioRepository.findById(u.getId())).thenReturn(Optional.of(u));
+
+        assertThatThrownBy(() -> service.definirSenha(new DefinirSenhaRequest(TOKEN, "senhaforte1"), IP))
+                .isInstanceOf(LinkExpiradoException.class);
+        verify(tokenAcessoService, never()).consumir(any());
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void definirSenhaComSenhaCurtaFalhaValidacao() {
+        try (var factory = Validation.buildDefaultValidatorFactory()) {
+            var violacoes = factory.getValidator().validate(new DefinirSenhaRequest(TOKEN, "1234567"));
+            assertThat(violacoes).hasSize(1);
+            assertThat(factory.getValidator().validate(new DefinirSenhaRequest(TOKEN, "12345678"))).isEmpty();
+        }
+    }
+
+    @Test
+    void definirSenhaComLinkInvalidoRespeitaRateLimit() {
+        when(tokenAcessoService.validar(TOKEN)).thenThrow(new LinkExpiradoException("Link expirado"));
+        for (int i = 0; i < 5; i++) {
+            assertThatThrownBy(() -> service.definirSenha(new DefinirSenhaRequest(TOKEN, "senhaforte1"), IP))
+                    .isInstanceOf(LinkExpiradoException.class);
+        }
+        assertThatThrownBy(() -> service.definirSenha(new DefinirSenhaRequest(TOKEN, "senhaforte1"), IP))
+                .isInstanceOf(TooManyRequestsException.class);
+    }
+
+    @Test
+    void infoDevolvePrimeiroNomeETipo() {
+        Usuario u = usuarioExistente(StatusUsuario.CONVIDADO);
+        when(tokenAcessoService.validar(TOKEN)).thenReturn(tokenDe(u, TipoTokenAcesso.CONVITE));
+        when(usuarioRepository.findById(u.getId())).thenReturn(Optional.of(u));
+        when(pessoaService.buscarEntidade(pessoa.getId())).thenReturn(pessoa);
+
+        TokenInfoResponse r = service.info(TOKEN, IP);
+
+        assertThat(r.tipo()).isEqualTo(TipoTokenAcesso.CONVITE);
+        assertThat(r.primeiroNome()).isEqualTo("Mari");
+    }
+
+    @Test
+    void infoComTokenInvalidoLanca410ERegistraFalha() {
+        when(tokenAcessoService.validar("x")).thenThrow(new LinkExpiradoException("Link expirado"));
+        for (int i = 0; i < 5; i++) {
+            assertThatThrownBy(() -> service.info("x", IP)).isInstanceOf(LinkExpiradoException.class);
+        }
+        assertThatThrownBy(() -> service.info("x", IP)).isInstanceOf(TooManyRequestsException.class);
+    }
+
+    @Test
+    void esqueciSenhaContaAtivaComTelefoneEnvia() {
+        Usuario u = usuarioExistente(StatusUsuario.ATIVO);
+        u.setTelefone("5563999990000");
+        stubIgrejaEPessoa();
+        when(usuarioRepository.findByIdentificador("(63) 99999-0000")).thenReturn(Optional.of(u));
+        when(tokenAcessoService.gerar(u.getId(), TipoTokenAcesso.REDEFINICAO, null)).thenReturn(TOKEN);
+        when(tokenAcessoService.link(TOKEN)).thenReturn(LINK);
+
+        service.solicitarRedefinicao("(63) 99999-0000", IP);
+
+        ArgumentCaptor<EnvioMensagem> envio = ArgumentCaptor.forClass(EnvioMensagem.class);
+        verify(canalMensagem).enviar(envio.capture());
+        assertThat(envio.getValue().whatsapp()).isEqualTo("5563999990000");
+        assertThat(envio.getValue().mensagem()).isEqualTo(
+                "Olá, Mari! Para criar uma nova senha do app da Igreja Central, use este link (vale por 1 hora): " + LINK);
+    }
+
+    @Test
+    void esqueciSenhaIdentificadorDesconhecidoNaoEnviaNada() {
+        when(usuarioRepository.findByIdentificador("x@y.com")).thenReturn(Optional.empty());
+
+        service.solicitarRedefinicao("x@y.com", IP);
+
+        verify(canalMensagem, never()).enviar(any());
+        verify(tokenAcessoService, never()).gerar(any(), any(), any());
+    }
+
+    @Test
+    void esqueciSenhaContaConvidadaNaoEnvia() {
+        Usuario u = usuarioExistente(StatusUsuario.CONVIDADO);
+        u.setTelefone("5563999990000");
+        when(usuarioRepository.findByIdentificador("a@b.com")).thenReturn(Optional.of(u));
+
+        service.solicitarRedefinicao("a@b.com", IP);
+
+        verify(canalMensagem, never()).enviar(any());
+        verify(tokenAcessoService, never()).gerar(any(), any(), any());
+    }
+
+    @Test
+    void esqueciSenhaContaDesativadaNaoEnvia() {
+        Usuario u = usuarioExistente(StatusUsuario.DESATIVADO);
+        u.setTelefone("5563999990000");
+        when(usuarioRepository.findByIdentificador("a@b.com")).thenReturn(Optional.of(u));
+
+        service.solicitarRedefinicao("a@b.com", IP);
+
+        verify(canalMensagem, never()).enviar(any());
+        verify(tokenAcessoService, never()).gerar(any(), any(), any());
+    }
+
+    @Test
+    void esqueciSenhaContaSemTelefoneNaoEnvia() {
+        Usuario u = usuarioExistente(StatusUsuario.ATIVO);
+        when(usuarioRepository.findByIdentificador("a@b.com")).thenReturn(Optional.of(u));
+
+        service.solicitarRedefinicao("a@b.com", IP);
+
+        verify(canalMensagem, never()).enviar(any());
+        verify(tokenAcessoService, never()).gerar(any(), any(), any());
+    }
+
+    @Test
+    void esqueciSenhaRespeitaRateLimit() {
+        when(usuarioRepository.findByIdentificador("a@b.com")).thenReturn(Optional.empty());
+        for (int i = 0; i < 5; i++) {
+            service.solicitarRedefinicao("a@b.com", IP);
+        }
+        assertThatThrownBy(() -> service.solicitarRedefinicao("A@B.com", IP))
+                .isInstanceOf(TooManyRequestsException.class);
     }
 }
