@@ -85,7 +85,7 @@ public class IgrejaContextoService {
         Set<String> papeis = new HashSet<>(usuario.nomesPapeis(igrejaId));
         Igreja alvo = igrejaRepository.findById(igrejaId).orElse(null);
         if (alvo != null && !alvo.isMatriz() && alvo.getIgrejaMatrizId() != null) {
-            usuario.nomesPapeis(alvo.getIgrejaMatrizId()).stream()
+            usuario.nomesPapeisSistema(alvo.getIgrejaMatrizId()).stream()
                     .filter(Papeis.GESTAO::contains)
                     .forEach(papeis::add);
         }
@@ -143,8 +143,15 @@ public class IgrejaContextoService {
     }
 
     private boolean isGestao(Usuario usuario, UUID igrejaId) {
-        Set<String> papeis = papeisNaIgreja(usuario, igrejaId);
-        return papeis.stream().anyMatch(Papeis.GESTAO::contains);
+        if (igrejaId == null) {
+            return false;
+        }
+        if (usuario.nomesPapeisSistema(igrejaId).stream().anyMatch(Papeis.GESTAO::contains)) {
+            return true;
+        }
+        Igreja alvo = igrejaRepository.findById(igrejaId).orElse(null);
+        return alvo != null && !alvo.isMatriz() && alvo.getIgrejaMatrizId() != null
+                && usuario.nomesPapeisSistema(alvo.getIgrejaMatrizId()).stream().anyMatch(Papeis.GESTAO::contains);
     }
 
     private static List<UUID> ids(List<Igreja> igrejas) {

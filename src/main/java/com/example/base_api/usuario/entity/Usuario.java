@@ -66,6 +66,17 @@ public class Usuario extends AuditableEntity {
                 .collect(Collectors.toSet());
     }
 
+    /** Só papéis de sistema (globais); papéis customizados de mesmo nome não contam. */
+    public Set<String> nomesPapeisSistema(UUID igrejaAlvoId) {
+        if (papeisIgreja == null || igrejaAlvoId == null) {
+            return Set.of();
+        }
+        return papeisIgreja.stream()
+                .filter(up -> igrejaAlvoId.equals(up.getIgrejaId()) && up.getPapel() != null && up.getPapel().isSistema())
+                .map(up -> up.getPapel().getNome())
+                .collect(Collectors.toSet());
+    }
+
     public Set<String> nomesPapeisDaIgrejaAtual() {
         return nomesPapeis(igrejaId);
     }

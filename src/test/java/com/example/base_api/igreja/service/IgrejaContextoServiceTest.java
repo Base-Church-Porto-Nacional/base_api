@@ -181,6 +181,16 @@ class IgrejaContextoServiceTest {
                 .isInstanceOf(AccessDeniedException.class);
     }
 
+    @Test
+    void papelCustomizadoComNomeSecretariaNaoEhGestao() {
+        UsuarioPapel customizado = vinculo("SECRETARIA", filial.getId());
+        customizado.getPapel().setIgrejaId(filial.getId());
+        usuario.getPapeisIgreja().add(customizado);
+        autenticarComId();
+
+        assertThat(igrejaContextoService.isGestao(filial.getId())).isFalse();
+    }
+
     private UsuarioPapel vinculo(String nomePapel, UUID igrejaId) {
         Papel papel = new Papel();
         papel.setId(UUID.randomUUID());
