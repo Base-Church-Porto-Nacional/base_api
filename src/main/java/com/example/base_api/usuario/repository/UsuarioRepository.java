@@ -31,36 +31,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
 
     long countByIgrejaIdIn(List<UUID> igrejaIds);
 
-    @Query("""
-            SELECT DISTINCT u FROM Usuario u
-            JOIN u.papeisIgreja up
-            JOIN up.papel p
-            WHERE UPPER(p.nome) = UPPER(:papel)
-              AND u.ativo = true
-              AND up.igrejaId IN :igrejaIds
-            ORDER BY u.username
-            """)
-    List<Usuario> findAtivosByPapelAndIgrejaIdIn(
-            @Param("papel") String papel,
-            @Param("igrejaIds") List<UUID> igrejaIds
-    );
-
     @Modifying
     @Query("delete from Usuario u where u.id = :id")
     int excluirDireto(@Param("id") UUID id);
-
-    @Query("""
-            SELECT COUNT(DISTINCT u) FROM Usuario u
-            JOIN u.papeisIgreja up
-            JOIN up.papel p
-            WHERE UPPER(p.nome) = UPPER(:papel)
-              AND u.ativo = true
-              AND up.igrejaId IN :igrejaIds
-            """)
-    long countAtivosByPapelAndIgrejaIdIn(
-            @Param("papel") String papel,
-            @Param("igrejaIds") Collection<UUID> igrejaIds
-    );
 
     /** Usuários da igreja que possuem o papel de SISTEMA indicado (ex.: PASTOR). */
     @Query("""

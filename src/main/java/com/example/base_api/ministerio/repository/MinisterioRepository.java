@@ -29,4 +29,10 @@ public interface MinisterioRepository extends JpaRepository<Ministerio, UUID> {
                                                 @org.springframework.data.repository.query.Param("pessoaId") UUID pessoaId);
 
     List<Ministerio> findByBaseMinisterialIdIn(java.util.Collection<UUID> baseMinisterialIds);
+
+    @org.springframework.data.jpa.repository.Query("select distinct m.liderPessoaId from Ministerio m where m.igrejaId in :igrejaIds and m.liderPessoaId is not null")
+    List<UUID> idsLideres(@org.springframework.data.repository.query.Param("igrejaIds") java.util.Collection<UUID> igrejaIds);
+
+    @org.springframework.data.jpa.repository.Query("select distinct m.coordenadorPessoaId from Ministerio m where m.igrejaId in :igrejaIds and m.coordenadorPessoaId is not null")
+    List<UUID> idsCoordenadores(@org.springframework.data.repository.query.Param("igrejaIds") java.util.Collection<UUID> igrejaIds);
 }

@@ -21,4 +21,10 @@ public interface BaseMinisterialRepository extends JpaRepository<BaseMinisterial
             """)
     List<BaseMinisterial> findLideradasOuCoordenadas(@org.springframework.data.repository.query.Param("igrejaId") UUID igrejaId,
                                                      @org.springframework.data.repository.query.Param("pessoaId") UUID pessoaId);
+
+    @org.springframework.data.jpa.repository.Query("select distinct b.liderPessoaId from BaseMinisterial b where b.igrejaId in :igrejaIds and b.liderPessoaId is not null")
+    List<UUID> idsLideres(@org.springframework.data.repository.query.Param("igrejaIds") java.util.Collection<UUID> igrejaIds);
+
+    @org.springframework.data.jpa.repository.Query("select distinct b.coordenadorPessoaId from BaseMinisterial b where b.igrejaId in :igrejaIds and b.coordenadorPessoaId is not null")
+    List<UUID> idsCoordenadores(@org.springframework.data.repository.query.Param("igrejaIds") java.util.Collection<UUID> igrejaIds);
 }

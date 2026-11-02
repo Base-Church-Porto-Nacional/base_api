@@ -15,6 +15,8 @@ import java.util.stream.Collectors;
 
 public interface PessoaRepository extends JpaRepository<Pessoa, UUID> {
 
+    List<Pessoa> findByIdInAndAtivoTrue(Collection<UUID> ids);
+
     /** Nomes das pessoas por id, numa única consulta. Ids nulos são ignorados. */
     default Map<UUID, String> nomesPorId(Collection<UUID> ids) {
         List<UUID> validos = ids.stream().filter(Objects::nonNull).distinct().toList();
