@@ -8,12 +8,14 @@ import com.example.base_api.igreja.repository.IgrejaRepository;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.service.PessoaService;
 import com.example.base_api.security.AutorizacaoService;
+import com.example.base_api.security.Capacidade;
 import com.example.base_api.security.JwtService;
+import com.example.base_api.security.Papeis;
 import com.example.base_api.usuario.dto.LoginRequest;
 import com.example.base_api.usuario.dto.LoginResponse;
 import com.example.base_api.usuario.dto.PessoaUsuarioCreateRequest;
 import com.example.base_api.usuario.dto.UsuarioCreateRequest;
-import com.example.base_api.usuario.dto.UsuarioGestaoRequest;
+import com.example.base_api.usuario.dto.UsuarioPapeisRequest;
 import com.example.base_api.usuario.dto.UsuarioResponse;
 import com.example.base_api.usuario.dto.UsuarioUpdateRequest;
 import com.example.base_api.usuario.entity.Papel;
@@ -34,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -114,13 +117,11 @@ public class UsuarioService {
             throw new AccessDeniedException("Igreja obrigatória no contexto");
         }
         autorizacaoService.assertPodeCriarUsuario(igrejaId);
-        Set<String> papeis = validarPapeis(request.papeis(), igrejaId);
         return persistir(
                 request.pessoaId(),
                 request.username(),
                 request.email(),
                 request.senha(),
-                papeis,
                 igrejaId
         );
     }
@@ -134,8 +135,7 @@ public class UsuarioService {
         }
         autorizacaoService.assertPodeCriarUsuario(igrejaId);
         autorizacaoService.assertAcesso(pessoa.getIgrejaId());
-        Set<String> papeis = validarPapeis(request.papeis(), igrejaId);
-        return persistir(pessoaId, request.username(), request.email(), request.senha(), papeis, igrejaId);
+        return persistir(pessoaId, request.username(), request.email(), request.senha(), igrejaId);
     }
 
     @Transactional
@@ -156,14 +156,6 @@ public class UsuarioService {
         }
         usuario.setAtivo(request.ativo());
 
-        Set<String> atalho = validarPapeis(request.papeis(), usuario.getIgrejaId());
-        Set<String> preservados = usuario.nomesPapeis(usuario.getIgrejaId()).stream()
-                .filter(AutorizacaoService.PAPEIS_GESTAO::contains)
-                .collect(Collectors.toCollection(HashSet::new));
-        preservados.addAll(atalho);
-        substituirPapeis(usuario, usuario.getIgrejaId(), preservados);
-        invalidaToken = true;
-
         if (request.novaSenha() != null && !request.novaSenha().isBlank()) {
             usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
             invalidaToken = true;
@@ -176,31 +168,48 @@ public class UsuarioService {
     }
 
     @Transactional
-    public UsuarioResponse promoverGestao(UUID id, UsuarioGestaoRequest request) {
+    public UsuarioResponse alterarPapeis(UUID id, UsuarioPapeisRequest request) {
         Usuario usuario = buscarEntidade(id);
-        UUID igrejaAlvo = request.igrejaId() != null ? request.igrejaId() : usuario.getIgrejaId();
-        if (igrejaAlvo == null) {
+        UUID igrejaId = usuario.getIgrejaId();
+        if (igrejaId == null) {
             throw new AccessDeniedException("Igreja obrigatória no contexto");
         }
-        autorizacaoService.assertPodeAtribuirPapeisGestao(igrejaAlvo);
-
-        Set<String> atuais = new HashSet<>(usuario.nomesPapeis(igrejaAlvo));
+        Set<String> novos = new HashSet<>();
         for (String nome : request.papeis()) {
-            String papel = nome.toUpperCase();
-            if (!AutorizacaoService.PAPEIS_GESTAO.contains(papel)) {
-                throw new AccessDeniedException("Somente PASTOR ou SECRETARIA podem ser promovidos neste endpoint");
+            String normalizado = nome.trim().toUpperCase();
+            if (!Papeis.GESTAO.contains(normalizado)
+                    && papelRepository.findByNomeAndIgrejaId(normalizado, igrejaId).isEmpty()) {
+                throw new BusinessException("Papel inválido: " + nome);
             }
-            atuais.add(papel);
+            novos.add(normalizado);
         }
-        substituirPapeis(usuario, igrejaAlvo, atuais);
+        Set<String> atuais = new HashSet<>(usuario.nomesPapeis(igrejaId));
+
+        boolean mudaGestao = !gestaoDe(atuais).equals(gestaoDe(novos));
+        if (mudaGestao) {
+            autorizacaoService.assertPodeAtribuirPapeisGestao(igrejaId);
+        } else {
+            autorizacaoService.assertTem(igrejaId, Capacidade.PAPEIS_CUSTOM_GERIR);
+        }
+        if (atuais.contains(Papeis.PASTOR) && !novos.contains(Papeis.PASTOR)
+                && usuarioRepository.countByPapelAndIgrejaId(Papeis.PASTOR, igrejaId) <= 1) {
+            throw new BusinessException("A igreja precisa de ao menos um pastor");
+        }
+
+        substituirPapeis(usuario, igrejaId, novos);
         usuario.invalidarTokens();
         Usuario salvo = usuarioRepository.save(usuario);
         auditService.registrar(
-                "PROMOVER_GESTAO",
+                "ALTERAR_PAPEIS",
                 "usuario",
-                "usuarioId=" + salvo.getId() + " igrejaId=" + igrejaAlvo + " papeis=" + atuais
+                "usuarioId=" + salvo.getId() + " igrejaId=" + igrejaId
+                        + " antes=" + new TreeSet<>(atuais) + " depois=" + new TreeSet<>(novos)
         );
         return toResponse(salvo);
+    }
+
+    private static Set<String> gestaoDe(Set<String> nomes) {
+        return nomes.stream().filter(Papeis.GESTAO::contains).collect(Collectors.toSet());
     }
 
     @Transactional
@@ -262,7 +271,6 @@ public class UsuarioService {
             String username,
             String email,
             String senha,
-            Set<String> papeis,
             UUID igrejaId
     ) {
         if (usuarioRepository.existsByUsername(username)) {
@@ -276,8 +284,6 @@ public class UsuarioService {
             autorizacaoService.assertPessoaSemUsuario(usuarioRepository.existsByPessoaId(pessoaId));
         }
 
-        Set<Papel> papeisResolvidos = resolverPapeis(papeis, igrejaId);
-
         Usuario usuario = new Usuario();
         usuario.setPessoaId(pessoaId);
         usuario.setIgrejaId(igrejaId);
@@ -286,9 +292,7 @@ public class UsuarioService {
         usuario.setSenhaHash(passwordEncoder.encode(senha));
         usuario.setAtivo(true);
 
-        Usuario salvo = usuarioRepository.save(usuario);
-        atribuirPapeis(salvo, igrejaId, papeisResolvidos);
-        return toResponse(salvo);
+        return toResponse(usuarioRepository.save(usuario));
     }
 
     public void substituirPapeis(Usuario usuario, UUID igrejaId, Set<String> nomes) {
@@ -310,31 +314,6 @@ public class UsuarioService {
             usuarioPapelRepository.save(vinculo);
             usuario.getPapeisIgreja().add(vinculo);
         }
-    }
-
-    /**
-     * Papéis de sistema seguem as regras do atalho (MEMBRO, VOLUNTARIO, LIDER);
-     * papéis customizados da própria igreja (ex.: CONTADOR) também podem ser atribuídos.
-     */
-    private Set<String> validarPapeis(Set<String> nomes, UUID igrejaId) {
-        if (nomes == null || nomes.isEmpty()) {
-            return autorizacaoService.validarPapeisAtalho(nomes);
-        }
-        Set<String> sistema = new HashSet<>();
-        Set<String> customizados = new HashSet<>();
-        for (String nome : nomes) {
-            String normalizado = nome.trim().toUpperCase();
-            if (papelRepository.existsByNomeAndIgrejaId(normalizado, igrejaId)) {
-                customizados.add(normalizado);
-            } else {
-                sistema.add(normalizado);
-            }
-        }
-        Set<String> validados = sistema.isEmpty()
-                ? new HashSet<>()
-                : new HashSet<>(autorizacaoService.validarPapeisAtalho(sistema));
-        validados.addAll(customizados);
-        return validados;
     }
 
     private Set<Papel> resolverPapeis(Set<String> nomes, UUID igrejaId) {

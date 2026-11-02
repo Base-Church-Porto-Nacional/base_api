@@ -61,4 +61,15 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
             @Param("papel") String papel,
             @Param("igrejaIds") Collection<UUID> igrejaIds
     );
+
+    /** Usuários da igreja que possuem o papel de SISTEMA indicado (ex.: PASTOR). */
+    @Query("""
+            SELECT COUNT(DISTINCT u) FROM Usuario u
+            JOIN u.papeisIgreja up
+            JOIN up.papel p
+            WHERE p.nome = :nome
+              AND p.igrejaId IS NULL
+              AND up.igrejaId = :igrejaId
+            """)
+    long countByPapelAndIgrejaId(@Param("nome") String nome, @Param("igrejaId") UUID igrejaId);
 }

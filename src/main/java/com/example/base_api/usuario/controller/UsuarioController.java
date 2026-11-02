@@ -1,7 +1,7 @@
 package com.example.base_api.usuario.controller;
 
 import com.example.base_api.usuario.dto.UsuarioCreateRequest;
-import com.example.base_api.usuario.dto.UsuarioGestaoRequest;
+import com.example.base_api.usuario.dto.UsuarioPapeisRequest;
 import com.example.base_api.usuario.dto.UsuarioResponse;
 import com.example.base_api.usuario.dto.UsuarioUpdateRequest;
 import com.example.base_api.usuario.service.UsuarioService;
@@ -67,14 +67,14 @@ public class UsuarioController {
         return usuarioService.atualizar(id, request);
     }
 
-    @PostMapping("/{id}/gestao")
+    @PutMapping("/{id}/papeis")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Promover ADMIN/PASTOR na igreja alvo (somente pastor/secretaria da igreja ou da matriz)")
-    public UsuarioResponse promoverGestao(
+    @Operation(summary = "Define o conjunto de papéis do usuário (PASTOR/SECRETARIA só pelo pastor; papéis customizados também pela secretaria)")
+    public UsuarioResponse alterarPapeis(
             @PathVariable UUID id,
-            @Valid @RequestBody UsuarioGestaoRequest request
+            @Valid @RequestBody UsuarioPapeisRequest request
     ) {
-        return usuarioService.promoverGestao(id, request);
+        return usuarioService.alterarPapeis(id, request);
     }
 
     @DeleteMapping("/{id}")

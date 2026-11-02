@@ -6,8 +6,10 @@ import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.repository.IgrejaRepository;
 import com.example.base_api.pessoa.service.PessoaService;
 import com.example.base_api.security.AutorizacaoService;
+import com.example.base_api.security.Capacidade;
 import com.example.base_api.security.JwtService;
 import com.example.base_api.usuario.dto.UsuarioCreateRequest;
+import com.example.base_api.usuario.dto.UsuarioPapeisRequest;
 import com.example.base_api.usuario.dto.UsuarioResponse;
 import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.entity.Usuario;
@@ -67,61 +69,71 @@ class UsuarioServiceTest {
     @InjectMocks
     private UsuarioService usuarioService;
 
-    @Test
-    void deveCriarUsuarioComPapeis() {
-        Papel membro = new Papel();
-        membro.setId(UUID.randomUUID());
-        membro.setNome("MEMBRO");
-        UUID igrejaId = UUID.randomUUID();
+    private Usuario usuarioComPapeis(UUID igrejaId, String... nomes) {
+        Usuario u = new Usuario();
+        u.setId(UUID.randomUUID());
+        u.setUsername("alvo");
+        u.setIgrejaId(igrejaId);
+        u.setAtivo(true);
+        for (String nome : nomes) {
+            Papel papel = new Papel();
+            papel.setId(UUID.randomUUID());
+            papel.setNome(nome);
+            if (!nome.equals("PASTOR") && !nome.equals("SECRETARIA")) {
+                papel.setIgrejaId(igrejaId);
+            }
+            UsuarioPapel up = new UsuarioPapel();
+            up.setIgrejaId(igrejaId);
+            up.setPapel(papel);
+            u.getPapeisIgreja().add(up);
+        }
+        return u;
+    }
 
-        when(autorizacaoService.validarPapeisAtalho(Set.of("MEMBRO"))).thenReturn(Set.of("MEMBRO"));
+    private Papel papel(String nome, UUID igrejaId) {
+        Papel p = new Papel();
+        p.setId(UUID.randomUUID());
+        p.setNome(nome);
+        p.setIgrejaId(igrejaId);
+        return p;
+    }
+
+    private void prepararSalvar() {
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+        when(usuarioPapelRepository.save(any(UsuarioPapel.class))).thenAnswer(i -> i.getArgument(0));
+    }
+
+    @Test
+    void usuarioCriadoSemPapeis() {
+        UUID igrejaId = UUID.randomUUID();
         when(usuarioRepository.existsByUsername("joao")).thenReturn(false);
         when(usuarioRepository.existsByEmailIgnoreCase("joao@email.com")).thenReturn(false);
-        when(papelRepository.findByNomeAndIgrejaIdIsNull("MEMBRO")).thenReturn(Optional.of(membro));
         when(passwordEncoder.encode(anyString())).thenReturn("hash");
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> {
             Usuario u = invocation.getArgument(0);
             u.setId(UUID.randomUUID());
-            u.setCreatedAt(Instant.now());
-            u.setUpdatedAt(Instant.now());
             return u;
         });
-        when(usuarioPapelRepository.save(any(UsuarioPapel.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
 
         UsuarioResponse response = usuarioService.criar(new UsuarioCreateRequest(
-                null, "joao", "joao@email.com", "senha123", Set.of("MEMBRO"), igrejaId
+                null, "joao", "joao@email.com", "senha123", igrejaId
         ));
 
         assertThat(response.username()).isEqualTo("joao");
-        assertThat(response.papeis()).contains("MEMBRO");
-        assertThat(response.igrejaId()).isEqualTo(igrejaId);
+        assertThat(response.papeis()).isEmpty();
+        verify(usuarioPapelRepository, never()).save(any());
     }
 
     @Test
     void naoDeveCriarUsuarioComUsernameDuplicado() {
         UUID igrejaId = UUID.randomUUID();
-        when(autorizacaoService.validarPapeisAtalho(Set.of("MEMBRO"))).thenReturn(Set.of("MEMBRO"));
         when(usuarioRepository.existsByUsername("joao")).thenReturn(true);
 
         assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
-                null, "joao", "joao@email.com", "senha123", Set.of("MEMBRO"), igrejaId
+                null, "joao", "joao@email.com", "senha123", igrejaId
         ))).isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Username");
-    }
-
-    @Test
-    void naoDeveCriarUsuarioComPapelInvalido() {
-        UUID igrejaId = UUID.randomUUID();
-        when(autorizacaoService.validarPapeisAtalho(Set.of("XYZ"))).thenReturn(Set.of("XYZ"));
-        when(usuarioRepository.existsByUsername("joao")).thenReturn(false);
-        when(usuarioRepository.existsByEmailIgnoreCase("joao@email.com")).thenReturn(false);
-        when(papelRepository.findByNomeAndIgrejaIdIsNull("XYZ")).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
-                null, "joao", "joao@email.com", "senha123", Set.of("XYZ"), igrejaId
-        ))).isInstanceOf(BusinessException.class)
-                .hasMessageContaining("Papel inválido");
     }
 
     @Test
@@ -131,56 +143,97 @@ class UsuarioServiceTest {
                 .when(autorizacaoService).assertPodeCriarUsuario(igrejaId);
 
         assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
-                null, "joao", "joao@email.com", "senha123", Set.of("MEMBRO"), igrejaId
+                null, "joao", "joao@email.com", "senha123", igrejaId
         ))).isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
-    void deveCriarUsuarioComPapelCustomizadoDaIgreja() {
+    void secretariaAtribuiPapelCustomizado() {
         UUID igrejaId = UUID.randomUUID();
-        Papel membro = new Papel();
-        membro.setId(UUID.randomUUID());
-        membro.setNome("MEMBRO");
-        Papel contador = new Papel();
-        contador.setId(UUID.randomUUID());
-        contador.setNome("CONTADOR");
-        contador.setIgrejaId(igrejaId);
-        contador.setPodeLancarContagem(true);
-
-        when(papelRepository.existsByNomeAndIgrejaId("CONTADOR", igrejaId)).thenReturn(true);
-        when(papelRepository.existsByNomeAndIgrejaId("MEMBRO", igrejaId)).thenReturn(false);
-        when(autorizacaoService.validarPapeisAtalho(Set.of("MEMBRO"))).thenReturn(Set.of("MEMBRO"));
-        when(usuarioRepository.existsByUsername("ana")).thenReturn(false);
-        when(usuarioRepository.existsByEmailIgnoreCase("ana@email.com")).thenReturn(false);
-        when(papelRepository.findByNomeAndIgrejaIdIsNull("MEMBRO")).thenReturn(Optional.of(membro));
+        Usuario alvo = usuarioComPapeis(igrejaId);
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        when(papelRepository.findByNomeAndIgrejaId("CONTADOR", igrejaId)).thenReturn(Optional.of(papel("CONTADOR", igrejaId)));
         when(papelRepository.findByNomeAndIgrejaIdIsNull("CONTADOR")).thenReturn(Optional.empty());
-        when(papelRepository.findByNomeAndIgrejaId("CONTADOR", igrejaId)).thenReturn(Optional.of(contador));
-        when(passwordEncoder.encode(anyString())).thenReturn("hash");
-        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> {
-            Usuario u = invocation.getArgument(0);
-            u.setId(UUID.randomUUID());
-            return u;
-        });
-        when(usuarioPapelRepository.save(any(UsuarioPapel.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        prepararSalvar();
         when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
 
-        UsuarioResponse response = usuarioService.criar(new UsuarioCreateRequest(
-                null, "ana", "ana@email.com", "senha123", Set.of("membro", "contador"), igrejaId
-        ));
+        UsuarioResponse r = usuarioService.alterarPapeis(alvo.getId(), new UsuarioPapeisRequest(Set.of(" contador ")));
 
-        assertThat(response.papeis()).containsExactlyInAnyOrder("MEMBRO", "CONTADOR");
+        assertThat(r.papeis()).containsExactly("CONTADOR");
+        verify(autorizacaoService).assertTem(igrejaId, Capacidade.PAPEIS_CUSTOM_GERIR);
+        verify(autorizacaoService, never()).assertPodeAtribuirPapeisGestao(any());
+        assertThat(alvo.getTokenVersion()).isNotNull();
     }
 
     @Test
-    void papelCustomizadoDeOutraIgrejaNaoEhAceito() {
+    void secretariaNaoAtribuiSecretaria() {
         UUID igrejaId = UUID.randomUUID();
-        when(papelRepository.existsByNomeAndIgrejaId("CONTADOR", igrejaId)).thenReturn(false);
-        when(autorizacaoService.validarPapeisAtalho(Set.of("CONTADOR")))
-                .thenThrow(new AccessDeniedException("Papel não permitido neste atalho: CONTADOR"));
+        Usuario alvo = usuarioComPapeis(igrejaId);
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        doThrow(new AccessDeniedException("negado")).when(autorizacaoService).assertPodeAtribuirPapeisGestao(igrejaId);
 
-        assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
-                null, "ana", "ana@email.com", "senha123", Set.of("CONTADOR"), igrejaId
-        ))).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> usuarioService.alterarPapeis(alvo.getId(), new UsuarioPapeisRequest(Set.of("SECRETARIA"))))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void pastorAtribuiSecretaria() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "CONTADOR");
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        when(papelRepository.findByNomeAndIgrejaId("CONTADOR", igrejaId)).thenReturn(Optional.of(papel("CONTADOR", igrejaId)));
+        when(papelRepository.findByNomeAndIgrejaIdIsNull("SECRETARIA")).thenReturn(Optional.of(papel("SECRETARIA", null)));
+        when(papelRepository.findByNomeAndIgrejaIdIsNull("CONTADOR")).thenReturn(Optional.empty());
+        prepararSalvar();
+        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
+
+        usuarioService.alterarPapeis(alvo.getId(), new UsuarioPapeisRequest(Set.of("SECRETARIA", "CONTADOR")));
+
+        verify(autorizacaoService).assertPodeAtribuirPapeisGestao(igrejaId);
+        verify(auditService).registrar("ALTERAR_PAPEIS", "usuario",
+                "usuarioId=" + alvo.getId() + " igrejaId=" + igrejaId
+                        + " antes=[CONTADOR] depois=[CONTADOR, SECRETARIA]");
+    }
+
+    @Test
+    void ultimoPastorNaoPodeSerRemovido() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", igrejaId)).thenReturn(1L);
+
+        assertThatThrownBy(() -> usuarioService.alterarPapeis(alvo.getId(), new UsuarioPapeisRequest(Set.of("SECRETARIA"))))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("A igreja precisa de ao menos um pastor");
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void pastorPodeSerRemovidoQuandoHaOutro() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", igrejaId)).thenReturn(2L);
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
+
+        UsuarioResponse r = usuarioService.alterarPapeis(alvo.getId(), new UsuarioPapeisRequest(Set.of()));
+
+        assertThat(r.papeis()).isEmpty();
+    }
+
+    @Test
+    void papelDeOutraIgrejaEhInvalido() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId);
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        when(papelRepository.findByNomeAndIgrejaId("CONTADOR", igrejaId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> usuarioService.alterarPapeis(alvo.getId(), new UsuarioPapeisRequest(Set.of("CONTADOR"))))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Papel inválido: CONTADOR");
+        verify(usuarioRepository, never()).save(any());
     }
 
     @Test

@@ -41,10 +41,6 @@ import java.util.function.Predicate;
 @Service
 public class AutorizacaoService {
 
-    // Removidos na Task 5, junto com a reescrita do UsuarioService.
-    public static final Set<String> PAPEIS_GESTAO = Papeis.GESTAO;
-    public static final Set<String> PAPEIS_ATALHO = Set.of("MEMBRO", "VOLUNTARIO", "LIDER");
-
     private final IgrejaContextoService igrejaContextoService;
     private final PermissaoService permissaoService;
     private final MinisterioRepository ministerioRepository;
@@ -472,26 +468,6 @@ public class AutorizacaoService {
 
     public void assertPodeCriarUsuario(UUID igrejaId) {
         assertTem(igrejaId, Capacidade.CONTAS_GERIR);
-    }
-
-    public Set<String> validarPapeisAtalho(Set<String> papeis) {
-        if (papeis == null || papeis.isEmpty()) {
-            throw new AccessDeniedException("Informe ao menos um papel");
-        }
-        Set<String> normalizados = new HashSet<>();
-        for (String nome : papeis) {
-            String papel = nome.toUpperCase();
-            if (PAPEIS_GESTAO.contains(papel)) {
-                throw new AccessDeniedException(
-                        "Não é permitido atribuir PASTOR/SECRETARIA neste atalho. Use o endpoint de promoção."
-                );
-            }
-            if (!PAPEIS_ATALHO.contains(papel)) {
-                throw new AccessDeniedException("Papel não permitido neste atalho: " + papel);
-            }
-            normalizados.add(papel);
-        }
-        return normalizados;
     }
 
     public void assertPessoaSemUsuario(boolean jaTemUsuario) {
