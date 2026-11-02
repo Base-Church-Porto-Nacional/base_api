@@ -1,9 +1,11 @@
 package com.example.base_api.usuario.controller;
 
+import com.example.base_api.usuario.dto.LinkAcessoResponse;
 import com.example.base_api.usuario.dto.UsuarioCreateRequest;
 import com.example.base_api.usuario.dto.UsuarioPapeisRequest;
 import com.example.base_api.usuario.dto.UsuarioResponse;
 import com.example.base_api.usuario.dto.UsuarioUpdateRequest;
+import com.example.base_api.usuario.service.AcessoService;
 import com.example.base_api.usuario.service.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -32,9 +34,18 @@ import java.util.UUID;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+    private final AcessoService acessoService;
 
-    public UsuarioController(UsuarioService usuarioService) {
+    public UsuarioController(UsuarioService usuarioService, AcessoService acessoService) {
         this.usuarioService = usuarioService;
+        this.acessoService = acessoService;
+    }
+
+    @PostMapping("/{id}/redefinicao-senha")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Gerar link de redefinição de senha (vale 1 hora) e tentar enviar por WhatsApp")
+    public LinkAcessoResponse gerarRedefinicao(@PathVariable UUID id) {
+        return acessoService.gerarRedefinicao(id);
     }
 
     @GetMapping

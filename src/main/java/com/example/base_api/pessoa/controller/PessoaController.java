@@ -5,8 +5,10 @@ import com.example.base_api.pessoa.dto.PessoaResponse;
 import com.example.base_api.pessoa.dto.PessoaResumoResponse;
 import com.example.base_api.pessoa.dto.PessoaUpdateRequest;
 import com.example.base_api.pessoa.service.PessoaService;
+import com.example.base_api.usuario.dto.LinkAcessoResponse;
 import com.example.base_api.usuario.dto.PessoaUsuarioCreateRequest;
 import com.example.base_api.usuario.dto.UsuarioResponse;
+import com.example.base_api.usuario.service.AcessoService;
 import com.example.base_api.usuario.service.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -36,10 +38,19 @@ public class PessoaController {
 
     private final PessoaService pessoaService;
     private final UsuarioService usuarioService;
+    private final AcessoService acessoService;
 
-    public PessoaController(PessoaService pessoaService, UsuarioService usuarioService) {
+    public PessoaController(PessoaService pessoaService, UsuarioService usuarioService, AcessoService acessoService) {
         this.pessoaService = pessoaService;
         this.usuarioService = usuarioService;
+        this.acessoService = acessoService;
+    }
+
+    @PostMapping("/{id}/convite")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Convidar a pessoa para o app (gera link de uso único e tenta enviar por WhatsApp)")
+    public LinkAcessoResponse convidar(@PathVariable UUID id) {
+        return acessoService.convidar(id);
     }
 
     @GetMapping

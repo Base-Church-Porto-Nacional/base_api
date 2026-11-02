@@ -188,6 +188,20 @@ public class AutorizacaoService {
         throw new AccessDeniedException("Sem permissão para editar esta pessoa");
     }
 
+    /** Convite ao app: quem gere contas na igreja da pessoa, ou quem a lidera (escopo de liderança, sem "a própria pessoa"). */
+    public void assertPodeConvidar(Pessoa pessoa) {
+        UUID igrejaId = pessoa.getIgrejaId();
+        assertAcesso(igrejaId);
+        if (tem(igrejaId, Capacidade.CONTAS_GERIR)) {
+            return;
+        }
+        UUID minhaPessoaId = requireUsuario().getPessoaId();
+        if (!pessoa.getId().equals(minhaPessoaId) && pessoasNoEscopoDeLideranca(igrejaId).contains(pessoa.getId())) {
+            return;
+        }
+        throw new AccessDeniedException("Sem permissão para convidar esta pessoa");
+    }
+
     /** Dados pastorais (ativo, observações, histórico, pausas, jornada): pastor ou secretaria. */
     public void assertPodeEditarDadosPastorais(UUID igrejaId) {
         assertTem(igrejaId, Capacidade.DADOS_PASTORAIS_EDITAR);

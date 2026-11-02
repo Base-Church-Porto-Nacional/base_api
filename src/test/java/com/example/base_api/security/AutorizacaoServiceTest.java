@@ -645,6 +645,41 @@ class AutorizacaoServiceTest {
     }
 
     @Test
+    void gestaoConvidaQualquerPessoa() {
+        capacidades(SECRETARIA);
+
+        assertThatCode(() -> autorizacaoService.assertPodeConvidar(pessoaDaIgreja())).doesNotThrowAnyException();
+    }
+
+    @Test
+    void liderConvidaPessoaDoSeuMinisterio() {
+        Pessoa voluntario = pessoaDaIgreja();
+        stubVoluntarioAtivo(voluntario, true);
+
+        assertThatCode(() -> autorizacaoService.assertPodeConvidar(voluntario)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void liderNaoConvidaPessoaForaDoEscopo() {
+        Pessoa voluntario = pessoaDaIgreja();
+        stubVoluntarioAtivo(voluntario, true);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeConvidar(pessoaDaIgreja()))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void membroNaoConvidaNemASiMesmo() {
+        Pessoa eu = pessoaDaIgreja();
+        eu.setId(pessoaId);
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+        capacidades(NENHUMA);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeConvidar(eu))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     void membroNaoEditaContatoDeOutraPessoa() {
         when(igrejaContextoService.requireUsuario()).thenReturn(membro);
         capacidades(NENHUMA);

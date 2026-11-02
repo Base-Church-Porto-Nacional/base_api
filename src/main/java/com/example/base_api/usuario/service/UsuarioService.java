@@ -232,7 +232,7 @@ public class UsuarioService {
     }
 
     /** Conta de pastor/secretaria (papel de sistema): senha, ativo e exclusão só com PAPEIS_GESTAO_ATRIBUIR (pastor). */
-    private void assertPodeAlterarContaDeGestao(Usuario usuario) {
+    public void assertPodeAlterarContaDeGestao(Usuario usuario) {
         UUID igrejaId = usuario.getIgrejaId();
         if (igrejaId != null && !gestaoDe(usuario.nomesPapeisSistema(igrejaId)).isEmpty()) {
             autorizacaoService.assertPodeAtribuirPapeisGestao(igrejaId);
@@ -240,7 +240,7 @@ public class UsuarioService {
     }
 
     /** Impede que a igreja fique sem pastor ATIVO ao remover o papel, desativar ou excluir este usuário. */
-    private void assertRestaPastorAtivoSemEle(Usuario usuario) {
+    public void assertRestaPastorAtivoSemEle(Usuario usuario) {
         UUID igrejaId = usuario.getIgrejaId();
         if (igrejaId == null || !usuario.isAtivo()
                 || !usuario.nomesPapeisSistema(igrejaId).contains(Papeis.PASTOR)) {

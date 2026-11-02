@@ -73,7 +73,10 @@ public class TokenAcessoService {
         return token;
     }
 
-    /** Marca como usado com update condicional; se outra requisição já usou, lança LinkExpirado. */
+    /**
+     * Marca como usado com update condicional; se outra requisição já usou, lança LinkExpirado.
+     * Deve rodar depois de {@link #validar} na mesma transação de escrita.
+     */
     @Transactional
     public void consumir(TokenAcesso token) {
         if (repository.marcarUsado(token.getId(), clock.instant()) == 0) {

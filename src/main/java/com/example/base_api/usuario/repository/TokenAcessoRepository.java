@@ -15,16 +15,16 @@ public interface TokenAcessoRepository extends JpaRepository<TokenAcesso, UUID> 
 
     Optional<TokenAcesso> findByTokenHash(String tokenHash);
 
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query("DELETE FROM TokenAcesso t WHERE t.usuarioId = :usuarioId AND t.tipo = :tipo AND t.usadoEm IS NULL")
     int apagarPendentes(@Param("usuarioId") UUID usuarioId, @Param("tipo") TipoTokenAcesso tipo);
 
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query("DELETE FROM TokenAcesso t WHERE t.usuarioId = :usuarioId AND t.usadoEm IS NULL")
     int apagarPendentes(@Param("usuarioId") UUID usuarioId);
 
     /** Update condicional: só uma chamada concorrente vence (devolve 1); as demais recebem 0. */
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query("UPDATE TokenAcesso t SET t.usadoEm = :agora WHERE t.id = :id AND t.usadoEm IS NULL")
     int marcarUsado(@Param("id") UUID id, @Param("agora") Instant agora);
 }
