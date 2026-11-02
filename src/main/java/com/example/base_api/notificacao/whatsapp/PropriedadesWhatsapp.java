@@ -16,6 +16,9 @@ public class PropriedadesWhatsapp {
     private String instancia = "";
     private int delayMs = 1200;
     private boolean linkPreview = true;
+    /** Sem timeout, uma Evolution API travada prende a thread do envio indefinidamente. */
+    private int connectTimeoutMs = 5000;
+    private int readTimeoutMs = 10000;
 
     public boolean isHabilitado() {
         return habilitado;
@@ -63,6 +66,22 @@ public class PropriedadesWhatsapp {
 
     public void setLinkPreview(boolean linkPreview) {
         this.linkPreview = linkPreview;
+    }
+
+    public int getConnectTimeoutMs() {
+        return connectTimeoutMs;
+    }
+
+    public void setConnectTimeoutMs(int connectTimeoutMs) {
+        this.connectTimeoutMs = connectTimeoutMs;
+    }
+
+    public int getReadTimeoutMs() {
+        return readTimeoutMs;
+    }
+
+    public void setReadTimeoutMs(int readTimeoutMs) {
+        this.readTimeoutMs = readTimeoutMs;
     }
 
     public boolean pronta() {

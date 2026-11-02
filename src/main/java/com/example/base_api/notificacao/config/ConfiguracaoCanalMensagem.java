@@ -8,7 +8,10 @@ import com.example.base_api.notificacao.whatsapp.PropriedadesWhatsapp;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+
+import java.time.Duration;
 
 /**
  * Seleciona o canal de mensagem: Evolution API quando o WhatsApp está habilitado,
@@ -27,7 +30,15 @@ public class ConfiguracaoCanalMensagem {
                     "app.whatsapp.habilitado=true exige urlBase, apiKey e instancia");
         }
         return new CanalMensagemWhatsapp(
-                new ClienteEvolutionApiRest(RestClient.builder(), propriedades), propriedades);
+                new ClienteEvolutionApiRest(restClientEvolution(propriedades), propriedades), propriedades);
+    }
+
+    /** RestClient da Evolution API com timeouts de conexão e leitura (app.whatsapp.*-timeout-ms). */
+    static RestClient.Builder restClientEvolution(PropriedadesWhatsapp propriedades) {
+        SimpleClientHttpRequestFactory fabrica = new SimpleClientHttpRequestFactory();
+        fabrica.setConnectTimeout(Duration.ofMillis(propriedades.getConnectTimeoutMs()));
+        fabrica.setReadTimeout(Duration.ofMillis(propriedades.getReadTimeoutMs()));
+        return RestClient.builder().requestFactory(fabrica);
     }
 
     @Bean

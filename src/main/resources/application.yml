@@ -80,6 +80,8 @@ app:
     instancia: ${WHATSAPP_INSTANCIA:}
     delay-ms: ${WHATSAPP_DELAY_MS:1200}
     link-preview: ${WHATSAPP_LINK_PREVIEW:true}
+    connect-timeout-ms: ${WHATSAPP_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${WHATSAPP_READ_TIMEOUT_MS:10000}
 
   rabbit:
     # false = envio síncrono direto ao canal (sem broker);
