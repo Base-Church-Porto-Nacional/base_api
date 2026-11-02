@@ -2,6 +2,7 @@ package com.example.base_api.pessoa.controller;
 
 import com.example.base_api.pessoa.dto.PessoaCreateRequest;
 import com.example.base_api.pessoa.dto.PessoaResponse;
+import com.example.base_api.pessoa.dto.PessoaResumoResponse;
 import com.example.base_api.pessoa.dto.PessoaUpdateRequest;
 import com.example.base_api.pessoa.service.PessoaService;
 import com.example.base_api.usuario.dto.PessoaUsuarioCreateRequest;
@@ -45,6 +46,12 @@ public class PessoaController {
     @Operation(summary = "Listar pessoas")
     public List<PessoaResponse> listar(@RequestParam(required = false) UUID igrejaId) {
         return pessoaService.listar(igrejaId);
+    }
+
+    @GetMapping("/busca")
+    @Operation(summary = "Buscar pessoas por nome (mín. 2 caracteres, máx. 20 resultados)")
+    public List<PessoaResumoResponse> buscarPorNome(@RequestParam String nome) {
+        return pessoaService.buscarPorNome(nome);
     }
 
     @GetMapping("/{id}")

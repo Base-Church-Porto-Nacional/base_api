@@ -157,7 +157,7 @@ public class JornadaService {
 
     private void exigirMutacao(UUID pessoaId) {
         Pessoa pessoa = carregarPessoa(pessoaId);
-        autorizacaoService.assertPodeMutarPessoas(pessoa.getIgrejaId());
+        autorizacaoService.assertPodeEditarDadosPastorais(pessoa.getIgrejaId());
     }
 
     private JornadaResponse toResponse(JornadaMembro jornada) {

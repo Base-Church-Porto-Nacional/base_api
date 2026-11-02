@@ -101,7 +101,7 @@ public class PessoaPausaService {
 
     private void exigirMutacao(UUID pessoaId) {
         Pessoa pessoa = carregarPessoa(pessoaId);
-        autorizacaoService.assertPodeMutarPessoas(pessoa.getIgrejaId());
+        autorizacaoService.assertPodeEditarDadosPastorais(pessoa.getIgrejaId());
     }
 
     private void validarPeriodo(java.time.LocalDate inicio, java.time.LocalDate fim) {

@@ -15,6 +15,10 @@ import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.servico.entity.Servico;
 import com.example.base_api.servico.repository.ServicoRepository;
 import com.example.base_api.smallgroup.entity.SmallGroup;
+import com.example.base_api.smallgroup.entity.SmallGroupEncontro;
+import com.example.base_api.smallgroup.entity.SmallGroupParticipante;
+import com.example.base_api.smallgroup.repository.SmallGroupEncontroRepository;
+import com.example.base_api.smallgroup.repository.SmallGroupParticipanteRepository;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.voluntario.entity.PessoaServico;
 import com.example.base_api.voluntario.repository.PessoaServicoRepository;
@@ -61,6 +65,10 @@ class AutorizacaoServiceTest {
     private EscalaRepository escalaRepository;
     @Mock
     private EscalaVoluntarioRepository escalaVoluntarioRepository;
+    @Mock
+    private SmallGroupEncontroRepository smallGroupEncontroRepository;
+    @Mock
+    private SmallGroupParticipanteRepository smallGroupParticipanteRepository;
 
     @InjectMocks
     private AutorizacaoService autorizacaoService;
@@ -472,6 +480,173 @@ class AutorizacaoServiceTest {
         assertThat(autorizacaoService.filtrarVisiveisNaListagem(List.of(outra, eu))).containsExactly(eu);
         assertThat(autorizacaoService.podeIncluirPessoaNaListagem(outra)).isFalse();
         assertThat(autorizacaoService.podeIncluirPessoaNaListagem(eu)).isTrue();
+    }
+
+    // --- cadastro e edição de contato pelo líder ---
+
+    private Servico servicoDoMinisterio(UUID ministerioId) {
+        Servico servico = new Servico();
+        servico.setId(UUID.randomUUID());
+        servico.setMinisterioId(ministerioId);
+        return servico;
+    }
+
+    @Test
+    void gestaoCadastraPessoaSemServico() {
+        capacidades(PASTOR);
+
+        assertThatCode(() -> autorizacaoService.assertPodeCadastrarPessoa(igrejaId, null))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void liderCadastraPessoaNoServicoDoSeuMinisterio() {
+        UUID ministerioId = UUID.randomUUID();
+        Servico servico = servicoDoMinisterio(ministerioId);
+        capacidades(NENHUMA);
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of(ministerioId));
+        when(servicoRepository.findById(servico.getId())).thenReturn(java.util.Optional.of(servico));
+
+        assertThatCode(() -> autorizacaoService.assertPodeCadastrarPessoa(igrejaId, servico.getId()))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void liderSemServicoNaoCadastra() {
+        capacidades(NENHUMA);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeCadastrarPessoa(igrejaId, null))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void liderEmServicoDeOutroMinisterioNaoCadastra() {
+        Servico servico = servicoDoMinisterio(UUID.randomUUID());
+        capacidades(NENHUMA);
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of(UUID.randomUUID()));
+        when(servicoRepository.findById(servico.getId())).thenReturn(java.util.Optional.of(servico));
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeCadastrarPessoa(igrejaId, servico.getId()))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void gestaoEditaContatoDeQualquerPessoa() {
+        capacidades(SECRETARIA);
+
+        assertThatCode(() -> autorizacaoService.assertPodeEditarContato(pessoaDaIgreja()))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void pessoaEditaOProprioContato() {
+        Pessoa eu = pessoaDaIgreja();
+        eu.setId(pessoaId);
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+        capacidades(NENHUMA);
+
+        assertThatCode(() -> autorizacaoService.assertPodeEditarContato(eu)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void liderEditaContatoDoSeuVoluntario() {
+        Pessoa voluntario = pessoaDaIgreja();
+        UUID ministerioId = stubVoluntarioAtivo(voluntario, true);
+
+        assertThatCode(() -> autorizacaoService.assertPodeEditarContato(voluntario)).doesNotThrowAnyException();
+        verify(permissaoService).ministeriosLideradosEm(igrejaId);
+        assertThat(ministerioId).isNotNull();
+    }
+
+    @Test
+    void liderNaoEditaPessoaComVinculoInativo() {
+        Pessoa voluntario = pessoaDaIgreja();
+        stubVoluntarioAtivo(voluntario, false);
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeEditarContato(voluntario))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void liderDeGrupoEditaContatoDeParticipante() {
+        Pessoa participante = pessoaDaIgreja();
+        UUID grupoId = UUID.randomUUID();
+        SmallGroupEncontro encontro = new SmallGroupEncontro();
+        encontro.setId(UUID.randomUUID());
+        encontro.setSmallGroupId(grupoId);
+        SmallGroupParticipante presenca = new SmallGroupParticipante();
+        presenca.setEncontroId(encontro.getId());
+        presenca.setPessoaId(participante.getId());
+        SmallGroupParticipante anonimo = new SmallGroupParticipante();
+        anonimo.setEncontroId(encontro.getId());
+        anonimo.setPessoaNome("Visitante");
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+        capacidades(NENHUMA);
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of());
+        when(permissaoService.gruposLideradosEm(igrejaId)).thenReturn(Set.of(grupoId));
+        when(smallGroupEncontroRepository.findBySmallGroupIdInOrderByDataAsc(List.of(grupoId)))
+                .thenReturn(List.of(encontro));
+        when(smallGroupParticipanteRepository.findByEncontroIdInOrderByPessoaNomeAsc(List.of(encontro.getId())))
+                .thenReturn(List.of(presenca, anonimo));
+
+        assertThatCode(() -> autorizacaoService.assertPodeEditarContato(participante)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> autorizacaoService.assertPodeEditarContato(pessoaDaIgreja()))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void membroNaoEditaContatoDeOutraPessoa() {
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+        capacidades(NENHUMA);
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of());
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeEditarContato(pessoaDaIgreja()))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void dadosPastoraisExigemACapacidade() {
+        capacidades(NENHUMA);
+        assertThatThrownBy(() -> autorizacaoService.assertPodeEditarDadosPastorais(igrejaId))
+                .isInstanceOf(AccessDeniedException.class);
+        capacidades(PASTOR);
+        assertThatCode(() -> autorizacaoService.assertPodeEditarDadosPastorais(igrejaId))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void buscaDePessoasPermitidaAGestaoOuAQuemLideraAlgo() {
+        capacidades(NENHUMA);
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of());
+        when(permissaoService.basesLideradasEm(igrejaId)).thenReturn(Set.of());
+        when(permissaoService.gruposLideradosEm(igrejaId)).thenReturn(Set.of());
+        assertThatThrownBy(() -> autorizacaoService.assertPodeBuscarPessoas(List.of(igrejaId)))
+                .isInstanceOf(AccessDeniedException.class);
+
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of(UUID.randomUUID()));
+        assertThatCode(() -> autorizacaoService.assertPodeBuscarPessoas(List.of(igrejaId)))
+                .doesNotThrowAnyException();
+    }
+
+    /** Líder (membro) de um ministério cujo serviço tem a pessoa informada como voluntária. */
+    private UUID stubVoluntarioAtivo(Pessoa voluntario, boolean ativo) {
+        Ministerio meu = new Ministerio();
+        meu.setId(UUID.randomUUID());
+        meu.setIgrejaId(igrejaId);
+        meu.setLiderPessoaId(pessoaId);
+        Servico servico = servicoDoMinisterio(meu.getId());
+        PessoaServico vinculo = new PessoaServico();
+        vinculo.setPessoaId(voluntario.getId());
+        vinculo.setServicoId(servico.getId());
+        vinculo.setAtivo(ativo);
+        when(igrejaContextoService.requireUsuario()).thenReturn(membro);
+        capacidades(NENHUMA);
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of(meu.getId()));
+        when(ministerioRepository.findAllById(Set.of(meu.getId()))).thenReturn(List.of(meu));
+        when(servicoRepository.findByMinisterioIdInOrderByNomeAsc(List.of(meu.getId()))).thenReturn(List.of(servico));
+        when(pessoaServicoRepository.findByServicoIdInAndAtivoTrue(List.of(servico.getId())))
+                .thenReturn(ativo ? List.of(vinculo) : List.of());
+        return meu.getId();
     }
 
     private Pessoa pessoaDaIgreja() {

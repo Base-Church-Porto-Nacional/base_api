@@ -3,6 +3,7 @@ package com.example.base_api.security;
 import com.example.base_api.baseministerial.entity.BaseMinisterial;
 import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ConflictException;
+import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.TipoEscala;
 import com.example.base_api.escala.repository.EscalaRepository;
@@ -16,6 +17,10 @@ import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.servico.entity.Servico;
 import com.example.base_api.servico.repository.ServicoRepository;
 import com.example.base_api.smallgroup.entity.SmallGroup;
+import com.example.base_api.smallgroup.entity.SmallGroupEncontro;
+import com.example.base_api.smallgroup.entity.SmallGroupParticipante;
+import com.example.base_api.smallgroup.repository.SmallGroupEncontroRepository;
+import com.example.base_api.smallgroup.repository.SmallGroupParticipanteRepository;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.springframework.security.access.AccessDeniedException;
@@ -48,6 +53,8 @@ public class AutorizacaoService {
     private final PessoaServicoRepository pessoaServicoRepository;
     private final EscalaRepository escalaRepository;
     private final EscalaVoluntarioRepository escalaVoluntarioRepository;
+    private final SmallGroupEncontroRepository smallGroupEncontroRepository;
+    private final SmallGroupParticipanteRepository smallGroupParticipanteRepository;
 
     public AutorizacaoService(
             IgrejaContextoService igrejaContextoService,
@@ -56,7 +63,9 @@ public class AutorizacaoService {
             ServicoRepository servicoRepository,
             PessoaServicoRepository pessoaServicoRepository,
             EscalaRepository escalaRepository,
-            EscalaVoluntarioRepository escalaVoluntarioRepository
+            EscalaVoluntarioRepository escalaVoluntarioRepository,
+            SmallGroupEncontroRepository smallGroupEncontroRepository,
+            SmallGroupParticipanteRepository smallGroupParticipanteRepository
     ) {
         this.igrejaContextoService = igrejaContextoService;
         this.permissaoService = permissaoService;
@@ -65,6 +74,8 @@ public class AutorizacaoService {
         this.pessoaServicoRepository = pessoaServicoRepository;
         this.escalaRepository = escalaRepository;
         this.escalaVoluntarioRepository = escalaVoluntarioRepository;
+        this.smallGroupEncontroRepository = smallGroupEncontroRepository;
+        this.smallGroupParticipanteRepository = smallGroupParticipanteRepository;
     }
 
     public Usuario requireUsuario() {
@@ -137,8 +148,48 @@ public class AutorizacaoService {
                 "Somente pastor, secretaria ou papel com permissão de contagem desta igreja");
     }
 
-    public void assertPodeMutarPessoas(UUID igrejaId) {
-        assertTem(igrejaId, Capacidade.PESSOAS_GERIR);
+    /** Pastor/secretaria cadastram livremente; o líder só cadastra vinculando a pessoa a um serviço do seu ministério. */
+    public void assertPodeCadastrarPessoa(UUID igrejaId, UUID servicoId) {
+        assertAcesso(igrejaId);
+        if (tem(igrejaId, Capacidade.PESSOAS_GERIR)) {
+            return;
+        }
+        if (servicoId != null) {
+            Servico servico = servicoRepository.findById(servicoId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Serviço não encontrado"));
+            if (permissaoService.ministeriosLideradosEm(igrejaId).contains(servico.getMinisterioId())) {
+                return;
+            }
+        }
+        throw new AccessDeniedException("Sem permissão para cadastrar pessoa neste serviço");
+    }
+
+    /** Contato: gestão, a própria pessoa, ou quem está no escopo de liderança (vínculo ativo). */
+    public void assertPodeEditarContato(Pessoa pessoa) {
+        UUID igrejaId = pessoa.getIgrejaId();
+        assertAcesso(igrejaId);
+        if (tem(igrejaId, Capacidade.PESSOAS_GERIR) || podeIncluirPessoaNaListagem(pessoa)) {
+            return;
+        }
+        throw new AccessDeniedException("Sem permissão para editar esta pessoa");
+    }
+
+    /** Dados pastorais (ativo, observações, histórico, pausas, jornada): pastor ou secretaria. */
+    public void assertPodeEditarDadosPastorais(UUID igrejaId) {
+        assertTem(igrejaId, Capacidade.DADOS_PASTORAIS_EDITAR);
+    }
+
+    /** Busca de pessoas por nome: gestão ou quem lidera ministério, base ou grupo em alguma das igrejas. */
+    public void assertPodeBuscarPessoas(List<UUID> igrejaIds) {
+        for (UUID igrejaId : igrejaIds) {
+            if (isGestao(igrejaId)
+                    || !permissaoService.ministeriosLideradosEm(igrejaId).isEmpty()
+                    || !permissaoService.basesLideradasEm(igrejaId).isEmpty()
+                    || !permissaoService.gruposLideradosEm(igrejaId).isEmpty()) {
+                return;
+            }
+        }
+        throw new AccessDeniedException("Sem permissão para buscar pessoas");
     }
 
     public void assertPodeVerPessoa(Pessoa pessoa) {
@@ -176,11 +227,30 @@ public class AutorizacaoService {
         }
         Set<UUID> visiveis = minhaPessoaId == null
                 ? new HashSet<>()
-                : pessoasDosMinisterios(permissaoService.ministeriosLideradosEm(igrejaId));
+                : pessoasNoEscopoDeLideranca(igrejaId);
         if (minhaPessoaId != null) {
             visiveis.add(minhaPessoaId);
         }
         return p -> visiveis.contains(p.getId());
+    }
+
+    /** Pessoas dos ministérios liderados e participantes (com cadastro) dos encontros dos grupos liderados. */
+    private Set<UUID> pessoasNoEscopoDeLideranca(UUID igrejaId) {
+        Set<UUID> pessoas = pessoasDosMinisterios(permissaoService.ministeriosLideradosEm(igrejaId));
+        Set<UUID> grupos = permissaoService.gruposLideradosEm(igrejaId);
+        if (!grupos.isEmpty()) {
+            List<UUID> encontroIds = smallGroupEncontroRepository
+                    .findBySmallGroupIdInOrderByDataAsc(List.copyOf(grupos)).stream()
+                    .map(SmallGroupEncontro::getId)
+                    .toList();
+            if (!encontroIds.isEmpty()) {
+                smallGroupParticipanteRepository.findByEncontroIdInOrderByPessoaNomeAsc(encontroIds).stream()
+                        .map(SmallGroupParticipante::getPessoaId)
+                        .filter(java.util.Objects::nonNull)
+                        .forEach(pessoas::add);
+            }
+        }
+        return pessoas;
     }
 
     /** Líderes, coordenadores e voluntários ativos dos ministérios informados. */

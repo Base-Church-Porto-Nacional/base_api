@@ -6,12 +6,17 @@ import com.example.base_api.jornada.entity.JornadaMembro;
 import com.example.base_api.jornada.service.JornadaService;
 import com.example.base_api.pessoa.dto.PessoaCreateRequest;
 import com.example.base_api.pessoa.dto.PessoaResponse;
+import com.example.base_api.pessoa.dto.PessoaResumoResponse;
 import com.example.base_api.pessoa.dto.PessoaUpdateRequest;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
+import com.example.base_api.security.Capacidade;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.repository.UsuarioRepository;
+import com.example.base_api.voluntario.entity.PessoaServico;
+import com.example.base_api.voluntario.repository.PessoaServicoRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +24,7 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -32,17 +38,20 @@ public class PessoaService {
     private final JornadaService jornadaService;
     private final AutorizacaoService autorizacaoService;
     private final UsuarioRepository usuarioRepository;
+    private final PessoaServicoRepository pessoaServicoRepository;
 
     public PessoaService(
             PessoaRepository pessoaRepository,
             JornadaService jornadaService,
             AutorizacaoService autorizacaoService,
-            UsuarioRepository usuarioRepository
+            UsuarioRepository usuarioRepository,
+            PessoaServicoRepository pessoaServicoRepository
     ) {
         this.pessoaRepository = pessoaRepository;
         this.jornadaService = jornadaService;
         this.autorizacaoService = autorizacaoService;
         this.usuarioRepository = usuarioRepository;
+        this.pessoaServicoRepository = pessoaServicoRepository;
     }
 
     @Transactional(readOnly = true)
@@ -87,7 +96,7 @@ public class PessoaService {
         if (igrejaId == null) {
             throw new BusinessException("igrejaId é obrigatório");
         }
-        autorizacaoService.assertPodeMutarPessoas(igrejaId);
+        autorizacaoService.assertPodeCadastrarPessoa(igrejaId, request.servicoId());
 
         Pessoa pessoa = new Pessoa();
         pessoa.setNome(request.nome().trim());
@@ -103,13 +112,25 @@ public class PessoaService {
 
         Pessoa salva = pessoaRepository.save(pessoa);
         jornadaService.criarJornadaInicial(salva.getId());
+        if (request.servicoId() != null) {
+            PessoaServico vinculo = new PessoaServico();
+            vinculo.setPessoaId(salva.getId());
+            vinculo.setServicoId(request.servicoId());
+            vinculo.setAtivo(true);
+            pessoaServicoRepository.save(vinculo);
+        }
         return toResponse(salva);
     }
 
     @Transactional
     public PessoaResponse atualizar(UUID id, PessoaUpdateRequest request) {
         Pessoa pessoa = buscarEntidade(id);
-        autorizacaoService.assertPodeMutarPessoas(pessoa.getIgrejaId());
+        autorizacaoService.assertPodeEditarContato(pessoa);
+        boolean podeEditarPastoral = autorizacaoService.tem(pessoa.getIgrejaId(), Capacidade.DADOS_PASTORAIS_EDITAR);
+        if (!podeEditarPastoral && (!Objects.equals(request.ativo(), pessoa.getAtivo())
+                || !Objects.equals(blankToNull(request.observacoes()), blankToNull(pessoa.getObservacoes())))) {
+            throw new AccessDeniedException("Somente pastor ou secretaria alteram dados pastorais");
+        }
 
         if (request.email() != null && !request.email().isBlank()
                 && pessoaRepository.existsByEmailIgnoreCaseAndIdNot(request.email(), id)) {
@@ -122,8 +143,10 @@ public class PessoaService {
         pessoa.setTelefone(blankToNull(request.telefone()));
         pessoa.setWhatsapp(blankToNull(request.whatsapp()));
         pessoa.setDataNascimento(request.dataNascimento());
-        pessoa.setAtivo(request.ativo());
-        pessoa.setObservacoes(request.observacoes());
+        if (podeEditarPastoral) {
+            pessoa.setAtivo(request.ativo());
+            pessoa.setObservacoes(request.observacoes());
+        }
 
         return toResponse(pessoaRepository.save(pessoa));
     }
@@ -131,8 +154,23 @@ public class PessoaService {
     @Transactional
     public void excluir(UUID id) {
         Pessoa pessoa = buscarEntidade(id);
-        autorizacaoService.assertPodeMutarPessoas(pessoa.getIgrejaId());
+        autorizacaoService.assertTem(pessoa.getIgrejaId(), Capacidade.PESSOAS_GERIR);
         pessoaRepository.delete(pessoa);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PessoaResumoResponse> buscarPorNome(String termo) {
+        String nome = termo == null ? "" : termo.trim();
+        if (nome.length() < 2) {
+            throw new BusinessException("Informe ao menos 2 caracteres para buscar");
+        }
+        List<UUID> igrejaIds = autorizacaoService.idsParaListagem(null);
+        autorizacaoService.assertPodeBuscarPessoas(igrejaIds);
+        return pessoaRepository
+                .findTop20ByIgrejaIdInAndNomeContainingIgnoreCaseOrderByNomeAsc(igrejaIds, nome).stream()
+                .limit(20)
+                .map(p -> new PessoaResumoResponse(p.getId(), p.getNome()))
+                .toList();
     }
 
     @Transactional(readOnly = true)
