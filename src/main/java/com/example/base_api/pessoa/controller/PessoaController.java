@@ -6,10 +6,7 @@ import com.example.base_api.pessoa.dto.PessoaResumoResponse;
 import com.example.base_api.pessoa.dto.PessoaUpdateRequest;
 import com.example.base_api.pessoa.service.PessoaService;
 import com.example.base_api.usuario.dto.LinkAcessoResponse;
-import com.example.base_api.usuario.dto.PessoaUsuarioCreateRequest;
-import com.example.base_api.usuario.dto.UsuarioResponse;
 import com.example.base_api.usuario.service.AcessoService;
-import com.example.base_api.usuario.service.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -37,12 +34,10 @@ import java.util.UUID;
 public class PessoaController {
 
     private final PessoaService pessoaService;
-    private final UsuarioService usuarioService;
     private final AcessoService acessoService;
 
-    public PessoaController(PessoaService pessoaService, UsuarioService usuarioService, AcessoService acessoService) {
+    public PessoaController(PessoaService pessoaService, AcessoService acessoService) {
         this.pessoaService = pessoaService;
-        this.usuarioService = usuarioService;
         this.acessoService = acessoService;
     }
 
@@ -87,17 +82,6 @@ public class PessoaController {
             @Valid @RequestBody PessoaUpdateRequest request
     ) {
         return pessoaService.atualizar(id, request);
-    }
-
-    @PostMapping("/{id}/usuario")
-    @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Criar usuário a partir da pessoa, com papéis da igreja")
-    public UsuarioResponse criarUsuario(
-            @PathVariable UUID id,
-            @Valid @RequestBody PessoaUsuarioCreateRequest request
-    ) {
-        return usuarioService.criarAPartirDaPessoa(id, request);
     }
 
     @DeleteMapping("/{id}")

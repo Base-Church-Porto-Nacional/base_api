@@ -225,7 +225,14 @@ public class AcessoService {
                 return;
             }
             UUID usuarioId = usuario.getId();
-            Runnable envio = () -> acessoExecutor.execute(() -> envioRedefinicaoService.gerarEEnviar(usuarioId));
+            Runnable envio = () -> acessoExecutor.execute(() -> {
+                try {
+                    envioRedefinicaoService.gerarEEnviar(usuarioId);
+                } catch (Exception e) {
+                    // inclui UnexpectedRollbackException do proxy transacional; nada chega ao handler da thread
+                    log.warn("Falha ao enviar redefinição de senha: usuarioId={}", usuarioId);
+                }
+            });
             if (TransactionSynchronizationManager.isSynchronizationActive()) {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override

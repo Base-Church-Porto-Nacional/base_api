@@ -549,6 +549,26 @@ class PessoaServiceTest {
     }
 
     @Test
+    void pessoaResponseTrazAcessoStatusEmLote() {
+        Pessoa convidada = novaPessoa("Ana");
+        Pessoa semConta = novaPessoa("Bruno");
+        Usuario usuario = usuarioCom(convidada.getId(), false, "MEMBRO");
+        usuario.setStatus(com.example.base_api.usuario.entity.StatusUsuario.CONVIDADO);
+        List<UUID> ids = List.of(convidada.getId(), semConta.getId());
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
+        when(pessoaRepository.findByIgrejaIdInOrderByNomeAsc(List.of(igrejaId)))
+                .thenReturn(List.of(convidada, semConta));
+        when(autorizacaoService.filtrarVisiveisNaListagem(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(usuarioRepository.findByPessoaIdIn(ids)).thenReturn(List.of(usuario));
+
+        List<PessoaResponse> lista = pessoaService.listar(igrejaId);
+
+        assertThat(lista.get(0).acessoStatus()).isEqualTo(com.example.base_api.usuario.entity.StatusUsuario.CONVIDADO);
+        assertThat(lista.get(1).acessoStatus()).isNull();
+        verify(usuarioRepository, never()).findByPessoaId(any());
+    }
+
+    @Test
     void usuarioInativoNaoContaComoMembro() {
         when(pessoaRepository.findById(pessoa.getId())).thenReturn(Optional.of(pessoa));
         when(usuarioRepository.findByPessoaId(pessoa.getId()))

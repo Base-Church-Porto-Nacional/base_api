@@ -3,7 +3,6 @@ package com.example.base_api.usuario.repository;
 import com.example.base_api.security.Identificador;
 import com.example.base_api.usuario.entity.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -40,10 +39,6 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     List<Usuario> findByIgrejaIdIn(List<UUID> igrejaIds);
 
     long countByIgrejaIdIn(List<UUID> igrejaIds);
-
-    @Modifying
-    @Query("delete from Usuario u where u.id = :id")
-    int excluirDireto(@Param("id") UUID id);
 
     /** Usuários ATIVOS da igreja que possuem o papel de SISTEMA indicado (ex.: PASTOR). */
     @Query("""

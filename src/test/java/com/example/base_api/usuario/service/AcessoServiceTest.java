@@ -571,6 +571,25 @@ class AcessoServiceTest {
     }
 
     @Test
+    void esqueciSenhaRunnableCapturaFalhaDoEnvioProxiado() {
+        EnvioRedefinicaoService envio = org.mockito.Mockito.mock(EnvioRedefinicaoService.class);
+        org.mockito.Mockito.doThrow(new org.springframework.transaction.UnexpectedRollbackException("rollback"))
+                .when(envio).gerarEEnviar(any());
+        AcessoService servico = new AcessoService(pessoaService, usuarioRepository, tokenAcessoService,
+                new MensagemAcesso(igrejaRepository, canalMensagem), envio, filaExecutor::add,
+                autorizacaoService, usuarioService, auditService, passwordEncoder, new LoginRateLimiter());
+        Usuario u = usuarioExistente(StatusUsuario.ATIVO);
+        u.setTelefone("5563999990000");
+        when(usuarioRepository.findByIdentificador("a@b.com")).thenReturn(Optional.of(u));
+
+        servico.solicitarRedefinicao("a@b.com", IP);
+
+        assertThat(filaExecutor).hasSize(1);
+        org.assertj.core.api.Assertions.assertThatCode(() -> filaExecutor.forEach(Runnable::run)).doesNotThrowAnyException();
+        verify(envio).gerarEEnviar(u.getId());
+    }
+
+    @Test
     void esqueciNaoCompartilhaContadorComLogin() {
         String telefone = "(63) 99999-0000";
         when(usuarioRepository.findByIdentificador(telefone)).thenReturn(Optional.empty());

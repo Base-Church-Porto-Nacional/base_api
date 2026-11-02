@@ -13,10 +13,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.security.Capacidade;
 import com.example.base_api.security.JwtService;
-import com.example.base_api.usuario.dto.UsuarioCreateRequest;
 import com.example.base_api.usuario.dto.UsuarioPapeisRequest;
 import com.example.base_api.usuario.dto.UsuarioResponse;
-import com.example.base_api.usuario.dto.UsuarioUpdateRequest;
 import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.Usuario;
@@ -44,6 +42,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -72,6 +73,8 @@ class UsuarioServiceTest {
     private IgrejaRepository igrejaRepository;
     @Mock
     private AuditService auditService;
+    @Mock
+    private TokenAcessoService tokenAcessoService;
 
     @InjectMocks
     private UsuarioService usuarioService;
@@ -110,57 +113,6 @@ class UsuarioServiceTest {
     }
 
     @Test
-    void usuarioCriadoSemPapeis() {
-        UUID igrejaId = UUID.randomUUID();
-        UUID pessoaId = UUID.randomUUID();
-        Pessoa pessoa = new Pessoa();
-        pessoa.setId(pessoaId);
-        pessoa.setNome("João");
-        when(pessoaService.buscarEntidade(pessoaId)).thenReturn(pessoa);
-        when(usuarioRepository.existsByEmailIgnoreCase("joao@email.com")).thenReturn(false);
-        when(passwordEncoder.encode(anyString())).thenReturn("hash");
-        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> {
-            Usuario u = invocation.getArgument(0);
-            u.setId(UUID.randomUUID());
-            return u;
-        });
-        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
-
-        UsuarioResponse response = usuarioService.criar(new UsuarioCreateRequest(
-                pessoaId, "Joao@Email.com", "senha123", igrejaId
-        ));
-
-        assertThat(response.email()).isEqualTo("joao@email.com");
-        assertThat(response.pessoaId()).isEqualTo(pessoaId);
-        assertThat(response.pessoaNome()).isEqualTo("João");
-        assertThat(response.status()).isEqualTo(StatusUsuario.ATIVO);
-        assertThat(response.papeis()).isEmpty();
-        verify(usuarioPapelRepository, never()).save(any());
-    }
-
-    @Test
-    void naoDeveCriarUsuarioComEmailDuplicado() {
-        UUID igrejaId = UUID.randomUUID();
-        when(usuarioRepository.existsByEmailIgnoreCase("joao@email.com")).thenReturn(true);
-
-        assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
-                UUID.randomUUID(), "joao@email.com", "senha123", igrejaId
-        ))).isInstanceOf(BusinessException.class)
-                .hasMessageContaining("E-mail");
-    }
-
-    @Test
-    void naoDeveCriarUsuarioSemPessoa() {
-        UUID igrejaId = UUID.randomUUID();
-
-        assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
-                null, "joao@email.com", "senha123", igrejaId
-        ))).isInstanceOf(BusinessException.class)
-                .hasMessageContaining("Pessoa");
-        verify(usuarioRepository, never()).save(any());
-    }
-
-    @Test
     void autenticarGeraTokenComIdDoUsuario() {
         UUID igrejaId = UUID.randomUUID();
         Usuario usuario = usuarioComPapeis(igrejaId);
@@ -179,17 +131,6 @@ class UsuarioServiceTest {
         assertThat(response.token()).isEqualTo("jwt");
         assertThat(response.usuarioId()).isEqualTo(usuario.getId());
         assertThat(response.pessoaId()).isEqualTo(usuario.getPessoaId());
-    }
-
-    @Test
-    void membroNaoCriaUsuario() {
-        UUID igrejaId = UUID.randomUUID();
-        doThrow(new AccessDeniedException("Somente pastor ou secretaria desta igreja"))
-                .when(autorizacaoService).assertPodeCriarUsuario(igrejaId);
-
-        assertThatThrownBy(() -> usuarioService.criar(new UsuarioCreateRequest(
-                UUID.randomUUID(), "joao@email.com", "senha123", igrejaId
-        ))).isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
@@ -312,119 +253,141 @@ class UsuarioServiceTest {
 
     // --- conta do pastor/secretaria protegida ---
 
+    // --- desativar / reativar ---
+
     private void secretariaNaoAtribuiGestao(UUID igrejaId) {
         doThrow(new AccessDeniedException("Somente o pastor"))
                 .when(autorizacaoService).assertPodeAtribuirPapeisGestao(igrejaId);
     }
 
     @Test
-    void secretariaNaoRedefineSenhaDoPastor() {
+    void desativarRevogaLinksEInvalidaSessao() {
         UUID igrejaId = UUID.randomUUID();
-        Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
-        alvo.setEmail("pastor@email.com");
+        Usuario alvo = usuarioComPapeis(igrejaId, "CONTADOR");
+        alvo.setTokenVersion(3);
         when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
-        secretariaNaoAtribuiGestao(igrejaId);
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> usuarioService.atualizar(alvo.getId(),
-                new UsuarioUpdateRequest("pastor@email.com", true, "novasenha")))
-                .isInstanceOf(AccessDeniedException.class);
+        UsuarioResponse r = usuarioService.desativar(alvo.getId());
+
+        verify(autorizacaoService).assertTem(igrejaId, Capacidade.CONTAS_GERIR);
+        assertThat(r.status()).isEqualTo(StatusUsuario.DESATIVADO);
+        assertThat(alvo.getTokenVersion()).isEqualTo(4);
+        verify(tokenAcessoService).revogarPendentes(alvo.getId());
+        verify(auditService).registrar(eq("DESATIVAR_USUARIO"), eq("usuario"), contains(alvo.getId().toString()));
+    }
+
+    @Test
+    void desativarJaDesativadoEhIdempotente() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "CONTADOR");
+        alvo.setStatus(StatusUsuario.DESATIVADO);
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
+
+        UsuarioResponse r = usuarioService.desativar(alvo.getId());
+
+        assertThat(r.status()).isEqualTo(StatusUsuario.DESATIVADO);
         verify(usuarioRepository, never()).save(any());
+        verify(tokenAcessoService, never()).revogarPendentes(any());
+        verify(auditService, never()).registrar(any(), any(), any());
     }
 
     @Test
     void secretariaNaoDesativaPastor() {
         UUID igrejaId = UUID.randomUUID();
         Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
-        alvo.setEmail("pastor@email.com");
         when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
         secretariaNaoAtribuiGestao(igrejaId);
 
-        assertThatThrownBy(() -> usuarioService.atualizar(alvo.getId(),
-                new UsuarioUpdateRequest("pastor@email.com", false, null)))
+        assertThatThrownBy(() -> usuarioService.desativar(alvo.getId()))
                 .isInstanceOf(AccessDeniedException.class);
         verify(usuarioRepository, never()).save(any());
     }
 
     @Test
-    void secretariaNaoExcluiOutraSecretaria() {
-        UUID igrejaId = UUID.randomUUID();
-        Usuario alvo = usuarioComPapeis(igrejaId, "SECRETARIA");
-        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
-        secretariaNaoAtribuiGestao(igrejaId);
-
-        assertThatThrownBy(() -> usuarioService.excluir(alvo.getId()))
-                .isInstanceOf(AccessDeniedException.class);
-        verify(usuarioRepository, never()).excluirDireto(any());
-    }
-
-    @Test
-    void secretariaAtualizaEmailDoPastorSemTocarSenhaOuAtivo() {
+    void naoDesativaUltimoPastorAtivo() {
         UUID igrejaId = UUID.randomUUID();
         Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
-        alvo.setEmail("pastor@email.com");
         when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
-        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
-        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
+        when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", igrejaId)).thenReturn(1L);
 
-        usuarioService.atualizar(alvo.getId(), new UsuarioUpdateRequest("novo@email.com", true, null));
-
-        verify(autorizacaoService, never()).assertPodeAtribuirPapeisGestao(any());
-        assertThat(alvo.getEmail()).isEqualTo("novo@email.com");
+        assertThatThrownBy(() -> usuarioService.desativar(alvo.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("A igreja precisa de ao menos um pastor");
+        verify(usuarioRepository, never()).save(any());
     }
 
     @Test
-    void secretariaRedefineSenhaDeUsuarioComum() {
+    void reativarContaSemSenhaVoltaConvidada() {
         UUID igrejaId = UUID.randomUUID();
         Usuario alvo = usuarioComPapeis(igrejaId, "CONTADOR");
-        alvo.setEmail("c@email.com");
+        alvo.setStatus(StatusUsuario.DESATIVADO);
+        alvo.setSenhaHash(null);
         when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
         when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
-        when(passwordEncoder.encode("novasenha")).thenReturn("hash2");
 
-        usuarioService.atualizar(alvo.getId(), new UsuarioUpdateRequest("c@email.com", true, "novasenha"));
+        UsuarioResponse r = usuarioService.reativar(alvo.getId());
 
-        verify(autorizacaoService, never()).assertPodeAtribuirPapeisGestao(any());
-        assertThat(alvo.getSenhaHash()).isEqualTo("hash2");
+        assertThat(r.status()).isEqualTo(StatusUsuario.CONVIDADO);
+        verify(auditService).registrar(eq("REATIVAR_USUARIO"), eq("usuario"), contains(alvo.getId().toString()));
     }
 
     @Test
-    void pastorNaoDesativaUltimoPastorAtivo() {
+    void reativarContaComSenhaVoltaAtiva() {
         UUID igrejaId = UUID.randomUUID();
-        Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
-        alvo.setEmail("pastor@email.com");
+        Usuario alvo = usuarioComPapeis(igrejaId, "CONTADOR");
+        alvo.setStatus(StatusUsuario.DESATIVADO);
+        alvo.setSenhaHash("hash");
         when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
-        when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", igrejaId)).thenReturn(1L);
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> usuarioService.atualizar(alvo.getId(),
-                new UsuarioUpdateRequest("pastor@email.com", false, null)))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("A igreja precisa de ao menos um pastor");
+        UsuarioResponse r = usuarioService.reativar(alvo.getId());
+
+        assertThat(r.status()).isEqualTo(StatusUsuario.ATIVO);
+    }
+
+    @Test
+    void reativarNaoGeraTokenNemRevivePendentes() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "CONTADOR");
+        alvo.setStatus(StatusUsuario.DESATIVADO);
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
+
+        usuarioService.reativar(alvo.getId());
+
+        verifyNoInteractions(tokenAcessoService);
+    }
+
+    @Test
+    void reativarContaNaoDesativadaDevolveSemAlterar() {
+        UUID igrejaId = UUID.randomUUID();
+        Usuario alvo = usuarioComPapeis(igrejaId, "CONTADOR");
+        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        when(igrejaRepository.findById(igrejaId)).thenReturn(Optional.empty());
+
+        UsuarioResponse r = usuarioService.reativar(alvo.getId());
+
+        assertThat(r.status()).isEqualTo(StatusUsuario.ATIVO);
         verify(usuarioRepository, never()).save(any());
+        verify(auditService, never()).registrar(any(), any(), any());
     }
 
     @Test
-    void pastorNaoExcluiUltimoPastorAtivo() {
-        UUID igrejaId = UUID.randomUUID();
-        Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
-        when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
-        when(usuarioRepository.countByPapelAndIgrejaId("PASTOR", igrejaId)).thenReturn(1L);
-
-        assertThatThrownBy(() -> usuarioService.excluir(alvo.getId()))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("A igreja precisa de ao menos um pastor");
-        verify(usuarioRepository, never()).excluirDireto(any());
-    }
-
-    @Test
-    void pastorExcluiPastorInativoMesmoComUmUnicoAtivo() {
+    void secretariaNaoReativaPastor() {
         UUID igrejaId = UUID.randomUUID();
         Usuario alvo = usuarioComPapeis(igrejaId, "PASTOR");
         alvo.setStatus(StatusUsuario.DESATIVADO);
         when(usuarioRepository.findById(alvo.getId())).thenReturn(Optional.of(alvo));
+        secretariaNaoAtribuiGestao(igrejaId);
 
-        usuarioService.excluir(alvo.getId());
-
-        verify(usuarioRepository).excluirDireto(alvo.getId());
+        assertThatThrownBy(() -> usuarioService.reativar(alvo.getId()))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(usuarioRepository, never()).save(any());
     }
 }

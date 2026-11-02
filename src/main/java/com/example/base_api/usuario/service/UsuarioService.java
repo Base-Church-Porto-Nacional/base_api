@@ -5,7 +5,6 @@ import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.common.exception.ResourceNotFoundException;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.repository.IgrejaRepository;
-import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.service.PessoaService;
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.security.Capacidade;
@@ -14,11 +13,8 @@ import com.example.base_api.security.Papeis;
 import com.example.base_api.security.UsuarioAutenticado;
 import com.example.base_api.usuario.dto.LoginRequest;
 import com.example.base_api.usuario.dto.LoginResponse;
-import com.example.base_api.usuario.dto.PessoaUsuarioCreateRequest;
-import com.example.base_api.usuario.dto.UsuarioCreateRequest;
 import com.example.base_api.usuario.dto.UsuarioPapeisRequest;
 import com.example.base_api.usuario.dto.UsuarioResponse;
-import com.example.base_api.usuario.dto.UsuarioUpdateRequest;
 import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.Usuario;
@@ -31,7 +27,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,35 +46,35 @@ public class UsuarioService {
     private final PapelRepository papelRepository;
     private final UsuarioPapelRepository usuarioPapelRepository;
     private final PessoaService pessoaService;
-    private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final AutorizacaoService autorizacaoService;
     private final IgrejaRepository igrejaRepository;
     private final AuditService auditService;
+    private final TokenAcessoService tokenAcessoService;
 
     public UsuarioService(
             UsuarioRepository usuarioRepository,
             PapelRepository papelRepository,
             UsuarioPapelRepository usuarioPapelRepository,
             PessoaService pessoaService,
-            PasswordEncoder passwordEncoder,
             JwtService jwtService,
             AuthenticationManager authenticationManager,
             AutorizacaoService autorizacaoService,
             IgrejaRepository igrejaRepository,
-            AuditService auditService
+            AuditService auditService,
+            TokenAcessoService tokenAcessoService
     ) {
         this.usuarioRepository = usuarioRepository;
         this.papelRepository = papelRepository;
         this.usuarioPapelRepository = usuarioPapelRepository;
         this.pessoaService = pessoaService;
-        this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
         this.autorizacaoService = autorizacaoService;
         this.igrejaRepository = igrejaRepository;
         this.auditService = auditService;
+        this.tokenAcessoService = tokenAcessoService;
     }
 
     @Transactional(readOnly = true)
@@ -113,69 +108,35 @@ public class UsuarioService {
     }
 
     @Transactional
-    public UsuarioResponse criar(UsuarioCreateRequest request) {
-        UUID igrejaId = request.igrejaId() != null
-                ? request.igrejaId()
-                : autorizacaoService.requireUsuario().getIgrejaId();
-        if (igrejaId == null) {
-            throw new AccessDeniedException("Igreja obrigatória no contexto");
-        }
-        autorizacaoService.assertPodeCriarUsuario(igrejaId);
-        return persistir(
-                request.pessoaId(),
-                request.email(),
-                request.senha(),
-                igrejaId
-        );
-    }
-
-    @Transactional
-    public UsuarioResponse criarAPartirDaPessoa(UUID pessoaId, PessoaUsuarioCreateRequest request) {
-        Pessoa pessoa = pessoaService.buscarEntidade(pessoaId);
-        UUID igrejaId = request.igrejaId() != null ? request.igrejaId() : pessoa.getIgrejaId();
-        if (igrejaId == null) {
-            throw new AccessDeniedException("Igreja obrigatória no contexto");
-        }
-        autorizacaoService.assertPodeCriarUsuario(igrejaId);
-        autorizacaoService.assertAcesso(pessoa.getIgrejaId());
-        return persistir(pessoaId, request.email(), request.senha(), igrejaId);
-    }
-
-    @Transactional
-    public UsuarioResponse atualizar(UUID id, UsuarioUpdateRequest request) {
+    public UsuarioResponse desativar(UUID id) {
         Usuario usuario = buscarEntidade(id);
-        autorizacaoService.assertGestao(usuario.getIgrejaId());
-        boolean trocaSenha = request.novaSenha() != null && !request.novaSenha().isBlank();
-        boolean trocaAtivo = request.ativo() != null && request.ativo() != usuario.isAtivo();
-        if (trocaSenha || trocaAtivo) {
-            assertPodeAlterarContaDeGestao(usuario);
+        autorizacaoService.assertTem(usuario.getIgrejaId(), Capacidade.CONTAS_GERIR);
+        assertPodeAlterarContaDeGestao(usuario);
+        if (usuario.getStatus() == StatusUsuario.DESATIVADO) {
+            return toResponse(usuario);
         }
-        if (trocaAtivo && Boolean.FALSE.equals(request.ativo())) {
-            assertRestaPastorAtivoSemEle(usuario);
-        }
+        assertRestaPastorAtivoSemEle(usuario);
+        usuario.setStatus(StatusUsuario.DESATIVADO);
+        usuario.invalidarTokens();
+        Usuario salvo = usuarioRepository.save(usuario);
+        tokenAcessoService.revogarPendentes(salvo.getId());
+        auditService.registrar("DESATIVAR_USUARIO", "usuario", "usuarioId=" + salvo.getId());
+        return toResponse(salvo);
+    }
 
-        usuarioRepository.findByEmailIgnoreCase(request.email()).ifPresent(outro -> {
-            if (!outro.getId().equals(id)) {
-                throw new BusinessException("E-mail já está em uso");
-            }
-        });
-
-        usuario.setEmail(request.email().trim().toLowerCase());
-        boolean invalidaToken = false;
-        if (trocaAtivo) {
-            usuario.setStatus(request.ativo() ? StatusUsuario.ATIVO : StatusUsuario.DESATIVADO);
-            invalidaToken = true;
+    /** Volta CONVIDADO se nunca definiu senha, senão ATIVO. Não gera token: links antigos continuam mortos. */
+    @Transactional
+    public UsuarioResponse reativar(UUID id) {
+        Usuario usuario = buscarEntidade(id);
+        autorizacaoService.assertTem(usuario.getIgrejaId(), Capacidade.CONTAS_GERIR);
+        assertPodeAlterarContaDeGestao(usuario);
+        if (usuario.getStatus() != StatusUsuario.DESATIVADO) {
+            return toResponse(usuario);
         }
-
-        if (request.novaSenha() != null && !request.novaSenha().isBlank()) {
-            usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
-            invalidaToken = true;
-        }
-        if (invalidaToken) {
-            usuario.invalidarTokens();
-        }
-
-        return toResponse(usuarioRepository.save(usuario));
+        usuario.setStatus(usuario.getSenhaHash() == null ? StatusUsuario.CONVIDADO : StatusUsuario.ATIVO);
+        Usuario salvo = usuarioRepository.save(usuario);
+        auditService.registrar("REATIVAR_USUARIO", "usuario", "usuarioId=" + salvo.getId());
+        return toResponse(salvo);
     }
 
     @Transactional
@@ -220,15 +181,6 @@ public class UsuarioService {
 
     private static Set<String> gestaoDe(Set<String> nomes) {
         return nomes.stream().filter(Papeis.GESTAO::contains).collect(Collectors.toSet());
-    }
-
-    @Transactional
-    public void excluir(UUID id) {
-        Usuario usuario = buscarEntidade(id);
-        autorizacaoService.assertGestao(usuario.getIgrejaId());
-        assertPodeAlterarContaDeGestao(usuario);
-        assertRestaPastorAtivoSemEle(usuario);
-        usuarioRepository.excluirDireto(id);
     }
 
     /** Conta de pastor/secretaria (papel de sistema): senha, ativo e exclusão só com PAPEIS_GESTAO_ATRIBUIR (pastor). */
@@ -295,32 +247,6 @@ public class UsuarioService {
     public Usuario buscarEntidade(UUID id) {
         return usuarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
-    }
-
-    private UsuarioResponse persistir(
-            UUID pessoaId,
-            String email,
-            String senha,
-            UUID igrejaId
-    ) {
-        if (pessoaId == null) {
-            throw new BusinessException("Pessoa é obrigatória");
-        }
-        String emailNormalizado = email.trim().toLowerCase();
-        if (usuarioRepository.existsByEmailIgnoreCase(emailNormalizado)) {
-            throw new BusinessException("E-mail já está em uso");
-        }
-        pessoaService.buscarEntidade(pessoaId);
-        autorizacaoService.assertPessoaSemUsuario(usuarioRepository.existsByPessoaId(pessoaId));
-
-        Usuario usuario = new Usuario();
-        usuario.setPessoaId(pessoaId);
-        usuario.setIgrejaId(igrejaId);
-        usuario.setEmail(emailNormalizado);
-        usuario.setSenhaHash(passwordEncoder.encode(senha));
-        usuario.setStatus(StatusUsuario.ATIVO);
-
-        return toResponse(usuarioRepository.save(usuario));
     }
 
     public void substituirPapeis(Usuario usuario, UUID igrejaId, Set<String> nomes) {

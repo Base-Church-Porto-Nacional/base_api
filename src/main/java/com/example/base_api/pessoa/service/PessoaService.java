@@ -290,7 +290,8 @@ public class PessoaService {
                 jornada != null ? jornada.getAceitouJesus() : null,
                 jornada != null ? jornada.getBatizado() : null,
                 jornada != null ? jornada.getConcluiuTrilhaBase() : null,
-                funcoes != null ? funcoes : Set.of()
+                funcoes != null ? funcoes : Set.of(),
+                usuario != null ? usuario.getStatus() : null
         );
     }
 }
