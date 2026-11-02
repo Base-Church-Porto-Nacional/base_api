@@ -145,7 +145,15 @@ class MeServiceTest {
     }
 
     private MeUpdateRequest comContato(String email, String telefone) {
-        return new MeUpdateRequest("João", null, email, telefone, null, null, null, null);
+        return comContato(email, telefone, null);
+    }
+
+    private MeUpdateRequest comContato(String email, String telefone, String senhaAtual) {
+        return new MeUpdateRequest("João", null, email, telefone, null, null, null, senhaAtual);
+    }
+
+    private void senhaAtualConfere() {
+        when(passwordEncoder.matches("senha-atual", "hash-antigo")).thenReturn(true);
     }
 
     @Test
@@ -154,8 +162,9 @@ class MeServiceTest {
         Pessoa p = pessoaDoUsuario(u);
         stubResposta();
         when(usuarioRepository.findByEmailIgnoreCase("novo@igreja.com")).thenReturn(Optional.empty());
+        senhaAtualConfere();
 
-        meService.atualizarPerfil(auth, comContato("Novo@Igreja.com", null));
+        meService.atualizarPerfil(auth, comContato("Novo@Igreja.com", null, "senha-atual"));
 
         assertThat(u.getEmail()).isEqualTo("novo@igreja.com");
         assertThat(p.getEmail()).isEqualTo("novo@igreja.com");
@@ -167,8 +176,9 @@ class MeServiceTest {
         Usuario outro = new Usuario();
         outro.setId(UUID.randomUUID());
         when(usuarioRepository.findByEmailIgnoreCase("novo@igreja.com")).thenReturn(Optional.of(outro));
+        senhaAtualConfere();
 
-        assertThatThrownBy(() -> meService.atualizarPerfil(auth, comContato("novo@igreja.com", null)))
+        assertThatThrownBy(() -> meService.atualizarPerfil(auth, comContato("novo@igreja.com", null, "senha-atual")))
                 .isInstanceOf(ConflictException.class)
                 .hasMessage("E-mail já usado por outra conta");
         assertThat(u.getEmail()).isEqualTo("joao@igreja.com");
@@ -181,8 +191,9 @@ class MeServiceTest {
         pessoaDoUsuario(u);
         stubResposta();
         when(usuarioRepository.findByTelefone("5563999990000")).thenReturn(Optional.empty());
+        senhaAtualConfere();
 
-        meService.atualizarPerfil(auth, comContato("joao@igreja.com", "(63) 99999-0000"));
+        meService.atualizarPerfil(auth, comContato("joao@igreja.com", "(63) 99999-0000", "senha-atual"));
 
         assertThat(u.getTelefone()).isEqualTo("5563999990000");
     }
@@ -194,8 +205,9 @@ class MeServiceTest {
         Usuario outro = new Usuario();
         outro.setId(UUID.randomUUID());
         when(usuarioRepository.findByTelefone("5563999990000")).thenReturn(Optional.of(outro));
+        senhaAtualConfere();
 
-        assertThatThrownBy(() -> meService.atualizarPerfil(auth, comContato("joao@igreja.com", "63999990000")))
+        assertThatThrownBy(() -> meService.atualizarPerfil(auth, comContato("joao@igreja.com", "63999990000", "senha-atual")))
                 .isInstanceOf(ConflictException.class)
                 .hasMessage("Telefone já usado por outra conta");
         verify(usuarioRepository, never()).save(any());
@@ -222,5 +234,58 @@ class MeServiceTest {
             assertThat(violacoes).hasSize(1);
             assertThat(factory.getValidator().validate(request("longa1234", "atual"))).isEmpty();
         }
+    }
+
+    // --- trocar identificador de login exige a senha atual ---
+
+    @Test
+    void trocaDeEmailSemSenhaAtualEhRecusada() {
+        Usuario u = usuario();
+        pessoaDoUsuario(u);
+
+        assertThatThrownBy(() -> meService.atualizarPerfil(auth, comContato("novo@igreja.com", null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Informe a senha atual para alterar o e-mail ou telefone de acesso");
+        assertThat(u.getEmail()).isEqualTo("joao@igreja.com");
+        verify(usuarioRepository, never()).save(any());
+        verify(usuarioRepository, never()).findByEmailIgnoreCase("novo@igreja.com");
+    }
+
+    @Test
+    void trocaDeEmailComSenhaAtualErradaEhRecusada() {
+        Usuario u = usuario();
+        pessoaDoUsuario(u);
+        when(passwordEncoder.matches("errada", "hash-antigo")).thenReturn(false);
+
+        assertThatThrownBy(() -> meService.atualizarPerfil(auth, comContato("novo@igreja.com", null, "errada")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Senha atual incorreta");
+        assertThat(u.getEmail()).isEqualTo("joao@igreja.com");
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void trocaDeTelefoneDeLoginSemSenhaAtualEhRecusada() {
+        Usuario u = usuario();
+        pessoaDoUsuario(u);
+
+        assertThatThrownBy(() -> meService.atualizarPerfil(auth, comContato("joao@igreja.com", "(63) 99999-0000")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Informe a senha atual para alterar o e-mail ou telefone de acesso");
+        assertThat(u.getTelefone()).isNull();
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void mesmoEmailComOutraCaixaNaoExigeSenha() {
+        Usuario u = usuario();
+        Pessoa p = pessoaDoUsuario(u);
+        stubResposta();
+
+        meService.atualizarPerfil(auth, new MeUpdateRequest("João Novo", null, "JOAO@igreja.com", null, null, null, null, null));
+
+        assertThat(u.getEmail()).isEqualTo("joao@igreja.com");
+        assertThat(p.getNome()).isEqualTo("João Novo");
+        verify(passwordEncoder, never()).matches(any(), any());
     }
 }

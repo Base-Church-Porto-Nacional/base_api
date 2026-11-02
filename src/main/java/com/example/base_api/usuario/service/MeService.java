@@ -69,37 +69,46 @@ public class MeService {
         Pessoa pessoa = resolverPessoa(usuario);
 
         String emailNovo = Identificador.email(request.email()).orElse(null);
-        if (emailNovo != null) {
-            usuarioRepository.findByEmailIgnoreCase(emailNovo)
-                    .filter(outro -> !outro.getId().equals(usuario.getId()))
-                    .ifPresent(outro -> {
-                        throw new ConflictException("E-mail já usado por outra conta");
-                    });
-        }
-
         String telefoneNovo = blankToNull(request.telefone());
         boolean telefoneMudou = pessoa != null && !Objects.equals(telefoneNovo, pessoa.getTelefone());
         String telefoneLogin = usuario.getTelefone();
         if (telefoneMudou) {
             String whatsapp = pessoa.getWhatsapp();
             telefoneLogin = Identificador.telefone(whatsapp).or(() -> Identificador.telefone(telefoneNovo)).orElse(null);
-            if (telefoneLogin != null) {
-                usuarioRepository.findByTelefone(telefoneLogin)
-                        .filter(outro -> !outro.getId().equals(usuario.getId()))
-                        .ifPresent(outro -> {
-                            throw new ConflictException("Telefone já usado por outra conta");
-                        });
-            }
         }
         if (emailNovo == null && telefoneLogin == null) {
             throw new BusinessException("Informe e-mail ou telefone para entrar no app");
         }
 
+        // Trocar o identificador de login equivale a trocar a credencial: exige a senha atual
+        // (um token vazado não basta para tomar a conta) e vem antes das checagens de conflito.
+        boolean emailLoginMudou = !Objects.equals(emailNovo, Identificador.email(usuario.getEmail()).orElse(null));
+        boolean telefoneLoginMudou = !Objects.equals(telefoneLogin, usuario.getTelefone());
+        if (emailLoginMudou || telefoneLoginMudou) {
+            if (request.senhaAtual() == null || request.senhaAtual().isBlank()) {
+                throw new BusinessException("Informe a senha atual para alterar o e-mail ou telefone de acesso");
+            }
+            assertSenhaAtual(usuario, request.senhaAtual());
+        }
+
+        if (emailNovo != null && emailLoginMudou) {
+            usuarioRepository.findByEmailIgnoreCase(emailNovo)
+                    .filter(outro -> !outro.getId().equals(usuario.getId()))
+                    .ifPresent(outro -> {
+                        throw new ConflictException("E-mail já usado por outra conta");
+                    });
+        }
+        if (telefoneLogin != null && telefoneLoginMudou) {
+            usuarioRepository.findByTelefone(telefoneLogin)
+                    .filter(outro -> !outro.getId().equals(usuario.getId()))
+                    .ifPresent(outro -> {
+                        throw new ConflictException("Telefone já usado por outra conta");
+                    });
+        }
+
         boolean trocaSenha = request.novaSenha() != null && !request.novaSenha().isBlank();
-        if (trocaSenha && (request.senhaAtual() == null || request.senhaAtual().isBlank()
-                || usuario.getSenhaHash() == null
-                || !passwordEncoder.matches(request.senhaAtual(), usuario.getSenhaHash()))) {
-            throw new BusinessException("Senha atual incorreta");
+        if (trocaSenha) {
+            assertSenhaAtual(usuario, request.senhaAtual());
         }
 
         usuario.setEmail(emailNovo);
@@ -121,6 +130,13 @@ public class MeService {
         }
 
         return toResponse(usuario, pessoa);
+    }
+
+    private void assertSenhaAtual(Usuario usuario, String senhaAtual) {
+        if (senhaAtual == null || senhaAtual.isBlank() || usuario.getSenhaHash() == null
+                || !passwordEncoder.matches(senhaAtual, usuario.getSenhaHash())) {
+            throw new BusinessException("Senha atual incorreta");
+        }
     }
 
     private Usuario buscarUsuarioAutenticado(Authentication authentication) {
