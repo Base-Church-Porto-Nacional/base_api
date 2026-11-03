@@ -15,6 +15,8 @@ import com.example.base_api.culto.service.CultoService;
 import com.example.base_api.culto.repository.CultoRepository;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.EscalaVoluntario;
+import com.example.base_api.escala.entity.StatusEscalaVoluntario;
+import com.example.base_api.escala.entity.TipoEscala;
 import com.example.base_api.escala.repository.EscalaRepository;
 import com.example.base_api.escala.repository.EscalaVoluntarioRepository;
 import com.example.base_api.igreja.entity.Igreja;
@@ -124,6 +126,7 @@ class ParticipacoesFuturasServiceTest {
 
         assertThat(ajustadas).isZero();
         verify(escalaVoluntarioRepository, never()).deleteAll(anyList());
+        verify(escalaVoluntarioRepository, never()).saveAll(anyList());
         verify(escalaRepository, never()).saveAll(anyList());
         verify(cultoRepository, never()).saveAll(anyList());
         verify(cronogramaEventoRepository, never()).saveAll(anyList());
@@ -302,5 +305,150 @@ class ParticipacoesFuturasServiceTest {
         assertThat(jpql).contains("LEFT JOIN CronogramaEvento ce ON ce.id = ev.eventoId");
         assertThat(jpql).contains("ev.dataItem IS NULL AND ce.id IS NOT NULL AND ce.dataEvento >= :hoje");
         assertThat(jpql).contains("ev.dataItem IS NULL AND ce.id IS NULL AND e.competencia >= :competencia");
+    }
+
+    // --- designações em escalas de SUPERVISOR/PREGADOR passam ao pastor titular ---
+
+    private Escala escalaDoTipo(TipoEscala tipo) {
+        Escala escala = new Escala();
+        escala.setId(UUID.randomUUID());
+        escala.setIgrejaId(origem);
+        escala.setTipo(tipo);
+        return escala;
+    }
+
+    private EscalaVoluntario designacaoDela(Escala escala, LocalDate data, UUID eventoId) {
+        EscalaVoluntario ev = new EscalaVoluntario();
+        ev.setId(UUID.randomUUID());
+        ev.setEscalaId(escala.getId());
+        ev.setPessoaId(pessoaId);
+        ev.setDataItem(data);
+        ev.setEventoId(eventoId);
+        ev.setStatus(StatusEscalaVoluntario.CONFIRMADO);
+        ev.setConfirmadoPeloVoluntario(true);
+        ev.setObservacoes("Confirmo");
+        return ev;
+    }
+
+    private void futuras(List<Escala> escalas, EscalaVoluntario... designacoes) {
+        when(escalaVoluntarioRepository.findFuturasDaPessoaNaIgreja(pessoaId, origem, HOJE, MES_ATUAL))
+                .thenReturn(List.of(designacoes));
+        when(escalaRepository.findAllById(any())).thenReturn(escalas);
+    }
+
+    @Test
+    void designacaoDeSupervisorPassaAoTitularPendente() {
+        Escala supervisores = escalaDoTipo(TipoEscala.SUPERVISOR);
+        UUID eventoId = UUID.randomUUID();
+        EscalaVoluntario dela = designacaoDela(supervisores, HOJE.plusDays(7), eventoId);
+        futuras(List.of(supervisores), dela);
+
+        int ajustadas = service.ajustarNaSaida(pessoaId, origem);
+
+        assertThat(dela.getPessoaId()).isEqualTo(titularId);
+        assertThat(dela.getStatus()).isEqualTo(StatusEscalaVoluntario.PENDENTE);
+        assertThat(dela.getConfirmadoPeloVoluntario()).isFalse();
+        assertThat(dela.getObservacoes()).isNull();
+        assertThat(dela.getDataItem()).isEqualTo(HOJE.plusDays(7));
+        assertThat(dela.getEventoId()).isEqualTo(eventoId);
+        assertThat(dela.getEscalaId()).isEqualTo(supervisores.getId());
+        verify(escalaVoluntarioRepository).saveAll(List.of(dela));
+        verify(escalaVoluntarioRepository, never()).deleteAll(anyList());
+        assertThat(ajustadas).isEqualTo(1);
+    }
+
+    @Test
+    void designacaoDePregadorSemTitularEhRemovida() {
+        Igreja semTitular = new Igreja();
+        semTitular.setId(origem);
+        when(igrejaRepository.findById(origem)).thenReturn(Optional.of(semTitular));
+        Escala pregadores = escalaDoTipo(TipoEscala.PREGADOR);
+        EscalaVoluntario dela = designacaoDela(pregadores, HOJE, null);
+        futuras(List.of(pregadores), dela);
+
+        int ajustadas = service.ajustarNaSaida(pessoaId, origem);
+
+        verify(escalaVoluntarioRepository).deleteAll(List.of(dela));
+        verify(escalaVoluntarioRepository, never()).saveAll(anyList());
+        assertThat(ajustadas).isEqualTo(1);
+    }
+
+    @Test
+    void titularJaDesignadoNoMesmoDiaFazADesignacaoDelaSerRemovida() {
+        Escala pregadores = escalaDoTipo(TipoEscala.PREGADOR);
+        EscalaVoluntario dela = designacaoDela(pregadores, HOJE.plusDays(3), null);
+        EscalaVoluntario doTitular = designacaoDela(pregadores, HOJE.plusDays(3), null);
+        doTitular.setPessoaId(titularId);
+        futuras(List.of(pregadores), dela);
+        when(escalaVoluntarioRepository.findByEscalaIdInAndPessoaId(any(), eq(titularId))).thenReturn(List.of(doTitular));
+
+        int ajustadas = service.ajustarNaSaida(pessoaId, origem);
+
+        assertThat(dela.getPessoaId()).isEqualTo(pessoaId);
+        verify(escalaVoluntarioRepository).deleteAll(List.of(dela));
+        verify(escalaVoluntarioRepository, never()).saveAll(anyList());
+        assertThat(ajustadas).isEqualTo(1);
+    }
+
+    @Test
+    void titularJaDesignadoNoMesmoEventoSemDataFazADesignacaoDelaSerRemovida() {
+        Escala supervisores = escalaDoTipo(TipoEscala.SUPERVISOR);
+        UUID eventoId = UUID.randomUUID();
+        EscalaVoluntario dela = designacaoDela(supervisores, null, eventoId);
+        EscalaVoluntario doTitular = designacaoDela(supervisores, null, eventoId);
+        doTitular.setPessoaId(titularId);
+        futuras(List.of(supervisores), dela);
+        when(escalaVoluntarioRepository.findByEscalaIdInAndPessoaId(any(), eq(titularId))).thenReturn(List.of(doTitular));
+
+        service.ajustarNaSaida(pessoaId, origem);
+
+        verify(escalaVoluntarioRepository).deleteAll(List.of(dela));
+    }
+
+    @Test
+    void titularEmOutroDiaNaoImpedeAReatribuicao() {
+        Escala supervisores = escalaDoTipo(TipoEscala.SUPERVISOR);
+        EscalaVoluntario dela = designacaoDela(supervisores, HOJE.plusDays(1), null);
+        EscalaVoluntario doTitular = designacaoDela(supervisores, HOJE.plusDays(8), null);
+        doTitular.setPessoaId(titularId);
+        futuras(List.of(supervisores), dela);
+        when(escalaVoluntarioRepository.findByEscalaIdInAndPessoaId(any(), eq(titularId))).thenReturn(List.of(doTitular));
+
+        service.ajustarNaSaida(pessoaId, origem);
+
+        assertThat(dela.getPessoaId()).isEqualTo(titularId);
+        verify(escalaVoluntarioRepository).saveAll(List.of(dela));
+    }
+
+    @Test
+    void designacoesDeCultoEMinisterioContinuamVirandoVaga() {
+        Escala culto = escalaDoTipo(TipoEscala.CULTO);
+        Escala ministerio = escalaDoTipo(TipoEscala.MINISTERIO);
+        Escala pregadores = escalaDoTipo(TipoEscala.PREGADOR);
+        EscalaVoluntario noCulto = designacaoDela(culto, HOJE, null);
+        EscalaVoluntario noMinisterio = designacaoDela(ministerio, HOJE, null);
+        EscalaVoluntario pregando = designacaoDela(pregadores, HOJE, null);
+        futuras(List.of(culto, ministerio, pregadores), noCulto, noMinisterio, pregando);
+
+        int ajustadas = service.ajustarNaSaida(pessoaId, origem);
+
+        verify(escalaVoluntarioRepository).deleteAll(List.of(noCulto, noMinisterio));
+        verify(escalaVoluntarioRepository).saveAll(List.of(pregando));
+        assertThat(noCulto.getPessoaId()).isEqualTo(pessoaId);
+        assertThat(pregando.getPessoaId()).isEqualTo(titularId);
+        assertThat(ajustadas).isEqualTo(3);
+    }
+
+    @Test
+    void reatribuicaoSoOlhaEscalasDaIgrejaDeOrigem() {
+        Escala supervisores = escalaDoTipo(TipoEscala.SUPERVISOR);
+        EscalaVoluntario dela = designacaoDela(supervisores, HOJE, null);
+        futuras(List.of(supervisores), dela);
+
+        service.ajustarNaSaida(pessoaId, origem);
+
+        // Só as escalas das designações achadas na origem são consultadas.
+        verify(escalaRepository).findAllById(java.util.Set.of(supervisores.getId()));
+        verify(escalaVoluntarioRepository).findByEscalaIdInAndPessoaId(java.util.Set.of(supervisores.getId()), titularId);
     }
 }

@@ -18,6 +18,8 @@ public interface EscalaVoluntarioRepository extends JpaRepository<EscalaVoluntar
 
     List<EscalaVoluntario> findByEscalaIdIn(List<UUID> escalaIds);
 
+    List<EscalaVoluntario> findByEscalaIdInAndPessoaId(Collection<UUID> escalaIds, UUID pessoaId);
+
     @Query("""
             select new com.example.base_api.escala.repository.TotalPorEscala(ev.escalaId, count(ev))
             from EscalaVoluntario ev
