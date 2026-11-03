@@ -145,8 +145,15 @@ public class VoluntarioService {
                 ministerioService.buscarEntidade(servico.getMinisterioId()).getIgrejaId()
         );
 
-        if (!vinculo.getServicoId().equals(servico.getId())) {
-            // Só ao trocar de serviço: o vínculo já existente com um serviço inativo segue editável.
+        boolean trocaServico = !vinculo.getServicoId().equals(servico.getId());
+        boolean trocaPessoa = !vinculo.getPessoaId().equals(pessoa.getId());
+        // O vínculo do Coordenador (fictício) é da coordenação do ministério: não muda de pessoa nem de serviço.
+        if ((trocaServico || trocaPessoa) && Boolean.TRUE.equals(servicoAtual.getFiccao())) {
+            throw new BusinessException(MSG_SERVICO_FICTICIO);
+        }
+        boolean reativa = Boolean.TRUE.equals(request.ativo()) && !Boolean.TRUE.equals(vinculo.getAtivo());
+        if (trocaServico || reativa) {
+            // Sem troca nem reativação, o vínculo com um serviço que ficou inativo segue editável.
             assertServicoAceitaVoluntario(servico);
         }
 

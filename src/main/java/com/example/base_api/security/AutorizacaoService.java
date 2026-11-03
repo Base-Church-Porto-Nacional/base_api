@@ -166,7 +166,7 @@ public class AutorizacaoService {
 
     /**
      * Pastor/secretaria cadastram livremente; o líder só cadastra vinculando a pessoa a um serviço do seu ministério.
-     * Qualquer servicoId informado deve ser de um serviço real (não fictício) de um ministério da própria igreja.
+     * Qualquer servicoId informado deve ser de um serviço real (não fictício) e ativo de um ministério da própria igreja.
      */
     public void assertPodeCadastrarPessoa(UUID igrejaId, UUID servicoId) {
         assertAcesso(igrejaId);
@@ -196,6 +196,9 @@ public class AutorizacaoService {
         }
         if (Boolean.TRUE.equals(servico.getFiccao())) {
             throw new BusinessException("Não é possível vincular pessoa a um serviço fictício");
+        }
+        if (!Boolean.TRUE.equals(servico.getAtivo())) {
+            throw new BusinessException("Este serviço está inativo.");
         }
     }
 

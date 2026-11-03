@@ -650,6 +650,35 @@ class AutorizacaoServiceTest {
     }
 
     @Test
+    void naoVinculaServicoInativoNoCadastro() {
+        UUID ministerioId = UUID.randomUUID();
+        Servico servico = servicoDoMinisterio(ministerioId);
+        servico.setAtivo(false);
+        Ministerio ministerio = new Ministerio();
+        ministerio.setId(ministerioId);
+        ministerio.setIgrejaId(igrejaId);
+        capacidades(PASTOR);
+        when(servicoRepository.findById(servico.getId())).thenReturn(java.util.Optional.of(servico));
+        when(ministerioRepository.findById(ministerioId)).thenReturn(java.util.Optional.of(ministerio));
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeCadastrarPessoa(igrejaId, servico.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Este serviço está inativo.");
+    }
+
+    @Test
+    void liderForaDoMinisterioRecebe403MesmoComServicoInativo() {
+        Servico servico = servicoDoMinisterio(UUID.randomUUID());
+        servico.setAtivo(false);
+        capacidades(NENHUMA);
+        when(permissaoService.ministeriosLideradosEm(igrejaId)).thenReturn(Set.of(UUID.randomUUID()));
+        when(servicoRepository.findById(servico.getId())).thenReturn(java.util.Optional.of(servico));
+
+        assertThatThrownBy(() -> autorizacaoService.assertPodeCadastrarPessoa(igrejaId, servico.getId()))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     void liderCadastraPessoaNoServicoDoSeuMinisterio() {
         UUID ministerioId = UUID.randomUUID();
         Servico servico = servicoDoMinisterio(ministerioId);

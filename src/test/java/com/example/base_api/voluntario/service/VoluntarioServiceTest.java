@@ -267,4 +267,93 @@ class VoluntarioServiceTest {
         assertThat(vinculo.getAtivo()).isFalse();
         verify(pessoaServicoRepository).save(vinculo);
     }
+
+    private void stubResposta(Servico... servicos) {
+        when(pessoaService.nomesPorId(any())).thenReturn(Map.of());
+        java.util.Map<UUID, Servico> porId = new java.util.HashMap<>();
+        for (Servico sv : servicos) {
+            porId.put(sv.getId(), sv);
+        }
+        when(servicoService.buscarPorIds(any())).thenReturn(porId);
+        when(ministerioService.nomesPorId(any())).thenReturn(Map.of());
+    }
+
+    @Test
+    void vinculoDoCoordenadorNaoTrocaDePessoa() {
+        Pessoa coordenador = pessoaDaIgreja();
+        Servico ficticio = servico(true, true);
+        ministerioDe(ficticio);
+        PessoaServico vinculo = vinculoExistente(coordenador, ficticio);
+        Pessoa outra = pessoaDaIgreja();
+        when(pessoaService.buscarEntidade(outra.getId())).thenReturn(outra);
+
+        assertThatThrownBy(() -> voluntarioService.atualizar(vinculo.getId(), atualizarPara(outra, ficticio, true)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("O serviço Coordenador é definido pela coordenação do ministério, não por vínculo de voluntário.");
+        assertThat(vinculo.getPessoaId()).isEqualTo(coordenador.getId());
+        verify(pessoaServicoRepository, never()).save(any());
+    }
+
+    @Test
+    void vinculoDoCoordenadorNaoTrocaParaServicoReal() {
+        Pessoa coordenador = pessoaDaIgreja();
+        Servico ficticio = servico(true, true);
+        ministerioDe(ficticio);
+        PessoaServico vinculo = vinculoExistente(coordenador, ficticio);
+        Servico real = servico(false, true);
+        when(pessoaService.buscarEntidade(coordenador.getId())).thenReturn(coordenador);
+        when(servicoService.buscarEntidade(real.getId())).thenReturn(real);
+        ministerioDe(real);
+
+        assertThatThrownBy(() -> voluntarioService.atualizar(vinculo.getId(), atualizarPara(coordenador, real, true)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("O serviço Coordenador é definido pela coordenação do ministério, não por vínculo de voluntário.");
+        verify(pessoaServicoRepository, never()).save(any());
+    }
+
+    @Test
+    void vinculoDoCoordenadorSemTrocaContinuaEditavel() {
+        Pessoa coordenador = pessoaDaIgreja();
+        Servico ficticio = servico(true, true);
+        ministerioDe(ficticio);
+        PessoaServico vinculo = vinculoExistente(coordenador, ficticio);
+        when(pessoaService.buscarEntidade(coordenador.getId())).thenReturn(coordenador);
+        when(pessoaServicoRepository.save(vinculo)).thenReturn(vinculo);
+        stubResposta(ficticio);
+
+        voluntarioService.atualizar(vinculo.getId(), atualizarPara(coordenador, ficticio, true));
+
+        verify(pessoaServicoRepository).save(vinculo);
+    }
+
+    @Test
+    void naoReativaVinculoDeServicoInativo() {
+        Pessoa pessoa = pessoaDaIgreja();
+        Servico inativo = servico(false, false);
+        ministerioDe(inativo);
+        PessoaServico vinculo = vinculoExistente(pessoa, inativo);
+        vinculo.setAtivo(false);
+        when(pessoaService.buscarEntidade(pessoa.getId())).thenReturn(pessoa);
+
+        assertThatThrownBy(() -> voluntarioService.atualizar(vinculo.getId(), atualizarPara(pessoa, inativo, true)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Este serviço está inativo.");
+        assertThat(vinculo.getAtivo()).isFalse();
+        verify(pessoaServicoRepository, never()).save(any());
+    }
+
+    @Test
+    void vinculoJaAtivoDeServicoInativoSegueEditavel() {
+        Pessoa pessoa = pessoaDaIgreja();
+        Servico inativo = servico(false, false);
+        ministerioDe(inativo);
+        PessoaServico vinculo = vinculoExistente(pessoa, inativo);
+        when(pessoaService.buscarEntidade(pessoa.getId())).thenReturn(pessoa);
+        when(pessoaServicoRepository.save(vinculo)).thenReturn(vinculo);
+        stubResposta(inativo);
+
+        voluntarioService.atualizar(vinculo.getId(), atualizarPara(pessoa, inativo, true));
+
+        verify(pessoaServicoRepository).save(vinculo);
+    }
 }
