@@ -150,9 +150,10 @@ public class IgrejaService {
         Igreja salva = igrejaRepository.save(filial);
         UUID filialId = salva.getId();
 
-        UUID origemId = null;
+        TransferenciaPessoaService.Movimentacao movimentacao = null;
         if (existente) {
-            origemId = transferenciaPessoaService.mover(pastor, filialId);
+            // Também ajusta as participações futuras do pastor na igreja de origem (mesma transação).
+            movimentacao = transferenciaPessoaService.mover(pastor, filialId);
         } else {
             pastor.setIgrejaId(filialId);
             pastor = pessoaRepository.save(pastor);
@@ -168,8 +169,8 @@ public class IgrejaService {
 
         // Audita depois do flush: os registros são REQUIRES_NEW e não devem sobrar se a criação falhar.
         igrejaRepository.flush();
-        if (origemId != null) {
-            transferenciaPessoaService.auditar(pastor.getId(), origemId, filialId);
+        if (movimentacao != null) {
+            transferenciaPessoaService.auditar(pastor.getId(), movimentacao, filialId);
         }
         auditService.registrar(
                 "CRIAR_FILIAL",
@@ -177,7 +178,8 @@ public class IgrejaService {
                 "filialId=" + filialId + " matrizId=" + matrizId + " pastorPessoaId=" + pastor.getId()
                         + " convite=" + (convite != null)
         );
-        return new FilialCriadaResponse(toResponse(salva), convite);
+        int participacoesAjustadas = movimentacao == null ? 0 : movimentacao.participacoesAjustadas();
+        return new FilialCriadaResponse(toResponse(salva), convite, participacoesAjustadas);
     }
 
     /**

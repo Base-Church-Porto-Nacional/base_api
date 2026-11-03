@@ -82,6 +82,8 @@ class IgrejaServiceTest {
     private SmallGroupRepository smallGroupRepository;
     @Mock
     private PessoaServicoRepository pessoaServicoRepository;
+    @Mock
+    private ParticipacoesFuturasService participacoesFuturasService;
 
     private IgrejaService igrejaService;
 
@@ -91,7 +93,7 @@ class IgrejaServiceTest {
         TransferenciaPessoaService transferencia = new TransferenciaPessoaService(
                 autorizacaoService, igrejaRepository, pessoaRepository, usuarioRepository, usuarioService,
                 ministerioRepository, baseMinisterialRepository, smallGroupRepository, pessoaServicoRepository,
-                auditService);
+                participacoesFuturasService, auditService);
         igrejaService = new IgrejaService(
                 igrejaRepository, pessoaRepository, usuarioRepository, igrejaContextoService, autorizacaoService,
                 jornadaService, usuarioService, acessoService, transferencia, auditService);
@@ -534,6 +536,8 @@ class IgrejaServiceTest {
         verify(usuarioService).substituirPapeis(convidado, filialId, Set.of("PASTOR"));
         assertThat(resposta.convite()).isNotNull();
         assertThat(resposta.convite().link()).isEqualTo("https://app/convite?token=abc");
+        assertThat(resposta.participacoesAjustadas()).isZero();
+        verify(participacoesFuturasService, never()).ajustarNaSaida(any(), any());
         verify(auditService).registrar(eq("CRIAR_FILIAL"), eq("igreja"), anyString());
     }
 
@@ -545,9 +549,12 @@ class IgrejaServiceTest {
         Usuario usuario = usuarioDe(pessoa, StatusUsuario.ATIVO);
         when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.of(usuario));
 
+        when(participacoesFuturasService.ajustarNaSaida(pessoa.getId(), matriz.getId())).thenReturn(5);
+
         FilialCriadaResponse resposta = igrejaService.criarFilial(matriz.getId(), pedidoExistente(pessoa.getId()));
 
         UUID filialId = resposta.igreja().id();
+        assertThat(resposta.participacoesAjustadas()).isEqualTo(5);
         assertThat(resposta.convite()).isNull();
         assertThat(resposta.igreja().pastorPessoaId()).isEqualTo(pessoa.getId());
         assertThat(pessoa.getIgrejaId()).isEqualTo(filialId);
@@ -557,7 +564,8 @@ class IgrejaServiceTest {
         verify(usuarioService).substituirPapeis(usuario, filialId, Set.of("PASTOR"));
         verify(acessoService, never()).convidar(any());
         verify(pessoaRepository, never()).save(org.mockito.ArgumentMatchers.argThat(p -> p.getId() == null));
-        verify(auditService).registrar(eq("TRANSFERIR_PESSOA"), eq("pessoa"), anyString());
+        verify(auditService).registrar(eq("TRANSFERIR_PESSOA"), eq("pessoa"),
+                org.mockito.ArgumentMatchers.argThat(d -> d.contains("participacoesAjustadas=5")));
         verify(auditService).registrar(eq("CRIAR_FILIAL"), eq("igreja"), anyString());
     }
 

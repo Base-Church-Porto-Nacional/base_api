@@ -18,4 +18,10 @@ public interface CronogramaEventoRepository extends JpaRepository<CronogramaEven
     );
 
     long countByIgrejaIdIn(List<UUID> igrejaIds);
+
+    List<CronogramaEvento> findByIgrejaIdAndSupervisorPessoaIdAndDataEventoGreaterThanEqual(
+            UUID igrejaId,
+            UUID supervisorPessoaId,
+            LocalDate dataEvento
+    );
 }

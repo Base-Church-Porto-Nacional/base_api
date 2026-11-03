@@ -58,4 +58,23 @@ public interface EscalaVoluntarioRepository extends JpaRepository<EscalaVoluntar
             UUID servicoId,
             List<StatusEscalaVoluntario> status
     );
+
+    /**
+     * Designações da pessoa ainda por acontecer nas escalas da igreja: data do item >= hoje, ou, sem data,
+     * escala de competência >= mês atual.
+     */
+    @Query("""
+            SELECT ev FROM EscalaVoluntario ev
+            JOIN Escala e ON e.id = ev.escalaId
+            WHERE e.igrejaId = :igrejaId
+              AND ev.pessoaId = :pessoaId
+              AND ((ev.dataItem IS NOT NULL AND ev.dataItem >= :hoje)
+                   OR (ev.dataItem IS NULL AND e.competencia >= :competencia))
+            """)
+    List<EscalaVoluntario> findFuturasDaPessoaNaIgreja(
+            @Param("pessoaId") UUID pessoaId,
+            @Param("igrejaId") UUID igrejaId,
+            @Param("hoje") LocalDate hoje,
+            @Param("competencia") String competencia
+    );
 }

@@ -68,6 +68,8 @@ class TransferenciaPessoaServiceTest {
     private PessoaServicoRepository pessoaServicoRepository;
     @Mock
     private AuditService auditService;
+    @Mock
+    private ParticipacoesFuturasService participacoesFuturasService;
 
     @InjectMocks
     private TransferenciaPessoaService transferencia;
@@ -217,10 +219,49 @@ class TransferenciaPessoaServiceTest {
     void moverNaoAuditaERetornaOrigem() {
         Pessoa pessoa = pessoa();
 
-        UUID retorno = transferencia.mover(pessoa, destino);
+        TransferenciaPessoaService.Movimentacao retorno = transferencia.mover(pessoa, destino);
 
-        assertThat(retorno).isEqualTo(origem);
+        assertThat(retorno.origemId()).isEqualTo(origem);
         assertThat(pessoa.getIgrejaId()).isEqualTo(destino);
         verify(auditService, never()).registrar(any(), any(), any());
+    }
+
+    @Test
+    void moverAjustaParticipacoesFuturasNaIgrejaDeOrigem() {
+        Pessoa pessoa = pessoa();
+        when(participacoesFuturasService.ajustarNaSaida(pessoa.getId(), origem)).thenReturn(3);
+
+        TransferenciaPessoaService.Movimentacao retorno = transferencia.mover(pessoa, destino);
+
+        assertThat(retorno.participacoesAjustadas()).isEqualTo(3);
+        verify(participacoesFuturasService).ajustarNaSaida(pessoa.getId(), origem);
+    }
+
+    @Test
+    void auditoriaDaTransferenciaInformaParticipacoesAjustadas() {
+        Pessoa pessoa = pessoa();
+        when(participacoesFuturasService.ajustarNaSaida(pessoa.getId(), origem)).thenReturn(2);
+
+        transferencia.transferir(pessoa, destino);
+
+        verify(auditService).registrar(eq("TRANSFERIR_PESSOA"), eq("pessoa"),
+                argThat(d -> d.contains("participacoesAjustadas=2")));
+    }
+
+    @Test
+    void pessoaJaNoDestinoNaoAjustaNada() {
+        Pessoa pessoa = pessoa();
+
+        assertThat(transferencia.mover(pessoa, origem)).isNull();
+        verify(participacoesFuturasService, never()).ajustarNaSaida(any(), any());
+    }
+
+    @Test
+    void transferenciaRecusadaNaoAjustaParticipacoes() {
+        Pessoa pessoa = pessoa();
+        when(igrejaRepository.existsByPastorPessoaId(pessoa.getId())).thenReturn(true);
+
+        assertThatThrownBy(() -> transferencia.transferir(pessoa, destino)).isInstanceOf(ConflictException.class);
+        verify(participacoesFuturasService, never()).ajustarNaSaida(any(), any());
     }
 }

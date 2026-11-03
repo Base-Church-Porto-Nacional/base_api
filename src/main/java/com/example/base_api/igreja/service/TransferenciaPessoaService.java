@@ -24,7 +24,8 @@ import java.util.UUID;
 
 /**
  * Move uma pessoa (e sua conta, se houver) para outra igreja da rede. Cada pessoa pertence a uma igreja só:
- * a transferência remove os papéis da igreja antiga, invalida os tokens e desativa os vínculos de serviço.
+ * a transferência remove os papéis da igreja antiga, invalida os tokens, desativa os vínculos de serviço e
+ * ajusta as participações futuras na igreja antiga ({@link ParticipacoesFuturasService}).
  */
 @Service
 public class TransferenciaPessoaService {
@@ -42,6 +43,7 @@ public class TransferenciaPessoaService {
     private final BaseMinisterialRepository baseMinisterialRepository;
     private final SmallGroupRepository smallGroupRepository;
     private final PessoaServicoRepository pessoaServicoRepository;
+    private final ParticipacoesFuturasService participacoesFuturasService;
     private final AuditService auditService;
 
     public TransferenciaPessoaService(
@@ -54,6 +56,7 @@ public class TransferenciaPessoaService {
             BaseMinisterialRepository baseMinisterialRepository,
             SmallGroupRepository smallGroupRepository,
             PessoaServicoRepository pessoaServicoRepository,
+            ParticipacoesFuturasService participacoesFuturasService,
             AuditService auditService
     ) {
         this.autorizacaoService = autorizacaoService;
@@ -65,6 +68,7 @@ public class TransferenciaPessoaService {
         this.baseMinisterialRepository = baseMinisterialRepository;
         this.smallGroupRepository = smallGroupRepository;
         this.pessoaServicoRepository = pessoaServicoRepository;
+        this.participacoesFuturasService = participacoesFuturasService;
         this.auditService = auditService;
     }
 
@@ -92,20 +96,25 @@ public class TransferenciaPessoaService {
     /** Transfere e audita. Para fluxos maiores que ainda podem falhar, use {@link #mover} e audite ao final. */
     @Transactional
     public void transferir(Pessoa pessoa, UUID igrejaDestinoId) {
-        UUID origemId = mover(pessoa, igrejaDestinoId);
-        if (origemId != null) {
+        Movimentacao movimentacao = mover(pessoa, igrejaDestinoId);
+        if (movimentacao != null) {
             // Audita depois do flush: o registro é REQUIRES_NEW e não deve sobrar se a transferência falhar.
             pessoaRepository.flush();
-            auditar(pessoa.getId(), origemId, igrejaDestinoId);
+            auditar(pessoa.getId(), movimentacao, igrejaDestinoId);
         }
     }
 
+    /** Resultado de {@link #mover}: igreja de origem e quantas participações futuras foram ajustadas nela. */
+    public record Movimentacao(UUID origemId, int participacoesAjustadas) {
+    }
+
     /**
-     * Valida e move, sem auditar. Retorna a igreja de origem, ou {@code null} se a pessoa já estava no destino.
-     * Quem chama registra {@link #auditar} depois de tudo concluído (a auditoria sobrevive a rollback).
+     * Valida e move, sem auditar. Retorna a origem e o total de participações futuras ajustadas, ou
+     * {@code null} se a pessoa já estava no destino. Quem chama registra {@link #auditar} depois de tudo
+     * concluído (a auditoria sobrevive a rollback).
      */
     @Transactional
-    public UUID mover(Pessoa pessoa, UUID igrejaDestinoId) {
+    public Movimentacao mover(Pessoa pessoa, UUID igrejaDestinoId) {
         UUID origemId = pessoa.getIgrejaId();
         if (igrejaDestinoId.equals(origemId)) {
             return null;
@@ -128,14 +137,17 @@ public class TransferenciaPessoaService {
             vinculos.forEach(vinculo -> vinculo.setAtivo(false));
             pessoaServicoRepository.saveAll(vinculos);
         }
-        return origemId;
+
+        int participacoesAjustadas = participacoesFuturasService.ajustarNaSaida(pessoa.getId(), origemId);
+        return new Movimentacao(origemId, participacoesAjustadas);
     }
 
-    public void auditar(UUID pessoaId, UUID origemId, UUID destinoId) {
+    public void auditar(UUID pessoaId, Movimentacao movimentacao, UUID destinoId) {
         auditService.registrar(
                 "TRANSFERIR_PESSOA",
                 "pessoa",
-                "pessoaId=" + pessoaId + " origem=" + origemId + " destino=" + destinoId
+                "pessoaId=" + pessoaId + " origem=" + movimentacao.origemId() + " destino=" + destinoId
+                        + " participacoesAjustadas=" + movimentacao.participacoesAjustadas()
         );
     }
 }
