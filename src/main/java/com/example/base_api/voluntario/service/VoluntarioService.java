@@ -30,6 +30,10 @@ import static com.example.base_api.common.util.Textos.blankToNull;
 @Service
 public class VoluntarioService {
 
+    static final String MSG_SERVICO_FICTICIO =
+            "O serviço Coordenador é definido pela coordenação do ministério, não por vínculo de voluntário.";
+    static final String MSG_SERVICO_INATIVO = "Este serviço está inativo.";
+
     private final PessoaServicoRepository pessoaServicoRepository;
     private final PessoaService pessoaService;
     private final PessoaRepository pessoaRepository;
@@ -98,6 +102,7 @@ public class VoluntarioService {
         autorizacaoService.assertAcesso(pessoa.getIgrejaId());
         autorizacaoService.assertPodeGerenciarMinisterio(ministerio);
         autorizacaoService.assertPessoaDaIgreja(pessoa, ministerio.getIgrejaId());
+        assertServicoAceitaVoluntario(servico);
 
         if (pessoaServicoRepository.existsByPessoaIdAndServicoId(pessoa.getId(), servico.getId())) {
             throw new BusinessException("A pessoa já está vinculada a este serviço");
@@ -140,6 +145,11 @@ public class VoluntarioService {
                 ministerioService.buscarEntidade(servico.getMinisterioId()).getIgrejaId()
         );
 
+        if (!vinculo.getServicoId().equals(servico.getId())) {
+            // Só ao trocar de serviço: o vínculo já existente com um serviço inativo segue editável.
+            assertServicoAceitaVoluntario(servico);
+        }
+
         if (!vinculo.getPessoaId().equals(pessoa.getId()) || !vinculo.getServicoId().equals(servico.getId())) {
             pessoaServicoRepository.findByPessoaIdAndServicoId(pessoa.getId(), servico.getId())
                     .filter(outro -> !outro.getId().equals(id))
@@ -173,6 +183,16 @@ public class VoluntarioService {
                 ministerioService.buscarEntidade(servico.getMinisterioId())
         );
         pessoaServicoRepository.delete(vinculo);
+    }
+
+    /** Chamado depois das checagens de autorização, para não revelar serviços de outra igreja. */
+    private static void assertServicoAceitaVoluntario(Servico servico) {
+        if (Boolean.TRUE.equals(servico.getFiccao())) {
+            throw new BusinessException(MSG_SERVICO_FICTICIO);
+        }
+        if (!Boolean.TRUE.equals(servico.getAtivo())) {
+            throw new BusinessException(MSG_SERVICO_INATIVO);
+        }
     }
 
     @Transactional(readOnly = true)
