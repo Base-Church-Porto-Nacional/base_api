@@ -196,7 +196,7 @@ Rodam automaticamente na subida da aplicação.
 | CRUD | `/api/cronograma` | Cultos/eventos (`supervisorPessoaId`, `?igrejaId=`) |
 | GET/PUT | `/api/cronograma/{id}/conteudo` | Texto da pregação e louvor |
 | CRUD | `/api/pessoas/{id}/pausas` | Pausas no perfil |
-| GET | `/api/lideres` | Líderes (papel LIDER) |
+| GET | `/api/lideres` | Líderes (quem lidera ou coordena ministério, base ou pequeno grupo) |
 | GET | `/api/dashboard` | Totais do dashboard |
 | POST | `/api/escalas/{id}/gerar-sugestao` | Sugestão automática (stub) |
 
