@@ -2,9 +2,13 @@ package com.example.base_api.igreja.service;
 
 import com.example.base_api.cronograma.entity.CronogramaConteudo;
 import com.example.base_api.cronograma.entity.CronogramaEvento;
+import com.example.base_api.cronograma.entity.StatusEvento;
 import com.example.base_api.cronograma.repository.CronogramaConteudoRepository;
 import com.example.base_api.cronograma.repository.CronogramaEventoRepository;
+import com.example.base_api.culto.entity.CategoriaCulto;
 import com.example.base_api.culto.entity.Culto;
+import com.example.base_api.culto.entity.StatusCulto;
+import com.example.base_api.culto.repository.CategoriaCultoRepository;
 import com.example.base_api.culto.repository.CultoRepository;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.EscalaVoluntario;
@@ -25,16 +29,21 @@ import java.util.UUID;
 /**
  * Quando uma pessoa sai de uma igreja, limpa as participações dela que ainda vão acontecer lá: designações
  * de voluntário são removidas (a vaga fica aberta para substituição) e, onde ela supervisiona ou prega,
- * entra o pastor titular da igreja (ou ninguém, se não houver). Registros passados nunca são alterados.
- * "Hoje" segue o fuso configurado ({@code app.timezone}).
+ * entra o pastor titular da igreja (ou ninguém, se não houver) — inclusive como pregador padrão das categorias
+ * de culto, que servem de modelo aos próximos cultos. Registros passados, e cultos/eventos já realizados ou
+ * cancelados, nunca são alterados. "Hoje" segue o fuso configurado ({@code app.timezone}).
  */
 @Service
 public class ParticipacoesFuturasService {
+
+    private static final List<StatusCulto> CULTO_ENCERRADO = List.of(StatusCulto.REALIZADO, StatusCulto.CANCELADO);
+    private static final List<StatusEvento> EVENTO_ENCERRADO = List.of(StatusEvento.REALIZADO, StatusEvento.CANCELADO);
 
     private final IgrejaRepository igrejaRepository;
     private final EscalaRepository escalaRepository;
     private final EscalaVoluntarioRepository escalaVoluntarioRepository;
     private final CultoRepository cultoRepository;
+    private final CategoriaCultoRepository categoriaCultoRepository;
     private final CronogramaEventoRepository cronogramaEventoRepository;
     private final CronogramaConteudoRepository cronogramaConteudoRepository;
     private final Clock clock;
@@ -44,6 +53,7 @@ public class ParticipacoesFuturasService {
             EscalaRepository escalaRepository,
             EscalaVoluntarioRepository escalaVoluntarioRepository,
             CultoRepository cultoRepository,
+            CategoriaCultoRepository categoriaCultoRepository,
             CronogramaEventoRepository cronogramaEventoRepository,
             CronogramaConteudoRepository cronogramaConteudoRepository,
             Clock clock
@@ -52,6 +62,7 @@ public class ParticipacoesFuturasService {
         this.escalaRepository = escalaRepository;
         this.escalaVoluntarioRepository = escalaVoluntarioRepository;
         this.cultoRepository = cultoRepository;
+        this.categoriaCultoRepository = categoriaCultoRepository;
         this.cronogramaEventoRepository = cronogramaEventoRepository;
         this.cronogramaConteudoRepository = cronogramaConteudoRepository;
         this.clock = clock;
@@ -84,16 +95,24 @@ public class ParticipacoesFuturasService {
         }
         ajustadas += salvar(escalaRepository, escalas);
 
-        List<Culto> cultos = cultoRepository.findByIgrejaIdAndPregadorIdAndDataGreaterThanEqual(igrejaId, pessoaId, hoje);
+        List<Culto> cultos = cultoRepository
+                .findByIgrejaIdAndPregadorIdAndDataGreaterThanEqualAndStatusNotIn(igrejaId, pessoaId, hoje, CULTO_ENCERRADO);
         cultos.forEach(culto -> culto.setPregadorId(titular));
         ajustadas += salvar(cultoRepository, cultos);
 
+        // Modelo dos próximos cultos (automação mensal) e fallback de culto sem pregador.
+        List<CategoriaCulto> categorias = categoriaCultoRepository.findByIgrejaIdAndPregadorPadraoId(igrejaId, pessoaId);
+        categorias.forEach(categoria -> categoria.setPregadorPadraoId(titular));
+        ajustadas += salvar(categoriaCultoRepository, categorias);
+
         List<CronogramaEvento> eventos = cronogramaEventoRepository
-                .findByIgrejaIdAndSupervisorPessoaIdAndDataEventoGreaterThanEqual(igrejaId, pessoaId, hoje);
+                .findByIgrejaIdAndSupervisorPessoaIdAndDataEventoGreaterThanEqualAndStatusNotIn(
+                        igrejaId, pessoaId, hoje, EVENTO_ENCERRADO);
         eventos.forEach(evento -> evento.setSupervisorPessoaId(titular));
         ajustadas += salvar(cronogramaEventoRepository, eventos);
 
-        List<CronogramaConteudo> conteudos = cronogramaConteudoRepository.findFuturosComPregador(igrejaId, pessoaId, hoje);
+        List<CronogramaConteudo> conteudos = cronogramaConteudoRepository
+                .findFuturosComPregador(igrejaId, pessoaId, hoje, EVENTO_ENCERRADO);
         conteudos.forEach(conteudo -> conteudo.setPregadorPessoaId(titular));
         ajustadas += salvar(cronogramaConteudoRepository, conteudos);
 

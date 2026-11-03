@@ -40,5 +40,10 @@ public interface CultoRepository extends JpaRepository<Culto, UUID> {
 
     long countByCategoriaCultoIdAndAtivoTrue(UUID categoriaCultoId);
 
-    List<Culto> findByIgrejaIdAndPregadorIdAndDataGreaterThanEqual(UUID igrejaId, UUID pregadorId, LocalDate data);
+    List<Culto> findByIgrejaIdAndPregadorIdAndDataGreaterThanEqualAndStatusNotIn(
+            UUID igrejaId,
+            UUID pregadorId,
+            LocalDate data,
+            java.util.Collection<StatusCulto> statusExcluidos
+    );
 }

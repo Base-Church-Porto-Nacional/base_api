@@ -2,9 +2,16 @@ package com.example.base_api.igreja.service;
 
 import com.example.base_api.cronograma.entity.CronogramaConteudo;
 import com.example.base_api.cronograma.entity.CronogramaEvento;
+import com.example.base_api.cronograma.entity.StatusEvento;
 import com.example.base_api.cronograma.repository.CronogramaConteudoRepository;
 import com.example.base_api.cronograma.repository.CronogramaEventoRepository;
+import com.example.base_api.culto.dto.CultoConteudoResponse;
+import com.example.base_api.culto.entity.CategoriaCulto;
 import com.example.base_api.culto.entity.Culto;
+import com.example.base_api.culto.entity.StatusCulto;
+import com.example.base_api.culto.repository.CategoriaCultoRepository;
+import com.example.base_api.culto.repository.CultoRelatorioRepository;
+import com.example.base_api.culto.service.CultoService;
 import com.example.base_api.culto.repository.CultoRepository;
 import com.example.base_api.escala.entity.Escala;
 import com.example.base_api.escala.entity.EscalaVoluntario;
@@ -12,6 +19,9 @@ import com.example.base_api.escala.repository.EscalaRepository;
 import com.example.base_api.escala.repository.EscalaVoluntarioRepository;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.repository.IgrejaRepository;
+import com.example.base_api.pessoa.repository.PessoaRepository;
+import com.example.base_api.security.AutorizacaoService;
+import org.springframework.data.jpa.repository.Query;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,6 +53,9 @@ class ParticipacoesFuturasServiceTest {
             Clock.fixed(Instant.parse("2026-11-02T01:30:00Z"), ZoneId.of("America/Sao_Paulo"));
     private static final LocalDate HOJE = LocalDate.of(2026, 11, 1);
     private static final String MES_ATUAL = "2026-11";
+    // Culto/evento já realizado ou cancelado (mesmo que hoje) é histórico: não muda.
+    private static final List<StatusCulto> CULTO_ENCERRADO = List.of(StatusCulto.REALIZADO, StatusCulto.CANCELADO);
+    private static final List<StatusEvento> EVENTO_ENCERRADO = List.of(StatusEvento.REALIZADO, StatusEvento.CANCELADO);
 
     @Mock
     private IgrejaRepository igrejaRepository;
@@ -56,6 +69,8 @@ class ParticipacoesFuturasServiceTest {
     private CronogramaEventoRepository cronogramaEventoRepository;
     @Mock
     private CronogramaConteudoRepository cronogramaConteudoRepository;
+    @Mock
+    private CategoriaCultoRepository categoriaCultoRepository;
 
     private ParticipacoesFuturasService service;
 
@@ -67,7 +82,7 @@ class ParticipacoesFuturasServiceTest {
     @BeforeEach
     void setUp() {
         service = new ParticipacoesFuturasService(igrejaRepository, escalaRepository, escalaVoluntarioRepository,
-                cultoRepository, cronogramaEventoRepository, cronogramaConteudoRepository, RELOGIO);
+                cultoRepository, categoriaCultoRepository, cronogramaEventoRepository, cronogramaConteudoRepository, RELOGIO);
         Igreja igreja = new Igreja();
         igreja.setId(origem);
         igreja.setPastorPessoaId(titularId);
@@ -92,13 +107,15 @@ class ParticipacoesFuturasServiceTest {
     void consultasUsamHojeNoFusoConfiguradoEOMesAtual() {
         service.ajustarNaSaida(pessoaId, origem);
 
-        // Registros passados ficam de fora já na consulta (data >= hoje / competência >= mês atual).
+        // Registros passados ficam de fora já na consulta (data >= hoje / competência >= mês atual), assim como
+        // cultos e eventos já realizados ou cancelados (status NOT IN).
         verify(escalaVoluntarioRepository).findFuturasDaPessoaNaIgreja(pessoaId, origem, HOJE, MES_ATUAL);
         verify(escalaRepository).findFuturasComSupervisorOuPregador(origem, pessoaId, HOJE, MES_ATUAL);
-        verify(cultoRepository).findByIgrejaIdAndPregadorIdAndDataGreaterThanEqual(origem, pessoaId, HOJE);
+        verify(cultoRepository)
+                .findByIgrejaIdAndPregadorIdAndDataGreaterThanEqualAndStatusNotIn(origem, pessoaId, HOJE, CULTO_ENCERRADO);
         verify(cronogramaEventoRepository)
-                .findByIgrejaIdAndSupervisorPessoaIdAndDataEventoGreaterThanEqual(origem, pessoaId, HOJE);
-        verify(cronogramaConteudoRepository).findFuturosComPregador(origem, pessoaId, HOJE);
+                .findByIgrejaIdAndSupervisorPessoaIdAndDataEventoGreaterThanEqualAndStatusNotIn(origem, pessoaId, HOJE, EVENTO_ENCERRADO);
+        verify(cronogramaConteudoRepository).findFuturosComPregador(origem, pessoaId, HOJE, EVENTO_ENCERRADO);
     }
 
     @Test
@@ -111,13 +128,14 @@ class ParticipacoesFuturasServiceTest {
         verify(cultoRepository, never()).saveAll(anyList());
         verify(cronogramaEventoRepository, never()).saveAll(anyList());
         verify(cronogramaConteudoRepository, never()).saveAll(anyList());
+        verify(categoriaCultoRepository, never()).saveAll(anyList());
     }
 
     @Test
     void cultoFuturoComElaPregandoPassaParaOTitular() {
         Culto culto = new Culto();
         culto.setPregadorId(pessoaId);
-        when(cultoRepository.findByIgrejaIdAndPregadorIdAndDataGreaterThanEqual(origem, pessoaId, HOJE))
+        when(cultoRepository.findByIgrejaIdAndPregadorIdAndDataGreaterThanEqualAndStatusNotIn(origem, pessoaId, HOJE, CULTO_ENCERRADO))
                 .thenReturn(List.of(culto));
 
         int ajustadas = service.ajustarNaSaida(pessoaId, origem);
@@ -134,9 +152,9 @@ class ParticipacoesFuturasServiceTest {
         CronogramaConteudo conteudo = new CronogramaConteudo();
         conteudo.setPregadorPessoaId(pessoaId);
         when(cronogramaEventoRepository
-                .findByIgrejaIdAndSupervisorPessoaIdAndDataEventoGreaterThanEqual(origem, pessoaId, HOJE))
+                .findByIgrejaIdAndSupervisorPessoaIdAndDataEventoGreaterThanEqualAndStatusNotIn(origem, pessoaId, HOJE, EVENTO_ENCERRADO))
                 .thenReturn(List.of(evento));
-        when(cronogramaConteudoRepository.findFuturosComPregador(origem, pessoaId, HOJE))
+        when(cronogramaConteudoRepository.findFuturosComPregador(origem, pessoaId, HOJE, EVENTO_ENCERRADO))
                 .thenReturn(List.of(conteudo));
 
         int ajustadas = service.ajustarNaSaida(pessoaId, origem);
@@ -176,7 +194,7 @@ class ParticipacoesFuturasServiceTest {
         when(igrejaRepository.findById(origem)).thenReturn(Optional.of(semTitular));
         Culto culto = new Culto();
         culto.setPregadorId(pessoaId);
-        when(cultoRepository.findByIgrejaIdAndPregadorIdAndDataGreaterThanEqual(origem, pessoaId, HOJE))
+        when(cultoRepository.findByIgrejaIdAndPregadorIdAndDataGreaterThanEqualAndStatusNotIn(origem, pessoaId, HOJE, CULTO_ENCERRADO))
                 .thenReturn(List.of(culto));
 
         service.ajustarNaSaida(pessoaId, origem);
@@ -195,7 +213,7 @@ class ParticipacoesFuturasServiceTest {
                 .thenReturn(List.of(escala));
         Culto culto = new Culto();
         culto.setPregadorId(pessoaId);
-        when(cultoRepository.findByIgrejaIdAndPregadorIdAndDataGreaterThanEqual(origem, pessoaId, HOJE))
+        when(cultoRepository.findByIgrejaIdAndPregadorIdAndDataGreaterThanEqualAndStatusNotIn(origem, pessoaId, HOJE, CULTO_ENCERRADO))
                 .thenReturn(List.of(culto));
 
         int ajustadas = service.ajustarNaSaida(pessoaId, origem);
@@ -215,12 +233,74 @@ class ParticipacoesFuturasServiceTest {
         verify(escalaRepository, never())
                 .findFuturasComSupervisorOuPregador(org.mockito.ArgumentMatchers.argThat(id -> !origem.equals(id)), any(), any(), any());
         verify(cultoRepository, never())
-                .findByIgrejaIdAndPregadorIdAndDataGreaterThanEqual(org.mockito.ArgumentMatchers.argThat(id -> !origem.equals(id)), any(), any());
+                .findByIgrejaIdAndPregadorIdAndDataGreaterThanEqualAndStatusNotIn(org.mockito.ArgumentMatchers.argThat(id -> !origem.equals(id)), any(), any(), any());
+        verify(categoriaCultoRepository, never())
+                .findByIgrejaIdAndPregadorPadraoId(org.mockito.ArgumentMatchers.argThat(id -> !origem.equals(id)), any());
+        verify(categoriaCultoRepository, never()).findAll();
         verify(cronogramaEventoRepository, never()).findAll();
         verify(cultoRepository, never()).findAll();
         verify(escalaRepository, never()).findAll();
         verify(escalaVoluntarioRepository, never()).findAll();
         verify(cronogramaConteudoRepository, never()).findAll();
-        verify(cronogramaConteudoRepository).findFuturosComPregador(eq(origem), eq(pessoaId), eq(HOJE));
+        verify(cronogramaConteudoRepository).findFuturosComPregador(eq(origem), eq(pessoaId), eq(HOJE), eq(EVENTO_ENCERRADO));
+    }
+
+    // --- pregador padrão da categoria de culto (modelo dos próximos cultos) ---
+
+    private CategoriaCulto categoriaComPregadorPadrao(UUID pregadorPadraoId) {
+        CategoriaCulto categoria = new CategoriaCulto();
+        categoria.setId(UUID.randomUUID());
+        categoria.setIgrejaId(origem);
+        categoria.setPregadorPadraoId(pregadorPadraoId);
+        return categoria;
+    }
+
+    @Test
+    void categoriaComElaComoPregadorPadraoPassaParaOTitular() {
+        CategoriaCulto categoria = categoriaComPregadorPadrao(pessoaId);
+        when(categoriaCultoRepository.findByIgrejaIdAndPregadorPadraoId(origem, pessoaId)).thenReturn(List.of(categoria));
+
+        int ajustadas = service.ajustarNaSaida(pessoaId, origem);
+
+        assertThat(categoria.getPregadorPadraoId()).isEqualTo(titularId);
+        verify(categoriaCultoRepository).saveAll(List.of(categoria));
+        assertThat(ajustadas).isEqualTo(1);
+    }
+
+    @Test
+    void depoisDaLimpezaCultoSemPregadorNaoResolveMaisParaEla() {
+        CategoriaCulto categoria = categoriaComPregadorPadrao(pessoaId);
+        when(categoriaCultoRepository.findByIgrejaIdAndPregadorPadraoId(origem, pessoaId)).thenReturn(List.of(categoria));
+
+        service.ajustarNaSaida(pessoaId, origem);
+
+        // CultoService real: culto sem pregador cai no pregador padrão da categoria (resolverPregador).
+        CultoRepository cultos = org.mockito.Mockito.mock(CultoRepository.class);
+        CategoriaCultoRepository categorias = org.mockito.Mockito.mock(CategoriaCultoRepository.class);
+        CultoService cultoService = new CultoService(cultos, categorias,
+                org.mockito.Mockito.mock(CultoRelatorioRepository.class),
+                org.mockito.Mockito.mock(AutorizacaoService.class),
+                org.mockito.Mockito.mock(PessoaRepository.class));
+        Culto semPregador = new Culto();
+        semPregador.setId(UUID.randomUUID());
+        semPregador.setIgrejaId(origem);
+        semPregador.setCategoriaCultoId(categoria.getId());
+        when(cultos.findById(semPregador.getId())).thenReturn(Optional.of(semPregador));
+        when(categorias.findById(categoria.getId())).thenReturn(Optional.of(categoria));
+
+        CultoConteudoResponse conteudo = cultoService.obterConteudo(semPregador.getId());
+
+        assertThat(conteudo.pregadorId()).isEqualTo(titularId).isNotEqualTo(pessoaId);
+    }
+
+    @Test
+    void designacaoSemDataDeEventoUsaADataDoEventoNaoACompetencia() throws Exception {
+        Query query = EscalaVoluntarioRepository.class.getMethod("findFuturasDaPessoaNaIgreja",
+                UUID.class, UUID.class, LocalDate.class, String.class).getAnnotation(Query.class);
+        String jpql = query.value().replaceAll("\\s+", " ");
+
+        assertThat(jpql).contains("LEFT JOIN CronogramaEvento ce ON ce.id = ev.eventoId");
+        assertThat(jpql).contains("ev.dataItem IS NULL AND ce.id IS NOT NULL AND ce.dataEvento >= :hoje");
+        assertThat(jpql).contains("ev.dataItem IS NULL AND ce.id IS NULL AND e.competencia >= :competencia");
     }
 }

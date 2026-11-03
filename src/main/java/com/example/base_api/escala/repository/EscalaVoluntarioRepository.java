@@ -60,16 +60,18 @@ public interface EscalaVoluntarioRepository extends JpaRepository<EscalaVoluntar
     );
 
     /**
-     * Designações da pessoa ainda por acontecer nas escalas da igreja: data do item >= hoje, ou, sem data,
-     * escala de competência >= mês atual.
+     * Designações da pessoa ainda por acontecer nas escalas da igreja: data do item >= hoje; sem data mas
+     * ligada a um evento, data do evento >= hoje; sem nenhum dos dois, escala de competência >= mês atual.
      */
     @Query("""
             SELECT ev FROM EscalaVoluntario ev
             JOIN Escala e ON e.id = ev.escalaId
+            LEFT JOIN CronogramaEvento ce ON ce.id = ev.eventoId
             WHERE e.igrejaId = :igrejaId
               AND ev.pessoaId = :pessoaId
               AND ((ev.dataItem IS NOT NULL AND ev.dataItem >= :hoje)
-                   OR (ev.dataItem IS NULL AND e.competencia >= :competencia))
+                   OR (ev.dataItem IS NULL AND ce.id IS NOT NULL AND ce.dataEvento >= :hoje)
+                   OR (ev.dataItem IS NULL AND ce.id IS NULL AND e.competencia >= :competencia))
             """)
     List<EscalaVoluntario> findFuturasDaPessoaNaIgreja(
             @Param("pessoaId") UUID pessoaId,
