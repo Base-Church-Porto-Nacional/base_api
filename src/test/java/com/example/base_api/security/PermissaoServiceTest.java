@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -142,7 +143,7 @@ class PermissaoServiceTest {
         UUID ministerioId = UUID.randomUUID();
         Ministerio m = new Ministerio();
         m.setId(ministerioId);
-        when(ministerioRepository.findLideradosOuCoordenados(matrizId, pessoaId)).thenReturn(List.of(m));
+        when(ministerioRepository.findAtivosLideradosOuCoordenados(matrizId, pessoaId)).thenReturn(List.of(m));
 
         Permissoes p = service.doUsuarioAtual();
 
@@ -158,8 +159,8 @@ class PermissaoServiceTest {
         base.setId(baseId);
         Ministerio m = new Ministerio();
         m.setId(ministerioId);
-        when(baseRepository.findLideradasOuCoordenadas(matrizId, pessoaId)).thenReturn(List.of(base));
-        when(ministerioRepository.findByBaseMinisterialIdIn(any())).thenReturn(List.of(m));
+        when(baseRepository.findAtivasLideradasOuCoordenadas(matrizId, pessoaId)).thenReturn(List.of(base));
+        when(ministerioRepository.findByBaseMinisterialIdInAndAtivoTrue(any())).thenReturn(List.of(m));
 
         Permissoes p = service.doUsuarioAtual();
 
@@ -172,7 +173,7 @@ class PermissaoServiceTest {
         UUID grupoId = UUID.randomUUID();
         SmallGroup g = new SmallGroup();
         g.setId(grupoId);
-        when(grupoRepository.findByIgrejaIdAndLiderPessoaId(matrizId, pessoaId)).thenReturn(List.of(g));
+        when(grupoRepository.findByIgrejaIdAndLiderPessoaIdAndAtivoTrue(matrizId, pessoaId)).thenReturn(List.of(g));
 
         assertThat(service.doUsuarioAtual().gruposLiderados()).containsExactly(grupoId);
     }
@@ -223,6 +224,58 @@ class PermissaoServiceTest {
         service.doUsuarioAtual();
         service.doUsuarioAtual();
 
-        verify(ministerioRepository, times(1)).findLideradosOuCoordenados(matrizId, pessoaId);
+        verify(ministerioRepository, times(1)).findAtivosLideradosOuCoordenados(matrizId, pessoaId);
+    }
+
+    // --- ministério, base ou grupo inativo não dá escopo de líder ---
+
+    @Test
+    void escopoDeLiderUsaSoConsultasDeEntidadesAtivas() {
+        service.doUsuarioAtual();
+
+        verify(ministerioRepository).findAtivosLideradosOuCoordenados(matrizId, pessoaId);
+        verify(baseRepository).findAtivasLideradasOuCoordenadas(matrizId, pessoaId);
+        verify(grupoRepository).findByIgrejaIdAndLiderPessoaIdAndAtivoTrue(matrizId, pessoaId);
+        verify(ministerioRepository, never()).findLideradosOuCoordenados(any(), any());
+        verify(baseRepository, never()).findLideradasOuCoordenadas(any(), any());
+        verify(grupoRepository, never()).findByIgrejaIdAndLiderPessoaId(any(), any());
+    }
+
+    @Test
+    void liderSoDeMinisterioInativoNaoTemEscopo() {
+        // A consulta de ativos não devolve o ministério inativo que ela lidera.
+        when(ministerioRepository.findAtivosLideradosOuCoordenados(matrizId, pessoaId)).thenReturn(List.of());
+
+        assertThat(service.ministeriosLideradosEm(matrizId)).isEmpty();
+    }
+
+    @Test
+    void liderDeBaseHerdaSoMinisteriosAtivosDaBaseAtiva() {
+        UUID baseId = UUID.randomUUID();
+        BaseMinisterial base = new BaseMinisterial();
+        base.setId(baseId);
+        when(baseRepository.findAtivasLideradasOuCoordenadas(matrizId, pessoaId)).thenReturn(List.of(base));
+        when(ministerioRepository.findByBaseMinisterialIdInAndAtivoTrue(Set.of(baseId))).thenReturn(List.of());
+
+        assertThat(service.ministeriosLideradosEm(matrizId)).isEmpty();
+        verify(ministerioRepository).findByBaseMinisterialIdInAndAtivoTrue(Set.of(baseId));
+    }
+
+    @Test
+    void liderSoDeBaseInativaNaoHerdaMinisterios() {
+        when(baseRepository.findAtivasLideradasOuCoordenadas(matrizId, pessoaId)).thenReturn(List.of());
+
+        Permissoes p = service.doUsuarioAtual();
+
+        assertThat(p.basesLideradas()).isEmpty();
+        assertThat(p.ministeriosLiderados()).isEmpty();
+        verify(ministerioRepository, never()).findByBaseMinisterialIdInAndAtivoTrue(any());
+    }
+
+    @Test
+    void liderSoDeGrupoInativoNaoTemEscopo() {
+        when(grupoRepository.findByIgrejaIdAndLiderPessoaIdAndAtivoTrue(matrizId, pessoaId)).thenReturn(List.of());
+
+        assertThat(service.gruposLideradosEm(matrizId)).isEmpty();
     }
 }

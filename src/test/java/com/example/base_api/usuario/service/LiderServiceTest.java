@@ -56,8 +56,8 @@ class LiderServiceTest {
         usuario.setPessoaId(comConta.getId());
 
         when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(ids);
-        when(ministerioRepository.idsLideres(ids)).thenReturn(List.of(comConta.getId()));
-        when(smallGroupRepository.idsLideres(ids)).thenReturn(List.of(semConta.getId()));
+        when(ministerioRepository.idsLideresDeAtivos(ids)).thenReturn(List.of(comConta.getId()));
+        when(smallGroupRepository.idsLideresDeAtivos(ids)).thenReturn(List.of(semConta.getId()));
         when(pessoaRepository.findByIdInAndAtivoTrue(any())).thenReturn(List.of(comConta, semConta));
         when(usuarioRepository.findByPessoaIdIn(any())).thenReturn(List.of(usuario));
 
@@ -81,9 +81,9 @@ class LiderServiceTest {
         Pessoa pessoa = new Pessoa();
         pessoa.setId(pessoaId);
 
-        when(ministerioRepository.idsLideres(ids)).thenReturn(List.of(pessoaId, pessoaId));
-        when(ministerioRepository.idsCoordenadores(ids)).thenReturn(Arrays.asList(pessoaId, null));
-        when(baseMinisterialRepository.idsLideres(ids)).thenReturn(List.of(pessoaId));
+        when(ministerioRepository.idsLideresDeAtivos(ids)).thenReturn(List.of(pessoaId, pessoaId));
+        when(ministerioRepository.idsCoordenadoresDeAtivos(ids)).thenReturn(Arrays.asList(pessoaId, null));
+        when(baseMinisterialRepository.idsLideresDeAtivas(ids)).thenReturn(List.of(pessoaId));
         when(pessoaRepository.findByIdInAndAtivoTrue(any())).thenReturn(List.of(pessoa));
 
         Set<UUID> lideres = liderService.pessoaIdsLideres(ids);
@@ -97,5 +97,22 @@ class LiderServiceTest {
         p.setNome(nome);
         p.setTelefone(telefone);
         return p;
+    }
+
+    @Test
+    void liderancaDeEntidadeInativaNaoFazNinguemLider() {
+        // As consultas "DeAtivos/DeAtivas" ignoram ministério, base e grupo inativos.
+        UUID igrejaId = UUID.randomUUID();
+        List<UUID> ids = List.of(igrejaId);
+
+        Set<UUID> lideres = liderService.pessoaIdsLideres(ids);
+
+        assertThat(lideres).isEmpty();
+        verify(ministerioRepository).idsLideresDeAtivos(ids);
+        verify(ministerioRepository).idsCoordenadoresDeAtivos(ids);
+        verify(baseMinisterialRepository).idsLideresDeAtivas(ids);
+        verify(baseMinisterialRepository).idsCoordenadoresDeAtivas(ids);
+        verify(smallGroupRepository).idsLideresDeAtivos(ids);
+        verify(pessoaRepository, never()).findByIdInAndAtivoTrue(any());
     }
 }

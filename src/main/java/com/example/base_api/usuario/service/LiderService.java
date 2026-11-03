@@ -50,7 +50,8 @@ public class LiderService {
 
     /**
      * Líder é quem lidera/coordena um ministério ou uma base ministerial, ou lidera um pequeno
-     * grupo, nas igrejas informadas. Considera apenas pessoas ativas; cada pessoa conta uma vez.
+     * grupo, nas igrejas informadas. Considera apenas pessoas ativas e ministérios, bases e grupos
+     * ativos; cada pessoa conta uma vez.
      */
     @Transactional(readOnly = true)
     public Set<UUID> pessoaIdsLideres(List<UUID> igrejaIds) {
@@ -78,11 +79,11 @@ public class LiderService {
             return List.of();
         }
         Set<UUID> candidatos = new HashSet<>();
-        candidatos.addAll(ministerioRepository.idsLideres(igrejaIds));
-        candidatos.addAll(ministerioRepository.idsCoordenadores(igrejaIds));
-        candidatos.addAll(baseMinisterialRepository.idsLideres(igrejaIds));
-        candidatos.addAll(baseMinisterialRepository.idsCoordenadores(igrejaIds));
-        candidatos.addAll(smallGroupRepository.idsLideres(igrejaIds));
+        candidatos.addAll(ministerioRepository.idsLideresDeAtivos(igrejaIds));
+        candidatos.addAll(ministerioRepository.idsCoordenadoresDeAtivos(igrejaIds));
+        candidatos.addAll(baseMinisterialRepository.idsLideresDeAtivas(igrejaIds));
+        candidatos.addAll(baseMinisterialRepository.idsCoordenadoresDeAtivas(igrejaIds));
+        candidatos.addAll(smallGroupRepository.idsLideresDeAtivos(igrejaIds));
         candidatos.removeIf(Objects::isNull);
         if (candidatos.isEmpty()) {
             return List.of();

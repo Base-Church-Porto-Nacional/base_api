@@ -28,11 +28,20 @@ public interface MinisterioRepository extends JpaRepository<Ministerio, UUID> {
     List<Ministerio> findLideradosOuCoordenados(@org.springframework.data.repository.query.Param("igrejaId") UUID igrejaId,
                                                 @org.springframework.data.repository.query.Param("pessoaId") UUID pessoaId);
 
-    List<Ministerio> findByBaseMinisterialIdIn(java.util.Collection<UUID> baseMinisterialIds);
+    /** Escopo de liderança: só ministérios ativos (inativo não faz ninguém líder). */
+    @org.springframework.data.jpa.repository.Query("""
+            select m from Ministerio m
+            where m.igrejaId = :igrejaId and m.ativo = true
+              and (m.liderPessoaId = :pessoaId or m.coordenadorPessoaId = :pessoaId)
+            """)
+    List<Ministerio> findAtivosLideradosOuCoordenados(@org.springframework.data.repository.query.Param("igrejaId") UUID igrejaId,
+                                                      @org.springframework.data.repository.query.Param("pessoaId") UUID pessoaId);
 
-    @org.springframework.data.jpa.repository.Query("select distinct m.liderPessoaId from Ministerio m where m.igrejaId in :igrejaIds and m.liderPessoaId is not null")
-    List<UUID> idsLideres(@org.springframework.data.repository.query.Param("igrejaIds") java.util.Collection<UUID> igrejaIds);
+    List<Ministerio> findByBaseMinisterialIdInAndAtivoTrue(java.util.Collection<UUID> baseMinisterialIds);
 
-    @org.springframework.data.jpa.repository.Query("select distinct m.coordenadorPessoaId from Ministerio m where m.igrejaId in :igrejaIds and m.coordenadorPessoaId is not null")
-    List<UUID> idsCoordenadores(@org.springframework.data.repository.query.Param("igrejaIds") java.util.Collection<UUID> igrejaIds);
+    @org.springframework.data.jpa.repository.Query("select distinct m.liderPessoaId from Ministerio m where m.igrejaId in :igrejaIds and m.ativo = true and m.liderPessoaId is not null")
+    List<UUID> idsLideresDeAtivos(@org.springframework.data.repository.query.Param("igrejaIds") java.util.Collection<UUID> igrejaIds);
+
+    @org.springframework.data.jpa.repository.Query("select distinct m.coordenadorPessoaId from Ministerio m where m.igrejaId in :igrejaIds and m.ativo = true and m.coordenadorPessoaId is not null")
+    List<UUID> idsCoordenadoresDeAtivos(@org.springframework.data.repository.query.Param("igrejaIds") java.util.Collection<UUID> igrejaIds);
 }

@@ -85,15 +85,16 @@ public class PermissaoService {
         Set<UUID> grupos = new HashSet<>();
         boolean voluntario = false;
         if (pessoaId != null && igrejaId != null) {
-            ministerioRepository.findLideradosOuCoordenados(igrejaId, pessoaId)
+            // Só entidades ativas dão escopo; a base herda apenas seus ministérios ativos.
+            ministerioRepository.findAtivosLideradosOuCoordenados(igrejaId, pessoaId)
                     .forEach(m -> ministerios.add(m.getId()));
-            baseMinisterialRepository.findLideradasOuCoordenadas(igrejaId, pessoaId)
+            baseMinisterialRepository.findAtivasLideradasOuCoordenadas(igrejaId, pessoaId)
                     .forEach(b -> bases.add(b.getId()));
             if (!bases.isEmpty()) {
-                ministerioRepository.findByBaseMinisterialIdIn(bases)
+                ministerioRepository.findByBaseMinisterialIdInAndAtivoTrue(bases)
                         .forEach(m -> ministerios.add(m.getId()));
             }
-            smallGroupRepository.findByIgrejaIdAndLiderPessoaId(igrejaId, pessoaId)
+            smallGroupRepository.findByIgrejaIdAndLiderPessoaIdAndAtivoTrue(igrejaId, pessoaId)
                     .forEach(g -> grupos.add(g.getId()));
             voluntario = pessoaServicoRepository.existsByPessoaIdAndAtivoTrue(pessoaId);
         }

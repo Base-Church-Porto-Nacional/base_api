@@ -330,7 +330,7 @@ public class PessoaService {
 
     /**
      * Funções derivadas por pessoa, em lote (consultas fixas, sem N+1): PASTOR/SECRETARIA = papéis de
-     * sistema do usuário na igreja da pessoa; LIDER = lidera/coordena ministério ou base, ou lidera
+     * sistema do usuário na igreja da pessoa; LIDER = lidera/coordena ministério ou base ativos, ou lidera
      * grupo; VOLUNTARIO = vínculo ativo em serviço; MEMBRO = tem usuário ativo.
      */
     private Map<UUID, Set<String>> funcoesPorPessoa(List<Pessoa> pessoas, Map<UUID, Usuario> usuarios) {
