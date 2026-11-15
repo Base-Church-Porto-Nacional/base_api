@@ -134,7 +134,7 @@ public class CronogramaService {
         if (igrejaId == null) {
             throw new BusinessException("igrejaId é obrigatório");
         }
-        autorizacaoService.assertPastorOuAdmin(igrejaId);
+        autorizacaoService.assertGestao(igrejaId);
 
         Igreja igreja = igrejaContextoService.buscarIgreja(igrejaId);
         UUID supervisorId = request.supervisorPessoaId() != null
@@ -168,7 +168,7 @@ public class CronogramaService {
     @Transactional
     public CronogramaEventoResponse atualizar(UUID id, CronogramaEventoUpdateRequest request) {
         CronogramaEvento evento = buscarEntidade(id);
-        autorizacaoService.assertPastorOuAdmin(evento.getIgrejaId());
+        autorizacaoService.assertGestao(evento.getIgrejaId());
         Horarios.validarFimAposInicio(request.horaInicio(), request.horaFim());
         validarTransicaoStatus(evento.getStatus(), request.status());
 
@@ -213,7 +213,7 @@ public class CronogramaService {
     @Transactional
     public void excluir(UUID id) {
         CronogramaEvento evento = buscarEntidade(id);
-        autorizacaoService.assertPastorOuAdmin(evento.getIgrejaId());
+        autorizacaoService.assertGestao(evento.getIgrejaId());
         repository.delete(evento);
     }
 
@@ -252,10 +252,10 @@ public class CronogramaService {
                 ? conteudo.getPregadorPessoaId()
                 : resolverPregadorDoEvento(evento);
 
-        boolean pastorAdmin = autorizacaoService.isPastorOuAdmin(evento.getIgrejaId());
+        boolean gestao = autorizacaoService.isGestao(evento.getIgrejaId());
         boolean podeTexto = autorizacaoService.podeEditarTexto(evento.getIgrejaId(), pregadorPersistido);
         boolean podeLouvor = autorizacaoService.podeEditarLouvor(evento.getIgrejaId());
-        if (!podeTexto && !podeLouvor) {
+        if (!podeTexto && !podeLouvor && !gestao) {
             throw new AccessDeniedException("Sem permissão para editar o conteúdo deste culto");
         }
 
@@ -265,9 +265,10 @@ public class CronogramaService {
         if (podeLouvor && request.louvor() != null) {
             conteudo.setLouvor(request.louvor());
         }
-        if (request.pregadorPessoaId() != null) {
-            if (!pastorAdmin) {
-                throw new AccessDeniedException("Somente pastor ou admin pode alterar o pregador");
+        // Reenviar o pregador atual é no-op (o app sempre envia); só a troca exige gestão.
+        if (request.pregadorPessoaId() != null && !request.pregadorPessoaId().equals(pregadorPersistido)) {
+            if (!gestao) {
+                throw new AccessDeniedException("Somente pastor ou secretaria pode alterar o pregador");
             }
             Pessoa pregador = pessoaRepository.findById(request.pregadorPessoaId())
                     .orElseThrow(() -> new ResourceNotFoundException("Pessoa não encontrada"));

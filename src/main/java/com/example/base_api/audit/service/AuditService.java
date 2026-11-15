@@ -2,6 +2,7 @@ package com.example.base_api.audit.service;
 
 import com.example.base_api.audit.entity.AuditLog;
 import com.example.base_api.audit.repository.AuditLogRepository;
+import com.example.base_api.security.UsuarioAutenticado;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.repository.UsuarioRepository;
 import org.slf4j.Logger;
@@ -38,7 +39,7 @@ public class AuditService {
         evento.setDetalhes(detalhes);
         auditLogRepository.save(evento);
         log.info("audit acao={} recurso={} usuario={} detalhes={}", acao, recurso,
-                usuario == null ? null : usuario.getUsername(), detalhes);
+                usuario == null ? null : usuario.getId(), detalhes);
     }
 
     private Usuario usuarioAtual() {
@@ -48,6 +49,6 @@ public class AuditService {
                 || "anonymousUser".equals(authentication.getName())) {
             return null;
         }
-        return usuarioRepository.findByUsername(authentication.getName()).orElse(null);
+        return UsuarioAutenticado.idDe(authentication).flatMap(usuarioRepository::findById).orElse(null);
     }
 }

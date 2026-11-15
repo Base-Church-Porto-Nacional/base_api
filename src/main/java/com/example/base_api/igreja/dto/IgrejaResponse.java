@@ -12,8 +12,6 @@ public record IgrejaResponse(
         UUID igrejaMatrizId,
         UUID pastorPessoaId,
         String pastorNome,
-        UUID adminUsuarioId,
-        String adminNome,
         Boolean ativo,
         Instant createdAt,
         Instant updatedAt

@@ -1,7 +1,11 @@
 package com.example.base_api.notificacao;
 
-import com.example.base_api.notificacao.whatsapp.NormalizadorTelefoneWhatsapp;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import com.example.base_api.notificacao.CanalMensagem.EnvioMensagem;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
 
@@ -11,19 +15,25 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class CanalMensagemLogTest {
 
     @Test
-    void deveFalharExplicitamentePorqueLogNaoEEntrega() {
-        CanalMensagemLog canal = new CanalMensagemLog();
+    void naoRegistraCorpoDaMensagem() {
+        Logger logger = (Logger) LoggerFactory.getLogger(CanalMensagemLog.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            EnvioMensagem envio = new EnvioMensagem(UUID.randomUUID(), "Maria", "5563999990000", null,
+                    "Crie sua senha: http://app/acesso/SEGREDO123");
 
-        assertThatThrownBy(() -> canal.enviar(new CanalMensagem.EnvioMensagem(
-                UUID.randomUUID(), "Maria", "5511999994444", null, "Feliz aniversário!")))
-                .isInstanceOf(CanalNaoConfiguradoException.class)
-                .hasMessageContaining("não entregue");
-    }
+            assertThatThrownBy(() -> new CanalMensagemLog().enviar(envio))
+                    .isInstanceOf(CanalNaoConfiguradoException.class);
 
-    @Test
-    void numeroInvalidoContinuaSendoRejeitadoPelaNormalizacao() {
-        assertThat(NormalizadorTelefoneWhatsapp.normalizar("11988")).isEmpty();
-        assertThat(NormalizadorTelefoneWhatsapp.normalizar("(11) 99999-4444"))
-                .contains("5511999994444");
+            assertThat(appender.list).isNotEmpty();
+            assertThat(appender.list).allSatisfy(e -> {
+                assertThat(e.getFormattedMessage()).doesNotContain("SEGREDO123").doesNotContain("acesso/");
+                assertThat(e.getFormattedMessage()).doesNotContain("5563999990000");
+            });
+        } finally {
+            logger.detachAppender(appender);
+        }
     }
 }

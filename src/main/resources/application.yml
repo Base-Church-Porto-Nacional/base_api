@@ -56,7 +56,6 @@ app:
   # Primeiro administrador (só é criado quando não há nenhum usuário; ignorado no perfil dev).
   bootstrap:
     admin:
-      username: ${ADMIN_USERNAME:}
       email: ${ADMIN_EMAIL:}
       senha: ${ADMIN_SENHA:}
       nome: ${ADMIN_NOME:}
@@ -65,6 +64,9 @@ app:
   jwt:
     secret: ${JWT_SECRET:change-me-use-a-long-secure-secret-key-at-least-256-bits}
     expiration-ms: ${JWT_EXPIRATION_MS:14400000}
+  frontend:
+    # Base dos links de convite/redefinição enviados ao usuário (sem barra final obrigatória).
+    url-base: ${FRONTEND_URL_BASE:http://localhost:3000}
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
   aniversario:
@@ -78,6 +80,8 @@ app:
     instancia: ${WHATSAPP_INSTANCIA:}
     delay-ms: ${WHATSAPP_DELAY_MS:1200}
     link-preview: ${WHATSAPP_LINK_PREVIEW:true}
+    connect-timeout-ms: ${WHATSAPP_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${WHATSAPP_READ_TIMEOUT_MS:10000}
 
   rabbit:
     # false = envio síncrono direto ao canal (sem broker);

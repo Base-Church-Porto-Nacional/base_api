@@ -1,8 +1,11 @@
 package com.example.base_api.usuario.service;
 
+import com.example.base_api.baseministerial.repository.BaseMinisterialRepository;
+import com.example.base_api.ministerio.repository.MinisterioRepository;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
+import com.example.base_api.smallgroup.repository.SmallGroupRepository;
 import com.example.base_api.usuario.dto.LiderResponse;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.repository.UsuarioRepository;
@@ -12,7 +15,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,38 +34,85 @@ class LiderServiceTest {
     @Mock
     private PessoaRepository pessoaRepository;
     @Mock
+    private MinisterioRepository ministerioRepository;
+    @Mock
+    private BaseMinisterialRepository baseMinisterialRepository;
+    @Mock
+    private SmallGroupRepository smallGroupRepository;
+    @Mock
     private AutorizacaoService autorizacaoService;
 
     @InjectMocks
     private LiderService liderService;
 
     @Test
-    void listarBuscaAsPessoasDosLideresNumaUnicaConsulta() {
+    void liderDeGrupoSemPapelApareceNaLista() {
         UUID igrejaId = UUID.randomUUID();
-        Pessoa pessoa = new Pessoa();
-        pessoa.setId(UUID.randomUUID());
-        pessoa.setNome("Lia");
-        pessoa.setTelefone("11999990000");
-        Usuario comPessoa = lider("lia", pessoa.getId());
-        Usuario semPessoa = lider("sem", null);
+        List<UUID> ids = List.of(igrejaId);
+        Pessoa comConta = pessoa("Lia", "11999990000");
+        Pessoa semConta = pessoa("Gil", null);
+        Usuario usuario = new Usuario();
+        usuario.setId(UUID.randomUUID());
+        usuario.setPessoaId(comConta.getId());
 
-        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(List.of(igrejaId));
-        when(usuarioRepository.findAtivosByPapelAndIgrejaIdIn("LIDER", List.of(igrejaId)))
-                .thenReturn(List.of(comPessoa, semPessoa));
-        when(pessoaRepository.findAllById(any())).thenReturn(List.of(pessoa));
+        when(autorizacaoService.idsParaListagem(igrejaId)).thenReturn(ids);
+        when(ministerioRepository.idsLideresDeAtivos(ids)).thenReturn(List.of(comConta.getId()));
+        when(smallGroupRepository.idsLideresDeAtivos(ids)).thenReturn(List.of(semConta.getId()));
+        when(pessoaRepository.findByIdInAndAtivoTrue(any())).thenReturn(List.of(comConta, semConta));
+        when(usuarioRepository.findByPessoaIdIn(any())).thenReturn(List.of(usuario));
 
         List<LiderResponse> lideres = liderService.listar(igrejaId);
 
-        assertThat(lideres).extracting(LiderResponse::pessoaNome).containsExactly("Lia", null);
-        assertThat(lideres).extracting(LiderResponse::telefone).containsExactly("11999990000", null);
+        assertThat(lideres).extracting(LiderResponse::pessoaNome).containsExactlyInAnyOrder("Lia", "Gil");
+        LiderResponse gil = lideres.stream().filter(l -> "Gil".equals(l.pessoaNome())).findFirst().orElseThrow();
+        assertThat(gil.usuarioId()).isNull();
+        assertThat(gil.email()).isNull();
+        LiderResponse lia = lideres.stream().filter(l -> "Lia".equals(l.pessoaNome())).findFirst().orElseThrow();
+        assertThat(lia.usuarioId()).isEqualTo(usuario.getId());
+        assertThat(lia.telefone()).isEqualTo("11999990000");
         verify(pessoaRepository, never()).findById(any());
     }
 
-    private Usuario lider(String username, UUID pessoaId) {
-        Usuario usuario = new Usuario();
-        usuario.setId(UUID.randomUUID());
-        usuario.setUsername(username);
-        usuario.setPessoaId(pessoaId);
-        return usuario;
+    @Test
+    void pessoaLiderEmDoisMinisteriosContaUmaVez() {
+        UUID igrejaId = UUID.randomUUID();
+        List<UUID> ids = List.of(igrejaId);
+        UUID pessoaId = UUID.randomUUID();
+        Pessoa pessoa = new Pessoa();
+        pessoa.setId(pessoaId);
+
+        when(ministerioRepository.idsLideresDeAtivos(ids)).thenReturn(List.of(pessoaId, pessoaId));
+        when(ministerioRepository.idsCoordenadoresDeAtivos(ids)).thenReturn(Arrays.asList(pessoaId, null));
+        when(baseMinisterialRepository.idsLideresDeAtivas(ids)).thenReturn(List.of(pessoaId));
+        when(pessoaRepository.findByIdInAndAtivoTrue(any())).thenReturn(List.of(pessoa));
+
+        Set<UUID> lideres = liderService.pessoaIdsLideres(ids);
+
+        assertThat(lideres).containsExactly(pessoaId);
+    }
+
+    private Pessoa pessoa(String nome, String telefone) {
+        Pessoa p = new Pessoa();
+        p.setId(UUID.randomUUID());
+        p.setNome(nome);
+        p.setTelefone(telefone);
+        return p;
+    }
+
+    @Test
+    void liderancaDeEntidadeInativaNaoFazNinguemLider() {
+        // As consultas "DeAtivos/DeAtivas" ignoram ministério, base e grupo inativos.
+        UUID igrejaId = UUID.randomUUID();
+        List<UUID> ids = List.of(igrejaId);
+
+        Set<UUID> lideres = liderService.pessoaIdsLideres(ids);
+
+        assertThat(lideres).isEmpty();
+        verify(ministerioRepository).idsLideresDeAtivos(ids);
+        verify(ministerioRepository).idsCoordenadoresDeAtivos(ids);
+        verify(baseMinisterialRepository).idsLideresDeAtivas(ids);
+        verify(baseMinisterialRepository).idsCoordenadoresDeAtivas(ids);
+        verify(smallGroupRepository).idsLideresDeAtivos(ids);
+        verify(pessoaRepository, never()).findByIdInAndAtivoTrue(any());
     }
 }

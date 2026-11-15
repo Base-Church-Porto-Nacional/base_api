@@ -1,8 +1,11 @@
 package com.example.base_api.igreja.controller;
 
+import com.example.base_api.igreja.dto.FilialCriadaResponse;
+import com.example.base_api.igreja.dto.PastorTrocadoResponse;
 import com.example.base_api.igreja.dto.IgrejaFilialCreateRequest;
 import com.example.base_api.igreja.dto.IgrejaResponse;
 import com.example.base_api.igreja.dto.IgrejaUpdateRequest;
+import com.example.base_api.igreja.dto.TrocarPastorRequest;
 import com.example.base_api.igreja.service.IgrejaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -49,8 +52,8 @@ public class IgrejaController {
     @PostMapping("/{matrizId}/filiais")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Criar filial da matriz, com pastor e admin")
-    public IgrejaResponse criarFilial(
+    @Operation(summary = "Criar filial da matriz com seu pastor (pessoa existente transferida ou nova, com convite)")
+    public FilialCriadaResponse criarFilial(
             @PathVariable UUID matrizId,
             @Valid @RequestBody IgrejaFilialCreateRequest request
     ) {
@@ -59,11 +62,21 @@ public class IgrejaController {
 
     @PutMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Atualizar igreja")
+    @Operation(summary = "Atualizar igreja (nome e ativo; o pastor muda em PUT /{id}/pastor)")
     public IgrejaResponse atualizar(
             @PathVariable UUID id,
             @Valid @RequestBody IgrejaUpdateRequest request
     ) {
         return igrejaService.atualizar(id, request);
+    }
+
+    @PutMapping("/{id}/pastor")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Trocar o pastor titular da igreja (move o papel PASTOR; convida se a pessoa não tem conta)")
+    public PastorTrocadoResponse trocarPastor(
+            @PathVariable UUID id,
+            @Valid @RequestBody TrocarPastorRequest request
+    ) {
+        return igrejaService.trocarPastor(id, request);
     }
 }

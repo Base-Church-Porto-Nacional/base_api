@@ -72,7 +72,7 @@ public class AniversarioService {
             return "Nenhuma igreja visível para enviar mensagem de aniversário";
         }
         for (UUID id : ids) {
-            autorizacaoService.assertPastorOuAdmin(id);
+            autorizacaoService.assertGestao(id);
         }
         LocalDate hoje = LocalDate.now();
         // Restringe às igrejas autorizadas: processar() sozinho varre a rede inteira.

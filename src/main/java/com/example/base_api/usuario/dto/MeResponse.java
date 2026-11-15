@@ -11,7 +11,6 @@ import java.util.UUID;
 public record MeResponse(
         UUID id,
         UUID usuarioId,
-        String username,
         String email,
         Boolean ativo,
         Set<String> papeis,
@@ -24,6 +23,7 @@ public record MeResponse(
         UUID igrejaId,
         IgrejaTipo igrejaTipo,
         String igrejaNome,
-        List<IgrejaResponse> igrejasVisiveis
+        List<IgrejaResponse> igrejasVisiveis,
+        PermissoesResponse permissoes
 ) {
 }

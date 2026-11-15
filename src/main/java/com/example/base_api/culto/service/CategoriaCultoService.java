@@ -72,7 +72,7 @@ public class CategoriaCultoService {
         if (igrejaId == null) {
             throw new BusinessException("igrejaId é obrigatório");
         }
-        autorizacaoService.assertPastorOuAdmin(igrejaId);
+        autorizacaoService.assertGestao(igrejaId);
 
         String titulo = request.titulo().trim();
         validarTituloUnico(igrejaId, titulo, null);
@@ -96,7 +96,7 @@ public class CategoriaCultoService {
     @Transactional
     public CategoriaCultoResponse atualizar(UUID id, CategoriaCultoUpdateRequest request) {
         CategoriaCulto categoria = buscarEntidade(id);
-        autorizacaoService.assertPastorOuAdmin(categoria.getIgrejaId());
+        autorizacaoService.assertGestao(categoria.getIgrejaId());
 
         String titulo = request.titulo().trim();
         validarTituloUnico(categoria.getIgrejaId(), titulo, id);
@@ -118,7 +118,7 @@ public class CategoriaCultoService {
     @Transactional
     public void excluir(UUID id) {
         CategoriaCulto categoria = buscarEntidade(id);
-        autorizacaoService.assertPastorOuAdmin(categoria.getIgrejaId());
+        autorizacaoService.assertGestao(categoria.getIgrejaId());
         if (cultoRepository.countByCategoriaCultoIdAndAtivoTrue(categoria.getId()) > 0) {
             categoria.setAtivo(false);
             categoriaRepository.save(categoria);

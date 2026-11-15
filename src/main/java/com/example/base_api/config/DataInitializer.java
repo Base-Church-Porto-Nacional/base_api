@@ -23,6 +23,7 @@ import com.example.base_api.escala.repository.EscalaVoluntarioRepository;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.entity.IgrejaTipo;
 import com.example.base_api.igreja.repository.IgrejaRepository;
+import com.example.base_api.security.Papeis;
 import com.example.base_api.jornada.service.JornadaService;
 import com.example.base_api.ministerio.entity.Ministerio;
 import com.example.base_api.ministerio.entity.MinisterioTipo;
@@ -39,6 +40,7 @@ import com.example.base_api.smallgroup.repository.SmallGroupEncontroRepository;
 import com.example.base_api.smallgroup.repository.SmallGroupParticipanteRepository;
 import com.example.base_api.smallgroup.repository.SmallGroupRepository;
 import com.example.base_api.usuario.entity.Papel;
+import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.entity.UsuarioPapel;
 import com.example.base_api.usuario.repository.PapelRepository;
@@ -97,11 +99,8 @@ public class DataInitializer {
                     () -> new IllegalStateException("Igreja matriz não encontrada. Verifique a migration V5.")
             );
 
-            Papel adminRole = papel(papelRepository, "ADMIN");
-            Papel pastorRole = papel(papelRepository, "PASTOR");
-            Papel liderRole = papel(papelRepository, "LIDER");
-            Papel voluntarioRole = papel(papelRepository, "VOLUNTARIO");
-            Papel membroRole = papel(papelRepository, "MEMBRO");
+            Papel secretariaRole = papel(papelRepository, Papeis.SECRETARIA);
+            Papel pastorRole = papel(papelRepository, Papeis.PASTOR);
 
             Pessoa ana = pessoa(pessoaRepository, jornadaService, "Ana Costa", "ana.costa@base.church", "(11) 98888-1001", MATRIZ_ID, LocalDate.of(2022, 3, 12));
             Pessoa joao = pessoa(pessoaRepository, jornadaService, "João da Silva", "joao.silva@email.com", "(11) 97777-2002", MATRIZ_ID, LocalDate.of(2023, 1, 20));
@@ -136,27 +135,25 @@ public class DataInitializer {
 
             String senha = passwordEncoder.encode("admin123");
 
-            Usuario admin = usuario(
-                    usuarioRepository, usuarioPapelRepository, "admin", "ana.costa@base.church", senha,
-                    ana.getId(), MATRIZ_ID, Set.of(adminRole, pastorRole)
+            usuario(
+                    usuarioRepository, usuarioPapelRepository, "pastor@base.local", senha,
+                    ana.getId(), MATRIZ_ID, Set.of(secretariaRole, pastorRole)
             );
-            Usuario uFilial = usuario(
-                    usuarioRepository, usuarioPapelRepository, "filial", "luciana.rocha@base.church", senha,
-                    luciana.getId(), filial.getId(), Set.of(adminRole)
+            usuario(
+                    usuarioRepository, usuarioPapelRepository, "secretaria@base.local", senha,
+                    luciana.getId(), filial.getId(), Set.of(secretariaRole)
             );
-            usuario(usuarioRepository, usuarioPapelRepository, "joao", "joao.silva@email.com", senha, joao.getId(), MATRIZ_ID, Set.of(liderRole, voluntarioRole, membroRole));
-            usuario(usuarioRepository, usuarioPapelRepository, "maria", "maria.oliveira@email.com", senha, maria.getId(), MATRIZ_ID, Set.of(voluntarioRole, membroRole));
-            usuario(usuarioRepository, usuarioPapelRepository, "midia", "carlos.lima@email.com", senha, carlos.getId(), MATRIZ_ID, Set.of(liderRole, voluntarioRole, membroRole));
-            usuario(usuarioRepository, usuarioPapelRepository, "membro", "fernanda.dias@email.com", senha, fernanda.getId(), MATRIZ_ID, Set.of(voluntarioRole, membroRole));
-            usuario(usuarioRepository, usuarioPapelRepository, "pedro", "pedro.alves@base.church", senha, pedro.getId(), filial.getId(), Set.of(pastorRole));
+            usuario(usuarioRepository, usuarioPapelRepository, "lider@base.local", senha, joao.getId(), MATRIZ_ID, Set.of());
+            usuario(usuarioRepository, usuarioPapelRepository, "maria@base.local", senha, maria.getId(), MATRIZ_ID, Set.of());
+            usuario(usuarioRepository, usuarioPapelRepository, "midia@base.local", senha, carlos.getId(), MATRIZ_ID, Set.of());
+            usuario(usuarioRepository, usuarioPapelRepository, "membro@base.local", senha, fernanda.getId(), MATRIZ_ID, Set.of());
+            usuario(usuarioRepository, usuarioPapelRepository, "pastor.filial@base.local", senha, pedro.getId(), filial.getId(), Set.of(pastorRole));
 
             matriz.setNome("Base Church");
             matriz.setPastorPessoaId(ana.getId());
-            matriz.setAdminUsuarioId(admin.getId());
             igrejaRepository.save(matriz);
 
             filial.setPastorPessoaId(pedro.getId());
-            filial.setAdminUsuarioId(uFilial.getId());
             igrejaRepository.save(filial);
 
             Ministerio louvor = ministerio(ministerioRepository, servicoRepository, pessoaServicoRepository,
@@ -305,7 +302,7 @@ public class DataInitializer {
                 cultoRelatorioRepository.save(relatorio);
             }
 
-            log.info("Dados demo prontos. Logins: admin, filial, joao, maria, midia, membro, pedro — senha admin123");
+            log.info("Dados demo prontos. Logins: pastor@base.local, secretaria@base.local, lider@base.local, maria@base.local, midia@base.local, membro@base.local, pastor.filial@base.local — senha admin123");
         };
     }
 
@@ -341,27 +338,25 @@ public class DataInitializer {
     private Usuario usuario(
             UsuarioRepository repo,
             UsuarioPapelRepository papelRepo,
-            String username,
             String email,
             String senhaHash,
             UUID pessoaId,
             UUID igrejaId,
             Set<Papel> papeis
     ) {
-        Usuario salvo = repo.findByUsername(username).map(existente -> {
-            existente.setPessoaId(pessoaId);
+        // Idempotente pela pessoa: re-semear um banco antigo atualiza o login para o e-mail novo.
+        Usuario salvo = repo.findByPessoaId(pessoaId).map(existente -> {
             existente.setIgrejaId(igrejaId);
             existente.setEmail(email);
-            existente.setAtivo(true);
+            existente.setStatus(StatusUsuario.ATIVO);
             return repo.save(existente);
         }).orElseGet(() -> {
             Usuario u = new Usuario();
-            u.setUsername(username);
             u.setEmail(email);
             u.setSenhaHash(senhaHash);
             u.setPessoaId(pessoaId);
             u.setIgrejaId(igrejaId);
-            u.setAtivo(true);
+            u.setStatus(StatusUsuario.ATIVO);
             return repo.save(u);
         });
         if (papelRepo.findByUsuarioId(salvo.getId()).isEmpty()) {

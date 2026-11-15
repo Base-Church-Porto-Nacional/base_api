@@ -37,9 +37,6 @@ public class Igreja extends AuditableEntity {
     @Column(name = "pastor_pessoa_id")
     private UUID pastorPessoaId;
 
-    @Column(name = "admin_usuario_id")
-    private UUID adminUsuarioId;
-
     @Column(nullable = false)
     private Boolean ativo = true;
 

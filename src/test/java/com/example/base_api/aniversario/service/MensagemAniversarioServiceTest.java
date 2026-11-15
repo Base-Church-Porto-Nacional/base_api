@@ -112,7 +112,7 @@ class MensagemAniversarioServiceTest {
         MensagemAniversarioResponse resposta = service.salvar(
                 new MensagemAniversarioRequest(null, filialId, "  Feliz aniversário, [Nome]!  "));
 
-        verify(autorizacaoService).assertPastorOuAdmin(filialId);
+        verify(autorizacaoService).assertGestao(filialId);
         assertThat(resposta.igrejaId()).isEqualTo(filialId);
         assertThat(resposta.mensagem()).isEqualTo("Feliz aniversário, [Nome]!");
         verify(auditService).registrar(any(), any(), any());
@@ -135,8 +135,8 @@ class MensagemAniversarioServiceTest {
     }
 
     @Test
-    void salvarSemSerPastorOuAdminDeveSerNegado() {
-        doThrow(new AccessDeniedException("negado")).when(autorizacaoService).assertPastorOuAdmin(filialId);
+    void salvarSemSerGestaoDeveSerNegado() {
+        doThrow(new AccessDeniedException("negado")).when(autorizacaoService).assertGestao(filialId);
 
         assertThatThrownBy(() -> service.salvar(new MensagemAniversarioRequest(null, filialId, "Oi")))
                 .isInstanceOf(AccessDeniedException.class);

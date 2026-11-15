@@ -73,7 +73,7 @@ public class CultoAutomacaoService {
             return "Nenhuma igreja visível para gerar cultos de " + mes;
         }
         for (UUID id : ids) {
-            autorizacaoService.assertPastorOuAdmin(id);
+            autorizacaoService.assertGestao(id);
         }
         return gerar(ids, mes);
     }
@@ -87,7 +87,7 @@ public class CultoAutomacaoService {
     public String gerarMesDaCategoria(UUID categoriaId, String competencia) {
         CategoriaCulto categoria = categoriaRepository.findById(categoriaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Categoria de culto não encontrada"));
-        autorizacaoService.assertPastorOuAdmin(categoria.getIgrejaId());
+        autorizacaoService.assertGestao(categoria.getIgrejaId());
         YearMonth mes = parseCompetencia(competencia);
         int criados = gerarDaCategoria(categoria, mes);
         String resumo = "Cultos de " + categoria.getTitulo() + " em " + mes + ": " + criados + " criados.";

@@ -31,4 +31,17 @@ public interface PessoaServicoRepository extends JpaRepository<PessoaServico, UU
             where p.id = ps.pessoaId and p.igrejaId in :igrejaIds and ps.ativo = true
             """)
     long contarAtivosPorIgrejas(@Param("igrejaIds") Collection<UUID> igrejaIds);
+
+    boolean existsByPessoaIdAndAtivoTrue(UUID pessoaId);
+
+    @Query("select distinct ps.pessoaId from PessoaServico ps where ps.pessoaId in :pessoaIds and ps.ativo = true")
+    List<UUID> pessoaIdsComVinculoAtivo(@Param("pessoaIds") Collection<UUID> pessoaIds);
+
+    /** Vínculos ativos da pessoa em serviços de ministérios da igreja indicada. */
+    @Query("""
+            select ps from PessoaServico ps, Servico s, Ministerio m
+            where s.id = ps.servicoId and m.id = s.ministerioId
+              and ps.pessoaId = :pessoaId and m.igrejaId = :igrejaId and ps.ativo = true
+            """)
+    List<PessoaServico> findAtivosDaPessoaNaIgreja(@Param("pessoaId") UUID pessoaId, @Param("igrejaId") UUID igrejaId);
 }

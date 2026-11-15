@@ -71,4 +71,14 @@ class GlobalExceptionHandlerTest {
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(resposta.getBody().message()).doesNotContain("segredo");
     }
+
+    @Test
+    void linkExpiradoVira410() {
+        ResponseEntity<ErrorResponse> resposta = handler.handleLinkExpirado(
+                new LinkExpiradoException("Este link expirou ou já foi usado. Peça um novo convite."), request);
+
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.GONE);
+        assertThat(resposta.getBody().error()).isEqualTo("LINK_EXPIRADO");
+        assertThat(resposta.getBody().message()).contains("expirou");
+    }
 }

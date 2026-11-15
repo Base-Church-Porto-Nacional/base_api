@@ -40,4 +40,56 @@ class StartupSecretsValidatorTest {
 
         assertThatCode(() -> new StartupSecretsValidator(env)).doesNotThrowAnyException();
     }
+
+    @Test
+    void recusaUrlDoFrontendVaziaLocalOuSemHttps() {
+        for (String url : new String[]{"", "   ", null, "http://localhost:3000", "https://localhost",
+                "https://127.0.0.1:8080", "http://base.veigagustavo.com.br", "base.veigagustavo.com.br"}) {
+            assertThatThrownBy(() -> StartupSecretsValidator.validarUrlFrontend(url))
+                    .as("url=%s", url)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("FRONTEND_URL_BASE");
+        }
+    }
+
+    @Test
+    void aceitaUrlDoFrontendHttps() {
+        assertThatCode(() -> StartupSecretsValidator.validarUrlFrontend("https://base.veigagustavo.com.br"))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> StartupSecretsValidator.validarUrlFrontend(" HTTPS://base.veigagustavo.com.br/ "))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void foraDeDevFalhaComUrlDoFrontendLocal() {
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("prod");
+        env.setProperty("app.jwt.secret", "segredo-forte-com-mais-de-trinta-e-dois-chars");
+        env.setProperty("spring.datasource.password", "outra-senha");
+        env.setProperty("app.frontend.url-base", "http://localhost:3000");
+
+        assertThatThrownBy(() -> new StartupSecretsValidator(env))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("FRONTEND_URL_BASE");
+    }
+
+    @Test
+    void foraDeDevSobeComConfiguracaoDeProducao() {
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("prod");
+        env.setProperty("app.jwt.secret", "segredo-forte-com-mais-de-trinta-e-dois-chars");
+        env.setProperty("spring.datasource.password", "outra-senha");
+        env.setProperty("app.frontend.url-base", "https://base.veigagustavo.com.br");
+
+        assertThatCode(() -> new StartupSecretsValidator(env)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void perfilDevAceitaUrlLocal() {
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("dev");
+        env.setProperty("app.frontend.url-base", "http://localhost:3000");
+
+        assertThatCode(() -> new StartupSecretsValidator(env)).doesNotThrowAnyException();
+    }
 }

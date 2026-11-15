@@ -79,7 +79,7 @@ public class EscalaAutomacaoService {
 
     @Transactional
     public String gerarProximoMesManual() {
-        autorizacaoService.assertMatrizPastorOuAdmin();
+        autorizacaoService.assertMatrizGestao();
         return gerarProximoMes();
     }
 

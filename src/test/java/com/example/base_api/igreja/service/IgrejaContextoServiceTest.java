@@ -6,6 +6,7 @@ import com.example.base_api.igreja.entity.IgrejaTipo;
 import com.example.base_api.igreja.repository.IgrejaRepository;
 import com.example.base_api.security.UsuarioAutenticado;
 import com.example.base_api.usuario.entity.Papel;
+import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.entity.UsuarioPapel;
 import com.example.base_api.usuario.repository.UsuarioRepository;
@@ -54,7 +55,6 @@ class IgrejaContextoServiceTest {
 
         usuario = new Usuario();
         usuario.setId(UUID.randomUUID());
-        usuario.setUsername("membro");
         usuario.setIgrejaId(igrejaId);
 
         filial = new Igreja();
@@ -115,27 +115,27 @@ class IgrejaContextoServiceTest {
         autenticarComId();
 
         assertThat(igrejaContextoService.requireUsuario()).isSameAs(usuario);
-        verify(usuarioRepository, never()).findByUsername(any());
+        verify(usuarioRepository, times(1)).findById(usuario.getId());
     }
 
     @Test
-    void assertPastorOuAdminResolveOUsuarioUmaUnicaVez() {
+    void assertGestaoResolveOUsuarioUmaUnicaVez() {
         usuario.getPapeisIgreja().add(vinculo("PASTOR", filial.getId()));
         autenticarComId();
 
-        igrejaContextoService.assertPastorOuAdmin(filial.getId());
+        igrejaContextoService.assertGestao(filial.getId());
 
         verify(usuarioRepository, times(1)).findById(usuario.getId());
     }
 
     @Test
-    void assertPastorOuAdminNegaMembroComum() {
+    void assertGestaoNegaMembroComum() {
         usuario.getPapeisIgreja().add(vinculo("MEMBRO", filial.getId()));
         autenticarComId();
 
-        assertThatThrownBy(() -> igrejaContextoService.assertPastorOuAdmin(filial.getId()))
+        assertThatThrownBy(() -> igrejaContextoService.assertGestao(filial.getId()))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("Somente pastor ou admin");
+                .hasMessageContaining("Somente pastor ou secretaria");
     }
 
     @Test
@@ -151,9 +151,44 @@ class IgrejaContextoServiceTest {
         when(igrejaRepository.findById(matriz.getId())).thenReturn(Optional.of(matriz));
         when(igrejaRepository.findByIgrejaMatrizIdOrderByNomeAsc(matriz.getId())).thenReturn(List.of(filial));
 
-        igrejaContextoService.assertPastorOuAdmin(filial.getId());
+        igrejaContextoService.assertGestao(filial.getId());
 
         assertThat(igrejaContextoService.idsParaListagem(null)).containsExactly(matriz.getId(), filial.getId());
+    }
+
+    @Test
+    void secretariaDaMatrizEhGestaoNaFilial() {
+        Igreja matriz = new Igreja();
+        matriz.setId(UUID.randomUUID());
+        matriz.setTipo(IgrejaTipo.MATRIZ);
+        matriz.setAtivo(true);
+        filial.setIgrejaMatrizId(matriz.getId());
+        usuario.setIgrejaId(matriz.getId());
+        usuario.getPapeisIgreja().add(vinculo("SECRETARIA", matriz.getId()));
+        autenticarComId();
+
+        assertThat(igrejaContextoService.isGestao(filial.getId())).isTrue();
+    }
+
+    @Test
+    void secretariaDaFilialNaoAcessaMatriz() {
+        UUID matrizId = UUID.randomUUID();
+        filial.setIgrejaMatrizId(matrizId);
+        usuario.getPapeisIgreja().add(vinculo("SECRETARIA", filial.getId()));
+        autenticarComId();
+
+        assertThatThrownBy(() -> igrejaContextoService.assertAcesso(matrizId))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void papelCustomizadoComNomeSecretariaNaoEhGestao() {
+        UsuarioPapel customizado = vinculo("SECRETARIA", filial.getId());
+        customizado.getPapel().setIgrejaId(filial.getId());
+        usuario.getPapeisIgreja().add(customizado);
+        autenticarComId();
+
+        assertThat(igrejaContextoService.isGestao(filial.getId())).isFalse();
     }
 
     private UsuarioPapel vinculo(String nomePapel, UUID igrejaId) {
@@ -170,7 +205,7 @@ class IgrejaContextoServiceTest {
 
     private void autenticarComId() {
         usuario.setSenhaHash("hash");
-        usuario.setAtivo(true);
+        usuario.setStatus(StatusUsuario.ATIVO);
         UsuarioAutenticado principal = UsuarioAutenticado.de(usuario);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities())
@@ -181,9 +216,9 @@ class IgrejaContextoServiceTest {
 
     private void autenticar() {
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("membro", "n/a", List.of())
+                new UsernamePasswordAuthenticationToken(usuario.getId().toString(), "n/a", List.of())
         );
-        when(usuarioRepository.findByUsername("membro")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
         org.mockito.Mockito.lenient().when(igrejaRepository.findById(filial.getId())).thenReturn(Optional.of(filial));
     }
 }

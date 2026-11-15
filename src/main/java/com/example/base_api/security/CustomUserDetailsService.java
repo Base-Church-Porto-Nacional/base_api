@@ -16,9 +16,14 @@ public class CustomUserDetailsService implements UserDetailsService {
         this.usuarioRepository = usuarioRepository;
     }
 
+    /**
+     * Recebe o identificador digitado no login (e-mail ou telefone). Conta CONVIDADO ou DESATIVADO
+     * é tratada como inexistente, para responder 401 "Credenciais inválidas" igual à senha errada.
+     */
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        Usuario usuario = usuarioRepository.findByUsername(username)
+    public UserDetails loadUserByUsername(String identificador) throws UsernameNotFoundException {
+        Usuario usuario = usuarioRepository.findByIdentificador(identificador)
+                .filter(Usuario::isAtivo)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado"));
         return UsuarioAutenticado.de(usuario);
     }

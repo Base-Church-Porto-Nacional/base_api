@@ -353,6 +353,76 @@ class CronogramaServiceTest {
     }
 
     @Test
+    void secretariaTrocaPregador() {
+        UUID eventoId = UUID.randomUUID();
+        UUID igrejaId = UUID.randomUUID();
+        UUID pregadorPersistido = UUID.randomUUID();
+        UUID novoPregadorId = UUID.randomUUID();
+        CronogramaEvento evento = new CronogramaEvento();
+        evento.setId(eventoId);
+        evento.setIgrejaId(igrejaId);
+        evento.setDataEvento(LocalDate.of(2026, 8, 9));
+        CronogramaConteudo conteudo = new CronogramaConteudo();
+        conteudo.setEventoId(eventoId);
+        conteudo.setPregadorPessoaId(pregadorPersistido);
+        conteudo.setTextoPregacao("texto original");
+        Pessoa novo = new Pessoa();
+        novo.setId(novoPregadorId);
+        novo.setIgrejaId(igrejaId);
+
+        when(repository.findById(eventoId)).thenReturn(Optional.of(evento));
+        when(conteudoRepository.findByEventoId(eventoId)).thenReturn(Optional.of(conteudo));
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(true);
+        when(autorizacaoService.podeEditarTexto(igrejaId, pregadorPersistido)).thenReturn(false);
+        when(autorizacaoService.podeEditarLouvor(igrejaId)).thenReturn(false);
+        when(pessoaRepository.findById(novoPregadorId)).thenReturn(Optional.of(novo));
+        lenient().when(escalaRepository.findByIgrejaIdAndCompetenciaAndTipo(any(), any(), any())).thenReturn(List.of());
+        Igreja igreja = new Igreja();
+        igreja.setId(igrejaId);
+        lenient().when(igrejaContextoService.buscarIgreja(igrejaId)).thenReturn(igreja);
+        when(conteudoRepository.save(any(CronogramaConteudo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CronogramaConteudoResponse response = cronogramaService.salvarConteudo(
+                eventoId, new CronogramaConteudoUpdateRequest(null, null, novoPregadorId));
+
+        assertThat(conteudo.getPregadorPessoaId()).isEqualTo(novoPregadorId);
+        assertThat(response.textoPregacao()).isEqualTo("texto original");
+    }
+
+    @Test
+    void secretariaNaoAlteraTexto() {
+        UUID eventoId = UUID.randomUUID();
+        UUID igrejaId = UUID.randomUUID();
+        UUID pregadorPersistido = UUID.randomUUID();
+        CronogramaEvento evento = new CronogramaEvento();
+        evento.setId(eventoId);
+        evento.setIgrejaId(igrejaId);
+        evento.setDataEvento(LocalDate.of(2026, 8, 9));
+        CronogramaConteudo conteudo = new CronogramaConteudo();
+        conteudo.setEventoId(eventoId);
+        conteudo.setPregadorPessoaId(pregadorPersistido);
+        conteudo.setTextoPregacao("texto original");
+        conteudo.setLouvor("louvor original");
+
+        when(repository.findById(eventoId)).thenReturn(Optional.of(evento));
+        when(conteudoRepository.findByEventoId(eventoId)).thenReturn(Optional.of(conteudo));
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(true);
+        when(autorizacaoService.podeEditarTexto(igrejaId, pregadorPersistido)).thenReturn(false);
+        when(autorizacaoService.podeEditarLouvor(igrejaId)).thenReturn(false);
+        lenient().when(escalaRepository.findByIgrejaIdAndCompetenciaAndTipo(any(), any(), any())).thenReturn(List.of());
+        Igreja igreja = new Igreja();
+        igreja.setId(igrejaId);
+        lenient().when(igrejaContextoService.buscarIgreja(igrejaId)).thenReturn(igreja);
+        when(conteudoRepository.save(any(CronogramaConteudo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        cronogramaService.salvarConteudo(
+                eventoId, new CronogramaConteudoUpdateRequest("texto da secretaria", "louvor da secretaria", null));
+
+        assertThat(conteudo.getTextoPregacao()).isEqualTo("texto original");
+        assertThat(conteudo.getLouvor()).isEqualTo("louvor original");
+    }
+
+    @Test
     void spoofDePregadorNaoLiberaTexto() {
         UUID eventoId = UUID.randomUUID();
         UUID igrejaId = UUID.randomUUID();
@@ -479,7 +549,7 @@ class CronogramaServiceTest {
         CronogramaEventoResponse response = cronogramaService.atualizar(evento.getId(), atualizacao(
                 LocalDate.of(2026, 9, 20), StatusEvento.ABERTO, true, null));
 
-        verify(autorizacaoService).assertPastorOuAdmin(igrejaId);
+        verify(autorizacaoService).assertGestao(igrejaId);
         assertThat(response.competencia()).isEqualTo("2026-09");
         assertThat(response.status()).isEqualTo(StatusEvento.ABERTO);
         assertThat(response.titulo()).isEqualTo("Culto de domingo atualizado");
@@ -709,7 +779,7 @@ class CronogramaServiceTest {
     void naoDeveCriarEventoParaIgrejaForaDoAcessoDoUsuario() {
         UUID igrejaId = UUID.randomUUID();
         doThrow(new BusinessException("Sem permissão para criar evento nesta igreja"))
-                .when(autorizacaoService).assertPastorOuAdmin(igrejaId);
+                .when(autorizacaoService).assertGestao(igrejaId);
 
         assertThatThrownBy(() -> cronogramaService.criar(new CronogramaEventoCreateRequest(
                 "Evento", null, TipoEvento.EVENTO, null,
@@ -728,7 +798,7 @@ class CronogramaServiceTest {
 
         cronogramaService.excluir(evento.getId());
 
-        verify(autorizacaoService).assertPastorOuAdmin(igrejaId);
+        verify(autorizacaoService).assertGestao(igrejaId);
         verify(repository).delete(evento);
     }
 
@@ -784,7 +854,7 @@ class CronogramaServiceTest {
     }
 
     @Test
-    void naoDeveAlterarPregadorPorQuemNaoEPastorOuAdmin() {
+    void naoDeveAlterarPregadorPorQuemNaoEGestao() {
         UUID eventoId = UUID.randomUUID();
         UUID igrejaId = UUID.randomUUID();
         UUID pastorId = UUID.randomUUID();
@@ -796,13 +866,13 @@ class CronogramaServiceTest {
         when(conteudoRepository.findByEventoId(eventoId)).thenReturn(Optional.empty());
         when(escalaRepository.findByIgrejaIdAndCompetenciaAndTipo(any(), any(), any())).thenReturn(List.of());
         when(igrejaContextoService.buscarIgreja(igrejaId)).thenReturn(igreja(igrejaId, pastorId));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
         when(autorizacaoService.podeEditarTexto(igrejaId, pastorId)).thenReturn(true);
 
         assertThatThrownBy(() -> cronogramaService.salvarConteudo(
                 eventoId, new CronogramaConteudoUpdateRequest(null, null, novoPregadorId)))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("Somente pastor ou admin pode alterar o pregador");
+                .hasMessageContaining("Somente pastor ou secretaria pode alterar o pregador");
         verify(conteudoRepository, never()).save(any());
     }
 
@@ -821,7 +891,7 @@ class CronogramaServiceTest {
         when(conteudoRepository.findByEventoId(eventoId)).thenReturn(Optional.empty());
         when(escalaRepository.findByIgrejaIdAndCompetenciaAndTipo(any(), any(), any())).thenReturn(List.of());
         when(igrejaContextoService.buscarIgreja(igrejaId)).thenReturn(igreja(igrejaId, pastorId));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(true);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(true);
         when(autorizacaoService.podeEditarTexto(igrejaId, pastorId)).thenReturn(true);
         when(pessoaRepository.findById(novoPregadorId)).thenReturn(Optional.of(alheia));
         doThrow(new BusinessException("A pessoa não pertence a esta igreja"))
@@ -847,7 +917,7 @@ class CronogramaServiceTest {
         when(conteudoRepository.findByEventoId(eventoId)).thenReturn(Optional.empty());
         when(escalaRepository.findByIgrejaIdAndCompetenciaAndTipo(any(), any(), any())).thenReturn(List.of());
         when(igrejaContextoService.buscarIgreja(igrejaId)).thenReturn(igreja(igrejaId, pastorId));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(true);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(true);
         when(autorizacaoService.podeEditarTexto(igrejaId, pastorId)).thenReturn(true);
         when(autorizacaoService.podeEditarLouvor(igrejaId)).thenReturn(true);
         when(pessoaRepository.findById(novoPregadorId)).thenReturn(Optional.of(pregador));
@@ -1037,5 +1107,29 @@ class CronogramaServiceTest {
     private void voluntariosAtivos(UUID servicoId, List<PessoaServico> vinculos) {
         vinculos.forEach(v -> v.setServicoId(servicoId));
         voluntariosPorServico.put(servicoId, vinculos);
+    }
+
+    @Test
+    void pregadorSalvaConteudoReenviandoOProprioPregadorSemSerGestao() {
+        UUID eventoId = UUID.randomUUID();
+        UUID igrejaId = UUID.randomUUID();
+        UUID pregadorId = UUID.randomUUID();
+        CronogramaEvento evento = evento(igrejaId, LocalDate.of(2026, 8, 16));
+        evento.setId(eventoId);
+        CronogramaConteudo conteudo = new CronogramaConteudo();
+        conteudo.setEventoId(eventoId);
+        conteudo.setPregadorPessoaId(pregadorId);
+
+        when(repository.findById(eventoId)).thenReturn(Optional.of(evento));
+        when(conteudoRepository.findByEventoId(eventoId)).thenReturn(Optional.of(conteudo));
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
+        when(autorizacaoService.podeEditarTexto(igrejaId, pregadorId)).thenReturn(true);
+        when(conteudoRepository.save(any(CronogramaConteudo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CronogramaConteudoResponse response = cronogramaService.salvarConteudo(
+                eventoId, new CronogramaConteudoUpdateRequest("João 15", null, pregadorId));
+
+        assertThat(response.textoPregacao()).isEqualTo("João 15");
+        assertThat(response.pregadorPessoaId()).isEqualTo(pregadorId);
     }
 }

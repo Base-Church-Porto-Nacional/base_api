@@ -1,12 +1,16 @@
 package com.example.base_api.usuario.service;
 
+import com.example.base_api.common.exception.BusinessException;
 import com.example.base_api.security.AutorizacaoService;
+import com.example.base_api.security.Papeis;
 import com.example.base_api.usuario.dto.PapelRequest;
 import com.example.base_api.usuario.dto.PapelResponse;
 import com.example.base_api.usuario.entity.Papel;
 import com.example.base_api.usuario.repository.PapelRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -32,12 +36,26 @@ class PapelServiceTest {
     @InjectMocks
     private PapelService papelService;
 
+    static java.util.stream.Stream<String> nomesReservados() {
+        return Papeis.RESERVADOS.stream();
+    }
+
+    @ParameterizedTest
+    @MethodSource("nomesReservados")
+    void recusaNomesReservados(String nome) {
+        when(autorizacaoService.igrejaAtualId()).thenReturn(UUID.randomUUID());
+
+        assertThatThrownBy(() -> papelService.criar(new PapelRequest(nome, "x", null, null)))
+                .isInstanceOf(BusinessException.class);
+        verify(papelRepository, never()).save(org.mockito.ArgumentMatchers.any(Papel.class));
+    }
+
     @Test
     void naoExcluiPapelSistema() {
         UUID id = UUID.randomUUID();
         Papel admin = new Papel();
         admin.setId(id);
-        admin.setNome("ADMIN");
+        admin.setNome("SECRETARIA");
         // igrejaId nulo => papel de sistema (global)
 
         when(papelRepository.findById(id)).thenReturn(Optional.of(admin));
@@ -98,7 +116,7 @@ class PapelServiceTest {
         PapelResponse response = papelService.criar(new PapelRequest("CONTADOR", null, true, filialId));
 
         assertThat(response.igrejaId()).isEqualTo(filialId);
-        verify(autorizacaoService).assertPastorOuAdmin(filialId);
+        verify(autorizacaoService).assertGestao(filialId);
         verify(autorizacaoService, never()).igrejaAtualId();
     }
 

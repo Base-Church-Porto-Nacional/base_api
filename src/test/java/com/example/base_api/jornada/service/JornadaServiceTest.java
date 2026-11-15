@@ -56,7 +56,7 @@ class JornadaServiceTest {
 
         when(pessoaRepository.findById(pessoaId)).thenReturn(Optional.of(pessoa));
         doThrow(new AccessDeniedException("Sem permissão"))
-                .when(autorizacaoService).assertPodeMutarPessoas(igrejaId);
+                .when(autorizacaoService).assertPodeEditarDadosPastorais(igrejaId);
 
         JornadaUpdateRequest request = new JornadaUpdateRequest(
                 true, null, true, null, true, null, true, null

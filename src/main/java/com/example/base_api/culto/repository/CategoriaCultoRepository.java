@@ -18,4 +18,6 @@ public interface CategoriaCultoRepository extends JpaRepository<CategoriaCulto, 
     boolean existsByIgrejaIdAndTituloIgnoreCase(UUID igrejaId, String titulo);
 
     boolean existsByIgrejaIdAndTituloIgnoreCaseAndIdNot(UUID igrejaId, String titulo, UUID id);
+
+    List<CategoriaCulto> findByIgrejaIdAndPregadorPadraoId(UUID igrejaId, UUID pregadorPadraoId);
 }

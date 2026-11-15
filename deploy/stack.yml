@@ -37,6 +37,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       FORWARD_HEADERS_STRATEGY: NATIVE
       CORS_ALLOWED_ORIGIN_PATTERNS: ${CORS_ALLOWED_ORIGIN_PATTERNS:-https://base.veigagustavo.com.br}
+      FRONTEND_URL_BASE: ${FRONTEND_URL_BASE:-https://base.veigagustavo.com.br}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_SENHA: ${ADMIN_SENHA:-}
@@ -74,7 +75,6 @@ services:
           memory: 768M
       labels:
         traefik.enable: "true"
-        traefik.docker.network: ${TRAEFIK_NETWORK:-traefik-public}
         traefik.swarm.network: ${TRAEFIK_NETWORK:-traefik-public}
         traefik.http.routers.base-api.rule: Host(`${API_HOST:-api.veigagustavo.com.br}`)
         traefik.http.routers.base-api.entrypoints: ${TRAEFIK_ENTRYPOINT:-websecure}

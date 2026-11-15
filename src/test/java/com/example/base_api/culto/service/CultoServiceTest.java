@@ -312,7 +312,7 @@ class CultoServiceTest {
 
         when(categoriaRepository.findById(categoria.getId())).thenReturn(Optional.of(categoria));
         doThrow(new BusinessException("Sem permissão para criar cultos nesta igreja"))
-                .when(autorizacaoService).assertPastorOuAdmin(igrejaId);
+                .when(autorizacaoService).assertGestao(igrejaId);
 
         assertThatThrownBy(() -> cultoService.criar(new CultoCreateRequest(
                 categoria.getId(), igrejaId, null, null,
@@ -578,7 +578,7 @@ class CultoServiceTest {
     }
 
     @Test
-    void naoDeveAlterarPregadorPorQuemNaoEPastorOuAdmin() {
+    void naoDeveAlterarPregadorPorQuemNaoEGestao() {
         UUID igrejaId = UUID.randomUUID();
         UUID pregadorId = UUID.randomUUID();
         UUID novoPregadorId = UUID.randomUUID();
@@ -586,13 +586,13 @@ class CultoServiceTest {
         culto.setPregadorId(pregadorId);
 
         when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
         when(autorizacaoService.podeEditarTexto(igrejaId, pregadorId)).thenReturn(true);
 
         assertThatThrownBy(() -> cultoService.salvarConteudo(culto.getId(),
                 new CultoConteudoUpdateRequest(null, null, null, novoPregadorId)))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("Somente pastor ou admin pode alterar o pregador");
+                .hasMessageContaining("Somente pastor ou secretaria pode alterar o pregador");
         verify(cultoRepository, never()).save(any(Culto.class));
     }
 
@@ -605,7 +605,7 @@ class CultoServiceTest {
         categoria.setPregadorPadraoId(pregadorPadraoId);
 
         when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(true);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(true);
         when(autorizacaoService.podeEditarTexto(igrejaId, pregadorPadraoId)).thenReturn(true);
         when(categoriaRepository.findById(culto.getCategoriaCultoId())).thenReturn(Optional.of(categoria));
         when(cultoRepository.save(any(Culto.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -626,13 +626,59 @@ class CultoServiceTest {
         culto.setPregadorId(pregadorId);
 
         when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
-        when(autorizacaoService.isPastorOuAdmin(igrejaId)).thenReturn(false);
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
         when(autorizacaoService.podeEditarTexto(igrejaId, pregadorId)).thenReturn(false);
         when(autorizacaoService.podeEditarLouvor(igrejaId)).thenReturn(false);
 
         assertThatThrownBy(() -> cultoService.salvarConteudo(culto.getId(),
                 new CultoConteudoUpdateRequest(null, null, "Tema forjado", null)))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void secretariaTrocaPregador() {
+        UUID igrejaId = UUID.randomUUID();
+        UUID pregadorId = UUID.randomUUID();
+        UUID novoPregadorId = UUID.randomUUID();
+        Culto culto = culto(igrejaId, StatusCulto.ABERTO);
+        culto.setPregadorId(pregadorId);
+
+        when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(true);
+        when(autorizacaoService.podeEditarTexto(igrejaId, pregadorId)).thenReturn(false);
+        when(autorizacaoService.podeEditarLouvor(igrejaId)).thenReturn(false);
+        Pessoa novo = pregador(novoPregadorId, "Pr. Novo");
+        novo.setIgrejaId(igrejaId);
+        when(pessoaRepository.findById(novoPregadorId)).thenReturn(Optional.of(novo));
+        when(cultoRepository.save(any(Culto.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CultoConteudoResponse response = cultoService.salvarConteudo(culto.getId(),
+                new CultoConteudoUpdateRequest(null, null, null, novoPregadorId));
+
+        assertThat(response.pregadorId()).isEqualTo(novoPregadorId);
+        assertThat(culto.getPregadorId()).isEqualTo(novoPregadorId);
+    }
+
+    @Test
+    void secretariaNaoAlteraTema() {
+        UUID igrejaId = UUID.randomUUID();
+        UUID pregadorId = UUID.randomUUID();
+        Culto culto = culto(igrejaId, StatusCulto.ABERTO);
+        culto.setPregadorId(pregadorId);
+        culto.setTema("Tema original");
+        culto.setTextoPregacao("Texto original");
+
+        when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(true);
+        when(autorizacaoService.podeEditarTexto(igrejaId, pregadorId)).thenReturn(false);
+        when(autorizacaoService.podeEditarLouvor(igrejaId)).thenReturn(false);
+        when(cultoRepository.save(any(Culto.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        cultoService.salvarConteudo(culto.getId(),
+                new CultoConteudoUpdateRequest("Texto da secretaria", null, "Tema da secretaria", null));
+
+        assertThat(culto.getTema()).isEqualTo("Tema original");
+        assertThat(culto.getTextoPregacao()).isEqualTo("Texto original");
     }
 
     private Pessoa pregador(UUID id, String nome) {
@@ -712,7 +758,7 @@ class CultoServiceTest {
         UUID igrejaId = UUID.randomUUID();
         Culto culto = culto(igrejaId, StatusCulto.ABERTO);
         when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
-        doThrow(new AccessDeniedException("Somente pastor, admin ou papel com permissão de contagem desta igreja"))
+        doThrow(new AccessDeniedException("Somente pastor, secretaria ou papel com permissão de contagem desta igreja"))
                 .when(autorizacaoService).assertPodeLancarContagem(igrejaId);
 
         assertThatThrownBy(() -> cultoService.salvarRelatorio(culto.getId(),
@@ -744,5 +790,24 @@ class CultoServiceTest {
         assertThat(cultos).extracting(CultoResponse::pregadorNome).containsExactly("Pr. Ana", "Pr. Beto", null);
         verify(pessoaRepository, times(1)).nomesPorId(any());
         verify(pessoaRepository, never()).findById(any());
+    }
+
+    @Test
+    void pregadorSalvaConteudoReenviandoOProprioPregadorSemSerGestao() {
+        UUID igrejaId = UUID.randomUUID();
+        UUID pregadorId = UUID.randomUUID();
+        Culto culto = culto(igrejaId, StatusCulto.ABERTO);
+        culto.setPregadorId(pregadorId);
+
+        when(cultoRepository.findById(culto.getId())).thenReturn(Optional.of(culto));
+        when(autorizacaoService.isGestao(igrejaId)).thenReturn(false);
+        when(autorizacaoService.podeEditarTexto(igrejaId, pregadorId)).thenReturn(true);
+        when(cultoRepository.save(any(Culto.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CultoConteudoResponse response = cultoService.salvarConteudo(culto.getId(),
+                new CultoConteudoUpdateRequest("João 15", null, null, pregadorId));
+
+        assertThat(response.textoPregacao()).isEqualTo("João 15");
+        assertThat(culto.getPregadorId()).isEqualTo(pregadorId);
     }
 }

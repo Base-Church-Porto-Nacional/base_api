@@ -47,11 +47,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
         try {
             JwtService.TokenValidado validado = jwtService.validar(token);
-            String username = validado.username();
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                Usuario usuario = usuarioRepository.findByUsername(username).orElse(null);
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                Usuario usuario = usuarioRepository.findById(validado.usuarioId()).orElse(null);
                 if (usuario == null
-                        || !Boolean.TRUE.equals(usuario.getAtivo())
+                        || !usuario.isAtivo()
                         || validado.tokenVersion() != versao(usuario)) {
                     escrever401(response, request.getRequestURI());
                     return;

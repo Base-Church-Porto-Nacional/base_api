@@ -32,4 +32,43 @@ class LoginRateLimiterTest {
         assertThatCode(() -> limiter.assertPermitido("admin", "10.0.0.1"))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    void formatosDiferentesDoMesmoTelefoneContamJuntos() {
+        LoginRateLimiter limiter = new LoginRateLimiter();
+        String ip = "127.0.0.1";
+        String[] formatos = {"(63) 99999-0000", "63999990000", "+55 63 99999-0000", "5563999990000", "063999990000"};
+
+        for (String formato : formatos) {
+            limiter.assertPermitido(formato, ip);
+            limiter.registrarFalha(formato, ip);
+        }
+
+        assertThatThrownBy(() -> limiter.assertPermitido("63 99999 0000", ip))
+                .isInstanceOf(TooManyRequestsException.class);
+    }
+
+    @Test
+    void emailEmMaiusculasContaComoOMesmo() {
+        LoginRateLimiter limiter = new LoginRateLimiter();
+        for (int i = 0; i < LoginRateLimiter.MAX_TENTATIVAS; i++) {
+            limiter.registrarFalha(i % 2 == 0 ? "Maria@Base.com" : " maria@base.com ", "10.0.0.2");
+        }
+
+        assertThatThrownBy(() -> limiter.assertPermitido("MARIA@BASE.COM", "10.0.0.2"))
+                .isInstanceOf(TooManyRequestsException.class);
+    }
+
+    @Test
+    void escoposTemContadoresIndependentes() {
+        LoginRateLimiter limiter = new LoginRateLimiter();
+        for (int i = 0; i < LoginRateLimiter.MAX_TENTATIVAS; i++) {
+            limiter.registrarFalha("esqueci", "63999990000", "1.1.1.1");
+        }
+
+        assertThatThrownBy(() -> limiter.assertPermitido("esqueci", "63999990000", "1.1.1.1"))
+                .isInstanceOf(TooManyRequestsException.class);
+        assertThatCode(() -> limiter.assertPermitido("63999990000", "1.1.1.1")).doesNotThrowAnyException();
+        assertThatCode(() -> limiter.assertPermitido("token", "63999990000", "1.1.1.1")).doesNotThrowAnyException();
+    }
 }

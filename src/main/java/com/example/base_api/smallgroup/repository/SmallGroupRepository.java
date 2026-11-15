@@ -15,4 +15,11 @@ public interface SmallGroupRepository extends JpaRepository<SmallGroup, UUID> {
 
     List<SmallGroup> findByIgrejaIdInOrderByNomeAsc(List<UUID> igrejaIds);
 
+    List<SmallGroup> findByIgrejaIdAndLiderPessoaId(UUID igrejaId, UUID liderPessoaId);
+
+    /** Escopo de liderança: só grupos ativos. */
+    List<SmallGroup> findByIgrejaIdAndLiderPessoaIdAndAtivoTrue(UUID igrejaId, UUID liderPessoaId);
+
+    @org.springframework.data.jpa.repository.Query("select distinct g.liderPessoaId from SmallGroup g where g.igrejaId in :igrejaIds and g.ativo = true and g.liderPessoaId is not null")
+    List<UUID> idsLideresDeAtivos(@org.springframework.data.repository.query.Param("igrejaIds") java.util.Collection<UUID> igrejaIds);
 }

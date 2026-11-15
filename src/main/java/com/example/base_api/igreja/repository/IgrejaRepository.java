@@ -11,4 +11,6 @@ public interface IgrejaRepository extends JpaRepository<Igreja, UUID> {
     List<Igreja> findByIgrejaMatrizIdOrderByNomeAsc(UUID igrejaMatrizId);
 
     List<Igreja> findByAtivoTrueOrderByNomeAsc();
+
+    boolean existsByPastorPessoaId(UUID pastorPessoaId);
 }

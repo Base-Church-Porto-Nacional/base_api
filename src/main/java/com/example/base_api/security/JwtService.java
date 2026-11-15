@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -24,8 +23,7 @@ public class JwtService {
     }
 
     public String gerarToken(
-            String username,
-            Set<String> papeis,
+            UUID usuarioId,
             UUID pessoaId,
             UUID igrejaId,
             String igrejaTipo,
@@ -35,8 +33,7 @@ public class JwtService {
         Date expiracao = new Date(agora.getTime() + jwtProperties.expirationMs());
 
         var builder = Jwts.builder()
-                .subject(username)
-                .claim("papeis", papeis)
+                .subject(usuarioId.toString())
                 .claim("tv", tokenVersion)
                 .issuedAt(agora)
                 .expiration(expiracao);
@@ -54,7 +51,7 @@ public class JwtService {
         return builder.signWith(secretKey).compact();
     }
 
-    public record TokenValidado(String username, int tokenVersion) {
+    public record TokenValidado(UUID usuarioId, int tokenVersion) {
     }
 
     /**
@@ -68,6 +65,11 @@ public class JwtService {
                 .parseSignedClaims(token)
                 .getPayload();
         int versao = claims.get("tv") instanceof Number number ? number.intValue() : 0;
-        return new TokenValidado(claims.getSubject(), versao);
+        String sub = claims.getSubject();
+        if (sub == null) {
+            throw new io.jsonwebtoken.MalformedJwtException("Token sem sub");
+        }
+        // Token emitido antes da Fase 2 (sub não é UUID): IllegalArgumentException vira 401 no filtro.
+        return new TokenValidado(UUID.fromString(sub), versao);
     }
 }

@@ -18,6 +18,8 @@ public interface EscalaVoluntarioRepository extends JpaRepository<EscalaVoluntar
 
     List<EscalaVoluntario> findByEscalaIdIn(List<UUID> escalaIds);
 
+    List<EscalaVoluntario> findByEscalaIdInAndPessoaId(Collection<UUID> escalaIds, UUID pessoaId);
+
     @Query("""
             select new com.example.base_api.escala.repository.TotalPorEscala(ev.escalaId, count(ev))
             from EscalaVoluntario ev
@@ -57,5 +59,26 @@ public interface EscalaVoluntarioRepository extends JpaRepository<EscalaVoluntar
             UUID escalaId,
             UUID servicoId,
             List<StatusEscalaVoluntario> status
+    );
+
+    /**
+     * Designações da pessoa ainda por acontecer nas escalas da igreja: data do item >= hoje; sem data mas
+     * ligada a um evento, data do evento >= hoje; sem nenhum dos dois, escala de competência >= mês atual.
+     */
+    @Query("""
+            SELECT ev FROM EscalaVoluntario ev
+            JOIN Escala e ON e.id = ev.escalaId
+            LEFT JOIN CronogramaEvento ce ON ce.id = ev.eventoId
+            WHERE e.igrejaId = :igrejaId
+              AND ev.pessoaId = :pessoaId
+              AND ((ev.dataItem IS NOT NULL AND ev.dataItem >= :hoje)
+                   OR (ev.dataItem IS NULL AND ce.id IS NOT NULL AND ce.dataEvento >= :hoje)
+                   OR (ev.dataItem IS NULL AND ce.id IS NULL AND e.competencia >= :competencia))
+            """)
+    List<EscalaVoluntario> findFuturasDaPessoaNaIgreja(
+            @Param("pessoaId") UUID pessoaId,
+            @Param("igrejaId") UUID igrejaId,
+            @Param("hoje") LocalDate hoje,
+            @Param("competencia") String competencia
     );
 }

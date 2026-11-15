@@ -55,7 +55,7 @@ public class MensagemAniversarioService {
     @Transactional
     public MensagemAniversarioResponse salvar(MensagemAniversarioRequest request) {
         UUID alvo = request.igrejaId() != null ? request.igrejaId() : autorizacaoService.igrejaAtualId();
-        autorizacaoService.assertPastorOuAdmin(alvo);
+        autorizacaoService.assertGestao(alvo);
         MensagemAniversario mensagem = repository.findByIgrejaId(alvo).orElseGet(() -> {
             MensagemAniversario nova = new MensagemAniversario();
             nova.setIgrejaId(alvo);

@@ -83,7 +83,7 @@ class PessoaHistoricoServiceTest {
         pessoa.setIgrejaId(igrejaId);
         when(pessoaRepository.findById(pessoaId)).thenReturn(Optional.of(pessoa));
         doThrow(new AccessDeniedException("Sem permissão"))
-                .when(autorizacaoService).assertPodeMutarPessoas(igrejaId);
+                .when(autorizacaoService).assertPodeEditarDadosPastorais(igrejaId);
 
         assertThatThrownBy(() -> pessoaHistoricoService.criar(
                 pessoaId,

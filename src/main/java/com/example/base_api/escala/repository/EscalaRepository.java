@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -59,5 +60,23 @@ public interface EscalaRepository extends JpaRepository<Escala, UUID> {
     List<Escala> findByIgrejaIdInAndPessoaDesignada(
             @Param("igrejaIds") List<UUID> igrejaIds,
             @Param("pessoaId") UUID pessoaId
+    );
+
+    /**
+     * Escalas da igreja ainda por acontecer em que a pessoa é supervisora ou pregadora: escala de evento
+     * com data >= hoje; escala mensal (sem evento) com competência >= mês atual.
+     */
+    @Query("""
+            SELECT e FROM Escala e
+            WHERE e.igrejaId = :igrejaId
+              AND (e.supervisorPessoaId = :pessoaId OR e.pregadorPessoaId = :pessoaId)
+              AND ((e.eventoId IS NOT NULL AND e.dataEvento >= :hoje)
+                   OR (e.eventoId IS NULL AND e.competencia >= :competencia))
+            """)
+    List<Escala> findFuturasComSupervisorOuPregador(
+            @Param("igrejaId") UUID igrejaId,
+            @Param("pessoaId") UUID pessoaId,
+            @Param("hoje") LocalDate hoje,
+            @Param("competencia") String competencia
     );
 }

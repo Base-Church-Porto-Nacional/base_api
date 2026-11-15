@@ -14,7 +14,7 @@ public record MeUpdateRequest(
         @Size(max = 150, message = "Nome social deve ter no máximo 150 caracteres")
         String nomeSocial,
 
-        @NotBlank(message = "E-mail é obrigatório")
+        /** Opcional se a conta entra pelo telefone; ao menos um entre e-mail e telefone deve restar. */
         @Email(message = "E-mail inválido")
         String email,
 
@@ -25,10 +25,10 @@ public record MeUpdateRequest(
 
         String observacoes,
 
-        @Size(min = 6, max = 100, message = "Senha deve ter entre 6 e 100 caracteres")
+        @Size(min = 8, max = 100, message = "Senha deve ter entre 8 e 100 caracteres")
         String novaSenha,
 
-        /** Obrigatória quando novaSenha é informada. */
+        /** Obrigatória quando novaSenha é informada ou quando o e-mail/telefone de login muda. */
         String senhaAtual
 ) {
 }

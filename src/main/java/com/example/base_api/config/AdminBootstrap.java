@@ -3,10 +3,12 @@ package com.example.base_api.config;
 import com.example.base_api.igreja.entity.Igreja;
 import com.example.base_api.igreja.entity.IgrejaTipo;
 import com.example.base_api.igreja.repository.IgrejaRepository;
+import com.example.base_api.security.Papeis;
 import com.example.base_api.jornada.service.JornadaService;
 import com.example.base_api.pessoa.entity.Pessoa;
 import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.usuario.entity.Papel;
+import com.example.base_api.usuario.entity.StatusUsuario;
 import com.example.base_api.usuario.entity.Usuario;
 import com.example.base_api.usuario.entity.UsuarioPapel;
 import com.example.base_api.usuario.repository.PapelRepository;
@@ -27,7 +29,8 @@ import java.util.List;
 
 /**
  * Cria o primeiro usuário administrador da matriz em um banco sem usuários (fora do perfil dev).
- * Ativado pelas variáveis ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_SENHA (e opcionalmente ADMIN_NOME).
+ * Ativado pelas variáveis ADMIN_EMAIL / ADMIN_SENHA (e opcionalmente ADMIN_NOME); o login é pelo e-mail.
+ * ADMIN_USERNAME, de versões antigas, é ignorado.
  * Só age quando a tabela de usuários está vazia; depois disso as variáveis podem ser removidas.
  */
 @Component
@@ -37,7 +40,7 @@ public class AdminBootstrap implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(AdminBootstrap.class);
 
     static final int SENHA_MIN = 8;
-    static final List<String> PAPEIS_ADMIN = List.of("ADMIN", "PASTOR");
+    static final List<String> PAPEIS_ADMIN = List.of(Papeis.PASTOR, Papeis.SECRETARIA);
 
     private final Environment environment;
     private final IgrejaRepository igrejaRepository;
@@ -71,11 +74,13 @@ public class AdminBootstrap implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        String username = valor("app.bootstrap.admin.username");
         String email = valor("app.bootstrap.admin.email");
         String senha = valor("app.bootstrap.admin.senha");
         String nome = valor("app.bootstrap.admin.nome");
-        boolean configurado = username != null || email != null || senha != null;
+        boolean configurado = email != null || senha != null;
+        if (valor("ADMIN_USERNAME") != null) {
+            log.info("ADMIN_USERNAME foi ignorado: o login do administrador é pelo ADMIN_EMAIL.");
+        }
 
         if (usuarioRepository.count() > 0) {
             if (configurado) {
@@ -85,13 +90,16 @@ public class AdminBootstrap implements ApplicationRunner {
         }
 
         if (!configurado) {
-            log.warn("Nenhum usuário cadastrado. Defina ADMIN_USERNAME, ADMIN_EMAIL e ADMIN_SENHA "
+            log.warn("Nenhum usuário cadastrado. Defina ADMIN_EMAIL e ADMIN_SENHA "
                     + "para criar o primeiro administrador na próxima inicialização.");
             return;
         }
 
-        if (username == null || email == null || senha == null) {
-            throw new IllegalStateException("Bootstrap de admin: ADMIN_USERNAME, ADMIN_EMAIL e ADMIN_SENHA são obrigatórios");
+        if (email == null || senha == null) {
+            throw new IllegalStateException("Bootstrap de admin: ADMIN_EMAIL e ADMIN_SENHA são obrigatórios");
+        }
+        if (!email.contains("@")) {
+            throw new IllegalStateException("Bootstrap de admin: ADMIN_EMAIL inválido");
         }
         if (senha.length() < SENHA_MIN) {
             throw new IllegalStateException("Bootstrap de admin: ADMIN_SENHA deve ter pelo menos " + SENHA_MIN + " caracteres");
@@ -106,7 +114,7 @@ public class AdminBootstrap implements ApplicationRunner {
 
         Pessoa pessoa = pessoaRepository.findByEmailIgnoreCase(emailNormalizado).orElseGet(() -> {
             Pessoa p = new Pessoa();
-            p.setNome(nome != null ? nome : username);
+            p.setNome(nome != null ? nome : emailNormalizado.substring(0, emailNormalizado.indexOf('@')));
             p.setEmail(emailNormalizado);
             p.setIgrejaId(matriz.getId());
             p.setDataCadastro(LocalDate.now());
@@ -117,13 +125,17 @@ public class AdminBootstrap implements ApplicationRunner {
         });
 
         Usuario usuario = new Usuario();
-        usuario.setUsername(username);
         usuario.setEmail(emailNormalizado);
         usuario.setSenhaHash(passwordEncoder.encode(senha));
         usuario.setPessoaId(pessoa.getId());
         usuario.setIgrejaId(matriz.getId());
-        usuario.setAtivo(true);
+        usuario.setStatus(StatusUsuario.ATIVO);
         Usuario salvo = usuarioRepository.save(usuario);
+
+        if (matriz.getPastorPessoaId() == null) {
+            matriz.setPastorPessoaId(pessoa.getId());
+            igrejaRepository.save(matriz);
+        }
 
         for (String nomePapel : PAPEIS_ADMIN) {
             Papel papel = papelRepository.findByNomeAndIgrejaIdIsNull(nomePapel)
@@ -137,7 +149,7 @@ public class AdminBootstrap implements ApplicationRunner {
         }
 
         log.info("Administrador inicial '{}' criado na igreja '{}'. Remova ADMIN_SENHA do ambiente.",
-                username, matriz.getNome());
+                emailNormalizado, matriz.getNome());
     }
 
     private String valor(String chave) {

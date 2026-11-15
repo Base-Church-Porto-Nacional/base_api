@@ -1,0 +1,153 @@
+package com.example.base_api.igreja.service;
+
+import com.example.base_api.audit.service.AuditService;
+import com.example.base_api.baseministerial.repository.BaseMinisterialRepository;
+import com.example.base_api.common.exception.ConflictException;
+import com.example.base_api.igreja.repository.IgrejaRepository;
+import com.example.base_api.ministerio.repository.MinisterioRepository;
+import com.example.base_api.pessoa.entity.Pessoa;
+import com.example.base_api.pessoa.repository.PessoaRepository;
+import com.example.base_api.security.AutorizacaoService;
+import com.example.base_api.security.Papeis;
+import com.example.base_api.smallgroup.repository.SmallGroupRepository;
+import com.example.base_api.usuario.entity.Usuario;
+import com.example.base_api.usuario.repository.UsuarioRepository;
+import com.example.base_api.usuario.service.UsuarioService;
+import com.example.base_api.voluntario.entity.PessoaServico;
+import com.example.base_api.voluntario.repository.PessoaServicoRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+/**
+ * Move uma pessoa (e sua conta, se houver) para outra igreja da rede. Cada pessoa pertence a uma igreja só:
+ * a transferência remove os papéis da igreja antiga, invalida os tokens, desativa os vínculos de serviço e
+ * ajusta as participações futuras na igreja antiga ({@link ParticipacoesFuturasService}).
+ */
+@Service
+public class TransferenciaPessoaService {
+
+    static final String MSG_PASTOR_TITULAR = "Esta pessoa é o pastor titular da igreja atual.";
+    static final String MSG_LIDERANCA =
+            "Esta pessoa lidera ministérios ou grupos na igreja atual. Troque a liderança antes de transferir.";
+
+    private final AutorizacaoService autorizacaoService;
+    private final IgrejaRepository igrejaRepository;
+    private final PessoaRepository pessoaRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final UsuarioService usuarioService;
+    private final MinisterioRepository ministerioRepository;
+    private final BaseMinisterialRepository baseMinisterialRepository;
+    private final SmallGroupRepository smallGroupRepository;
+    private final PessoaServicoRepository pessoaServicoRepository;
+    private final ParticipacoesFuturasService participacoesFuturasService;
+    private final AuditService auditService;
+
+    public TransferenciaPessoaService(
+            AutorizacaoService autorizacaoService,
+            IgrejaRepository igrejaRepository,
+            PessoaRepository pessoaRepository,
+            UsuarioRepository usuarioRepository,
+            UsuarioService usuarioService,
+            MinisterioRepository ministerioRepository,
+            BaseMinisterialRepository baseMinisterialRepository,
+            SmallGroupRepository smallGroupRepository,
+            PessoaServicoRepository pessoaServicoRepository,
+            ParticipacoesFuturasService participacoesFuturasService,
+            AuditService auditService
+    ) {
+        this.autorizacaoService = autorizacaoService;
+        this.igrejaRepository = igrejaRepository;
+        this.pessoaRepository = pessoaRepository;
+        this.usuarioRepository = usuarioRepository;
+        this.usuarioService = usuarioService;
+        this.ministerioRepository = ministerioRepository;
+        this.baseMinisterialRepository = baseMinisterialRepository;
+        this.smallGroupRepository = smallGroupRepository;
+        this.pessoaServicoRepository = pessoaServicoRepository;
+        this.participacoesFuturasService = participacoesFuturasService;
+        this.auditService = auditService;
+    }
+
+    /** Regras da transferência, sem alterar nada: permite validar antes de criar o destino. */
+    @Transactional(readOnly = true)
+    public void validar(Pessoa pessoa) {
+        UUID origemId = pessoa.getIgrejaId();
+        autorizacaoService.assertAcesso(origemId);
+
+        if (igrejaRepository.existsByPastorPessoaId(pessoa.getId())) {
+            throw new ConflictException(MSG_PASTOR_TITULAR);
+        }
+        if (!ministerioRepository.findLideradosOuCoordenados(origemId, pessoa.getId()).isEmpty()
+                || !baseMinisterialRepository.findLideradasOuCoordenadas(origemId, pessoa.getId()).isEmpty()
+                || !smallGroupRepository.findByIgrejaIdAndLiderPessoaId(origemId, pessoa.getId()).isEmpty()) {
+            throw new ConflictException(MSG_LIDERANCA);
+        }
+
+        usuarioRepository.findByPessoaId(pessoa.getId())
+                .filter(usuario -> usuario.nomesPapeisSistema(origemId).contains(Papeis.PASTOR))
+                // Nunca deixa a igreja de origem sem pastor ativo.
+                .ifPresent(usuarioService::assertRestaPastorAtivoSemEle);
+    }
+
+    /** Transfere e audita. Para fluxos maiores que ainda podem falhar, use {@link #mover} e audite ao final. */
+    @Transactional
+    public void transferir(Pessoa pessoa, UUID igrejaDestinoId) {
+        Movimentacao movimentacao = mover(pessoa, igrejaDestinoId);
+        if (movimentacao != null) {
+            // Audita depois do flush: o registro é REQUIRES_NEW e não deve sobrar se a transferência falhar.
+            pessoaRepository.flush();
+            auditar(pessoa.getId(), movimentacao, igrejaDestinoId);
+        }
+    }
+
+    /** Resultado de {@link #mover}: igreja de origem e quantas participações futuras foram ajustadas nela. */
+    public record Movimentacao(UUID origemId, int participacoesAjustadas) {
+    }
+
+    /**
+     * Valida e move, sem auditar. Retorna a origem e o total de participações futuras ajustadas, ou
+     * {@code null} se a pessoa já estava no destino. Quem chama registra {@link #auditar} depois de tudo
+     * concluído (a auditoria sobrevive a rollback).
+     */
+    @Transactional
+    public Movimentacao mover(Pessoa pessoa, UUID igrejaDestinoId) {
+        UUID origemId = pessoa.getIgrejaId();
+        if (igrejaDestinoId.equals(origemId)) {
+            return null;
+        }
+        validar(pessoa);
+
+        pessoa.setIgrejaId(igrejaDestinoId);
+        pessoaRepository.save(pessoa);
+
+        Usuario usuario = usuarioRepository.findByPessoaId(pessoa.getId()).orElse(null);
+        if (usuario != null) {
+            usuarioService.substituirPapeis(usuario, origemId, Set.of());
+            usuario.setIgrejaId(igrejaDestinoId);
+            usuario.invalidarTokens();
+            usuarioRepository.save(usuario);
+        }
+
+        List<PessoaServico> vinculos = pessoaServicoRepository.findAtivosDaPessoaNaIgreja(pessoa.getId(), origemId);
+        if (!vinculos.isEmpty()) {
+            vinculos.forEach(vinculo -> vinculo.setAtivo(false));
+            pessoaServicoRepository.saveAll(vinculos);
+        }
+
+        int participacoesAjustadas = participacoesFuturasService.ajustarNaSaida(pessoa.getId(), origemId);
+        return new Movimentacao(origemId, participacoesAjustadas);
+    }
+
+    public void auditar(UUID pessoaId, Movimentacao movimentacao, UUID destinoId) {
+        auditService.registrar(
+                "TRANSFERIR_PESSOA",
+                "pessoa",
+                "pessoaId=" + pessoaId + " origem=" + movimentacao.origemId() + " destino=" + destinoId
+                        + " participacoesAjustadas=" + movimentacao.participacoesAjustadas()
+        );
+    }
+}

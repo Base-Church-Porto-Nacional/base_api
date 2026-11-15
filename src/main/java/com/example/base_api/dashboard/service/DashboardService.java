@@ -9,6 +9,7 @@ import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.servico.repository.ServicoRepository;
 import com.example.base_api.usuario.repository.UsuarioRepository;
+import com.example.base_api.usuario.service.LiderService;
 import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ public class DashboardService {
     private final CronogramaEventoRepository cronogramaEventoRepository;
     private final PessoaPausaRepository pessoaPausaRepository;
     private final AutorizacaoService autorizacaoService;
+    private final LiderService liderService;
 
     public DashboardService(
             PessoaRepository pessoaRepository,
@@ -38,7 +40,8 @@ public class DashboardService {
             UsuarioRepository usuarioRepository,
             CronogramaEventoRepository cronogramaEventoRepository,
             PessoaPausaRepository pessoaPausaRepository,
-            AutorizacaoService autorizacaoService
+            AutorizacaoService autorizacaoService,
+            LiderService liderService
     ) {
         this.pessoaRepository = pessoaRepository;
         this.ministerioRepository = ministerioRepository;
@@ -49,11 +52,12 @@ public class DashboardService {
         this.cronogramaEventoRepository = cronogramaEventoRepository;
         this.pessoaPausaRepository = pessoaPausaRepository;
         this.autorizacaoService = autorizacaoService;
+        this.liderService = liderService;
     }
 
     @Transactional(readOnly = true)
     public DashboardResponse obterResumo() {
-        autorizacaoService.assertPastorOuAdmin(autorizacaoService.igrejaAtualId());
+        autorizacaoService.assertGestao(autorizacaoService.igrejaAtualId());
         List<UUID> ids = autorizacaoService.idsParaListagem(null);
         if (ids.isEmpty()) {
             return new DashboardResponse(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -67,7 +71,7 @@ public class DashboardService {
                 pessoaServicoRepository.contarAtivosPorIgrejas(ids),
                 escalaRepository.countByIgrejaIdIn(ids),
                 usuarioRepository.countByIgrejaIdIn(ids),
-                usuarioRepository.countAtivosByPapelAndIgrejaIdIn("LIDER", ids),
+                liderService.pessoaIdsLideres(ids).size(),
                 cronogramaEventoRepository.countByIgrejaIdIn(ids),
                 pessoaPausaRepository.contarAtivasPorIgrejas(ids)
         );

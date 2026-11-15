@@ -142,6 +142,22 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.CONFLICT, "CONFLICT", ex.getMessage(), request.getRequestURI());
     }
 
+    @ExceptionHandler(EntidadeNaoProcessavelException.class)
+    public ResponseEntity<ErrorResponse> handleNaoProcessavel(
+            EntidadeNaoProcessavelException ex,
+            HttpServletRequest request
+    ) {
+        return build(HttpStatus.UNPROCESSABLE_ENTITY, "UNPROCESSABLE_ENTITY", ex.getMessage(), request.getRequestURI());
+    }
+
+    @ExceptionHandler(LinkExpiradoException.class)
+    public ResponseEntity<ErrorResponse> handleLinkExpirado(
+            LinkExpiradoException ex,
+            HttpServletRequest request
+    ) {
+        return build(HttpStatus.GONE, "LINK_EXPIRADO", ex.getMessage(), request.getRequestURI());
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrity(
             DataIntegrityViolationException ex,

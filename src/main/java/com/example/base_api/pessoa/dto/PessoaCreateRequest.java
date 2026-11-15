@@ -29,6 +29,9 @@ public record PessoaCreateRequest(
 
         String observacoes,
 
-        UUID igrejaId
+        UUID igrejaId,
+
+        /** Serviço do ministério do líder onde a pessoa será vinculada (obrigatório para quem não é gestão). */
+        UUID servicoId
 ) {
 }

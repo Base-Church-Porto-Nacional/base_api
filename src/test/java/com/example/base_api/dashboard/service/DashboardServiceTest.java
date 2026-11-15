@@ -9,6 +9,7 @@ import com.example.base_api.pessoa.repository.PessoaRepository;
 import com.example.base_api.security.AutorizacaoService;
 import com.example.base_api.servico.repository.ServicoRepository;
 import com.example.base_api.usuario.repository.UsuarioRepository;
+import com.example.base_api.usuario.service.LiderService;
 import com.example.base_api.voluntario.repository.PessoaServicoRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,6 +47,8 @@ class DashboardServiceTest {
     private PessoaPausaRepository pessoaPausaRepository;
     @Mock
     private AutorizacaoService autorizacaoService;
+    @Mock
+    private LiderService liderService;
 
     @InjectMocks
     private DashboardService dashboardService;
@@ -75,7 +78,7 @@ class DashboardServiceTest {
     }
 
     @Test
-    void resumoContaNoBancoSemCarregarEntidades() {
+    void dashboardContaLideresDerivados() {
         UUID igrejaId = UUID.randomUUID();
         List<UUID> ids = List.of(igrejaId);
 
@@ -84,7 +87,7 @@ class DashboardServiceTest {
         when(pessoaServicoRepository.contarAtivosPorIgrejas(ids)).thenReturn(7L);
         when(pessoaPausaRepository.contarAtivasPorIgrejas(ids)).thenReturn(2L);
         when(servicoRepository.contarPorIgrejas(ids)).thenReturn(9L);
-        when(usuarioRepository.countAtivosByPapelAndIgrejaIdIn("LIDER", ids)).thenReturn(4L);
+        when(liderService.pessoaIdsLideres(ids)).thenReturn(java.util.Set.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()));
 
         DashboardResponse resumo = dashboardService.obterResumo();
 
@@ -94,6 +97,5 @@ class DashboardServiceTest {
         assertThat(resumo.totalLideres()).isEqualTo(4);
         verify(pessoaRepository, never()).findByIgrejaIdInOrderByNomeAsc(any());
         verify(ministerioRepository, never()).findByIgrejaIdInOrderByNomeAsc(any());
-        verify(usuarioRepository, never()).findAtivosByPapelAndIgrejaIdIn(any(), any());
     }
 }
